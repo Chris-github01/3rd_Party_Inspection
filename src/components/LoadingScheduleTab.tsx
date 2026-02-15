@@ -186,8 +186,14 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         alert(`Failed to parse schedule:\n${errorMsg}\n\n${errorDetails}\n\nCheck browser console for full details.`);
       } else {
         console.log('Parse result:', parseResult);
+        console.log('Parse result JSON:', JSON.stringify(parseResult, null, 2));
         if (parseResult?.success) {
           console.log(`Successfully parsed ${parseResult.itemsExtracted} items`);
+          if (parseResult.itemsExtracted === 0) {
+            console.warn('WARNING: No items were extracted. Check edge function logs for details.');
+            console.log('Parse status:', parseResult.status);
+            console.log('Needs review:', parseResult.needsReview);
+          }
         }
       }
 

@@ -183,13 +183,18 @@ Deno.serve(async (req: Request) => {
             row[h] = values[idx] || "";
           });
 
+          console.log(`Processing row ${i}:`, JSON.stringify(row));
           const item = extractItemFromRow(row, i, importRecord.project_id, importId);
           if (item) {
+            console.log(`Row ${i} extracted successfully:`, item.member_mark, item.section_size_raw);
             extractedItems.push(item);
+          } else {
+            console.log(`Row ${i} returned null - skipped`);
           }
         }
 
         console.log("Extracted items:", extractedItems.length);
+        console.log("All extracted items:", JSON.stringify(extractedItems, null, 2));
 
         artifact.pages.push({
           pageNumber: 1,
@@ -324,6 +329,10 @@ function extractItemFromRow(
   projectId: string,
   importId: string
 ): any | null {
+  console.log(`extractItemFromRow called for line ${lineNo}`);
+  console.log(`Row keys:`, Object.keys(row));
+  console.log(`Row values:`, Object.values(row));
+
   // Extract section size (try various column names)
   const sectionRaw =
     row["section"] ||
@@ -333,7 +342,12 @@ function extractItemFromRow(
     row["member_size"] ||
     "";
 
-  if (!sectionRaw) return null;
+  console.log(`Section raw: "${sectionRaw}"`);
+
+  if (!sectionRaw) {
+    console.log(`No section found, returning null`);
+    return null;
+  }
 
   const sectionNormalized = normalizeSectionSize(sectionRaw);
 
