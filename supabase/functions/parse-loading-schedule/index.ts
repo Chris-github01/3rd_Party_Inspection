@@ -7,6 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const PYTHON_PARSER_URL = Deno.env.get("PYTHON_PARSER_URL") || "https://loading-schedule-parser.onrender.com";
+
 interface ParseRequest {
   importId: string;
 }
@@ -19,11 +21,9 @@ Deno.serve(async (req: Request) => {
   try {
     console.log("Parse loading schedule function invoked");
 
-    // Get the authorization header to verify the user
     const authHeader = req.headers.get("Authorization");
     console.log("Auth header present:", !!authHeader);
 
-    // Create service role client for database operations
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -35,7 +35,6 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    // Also create a client with the user's token to verify access
     const supabaseUserClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -50,7 +49,6 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    // Verify user is authenticated
     const { data: { user }, error: authError } = await supabaseUserClient.auth.getUser();
     if (authError || !user) {
       console.error("Authentication failed:", authError);
@@ -76,7 +74,6 @@ Deno.serve(async (req: Request) => {
 
     console.log("Fetching import record:", importId);
 
-    // Fetch import record
     const { data: importRecord, error: fetchError } = await supabaseClient
       .from("loading_schedule_imports")
       .select("*")
@@ -93,7 +90,6 @@ Deno.serve(async (req: Request) => {
 
     console.log("Import record found:", importRecord);
 
-    // Fetch document separately
     const { data: document, error: docError } = await supabaseClient
       .from("documents")
       .select("*")
@@ -119,7 +115,6 @@ Deno.serve(async (req: Request) => {
 
     console.log("Document found:", document);
 
-    // Update status to running
     await supabaseClient
       .from("loading_schedule_imports")
       .update({ status: "running" })
@@ -127,7 +122,6 @@ Deno.serve(async (req: Request) => {
 
     console.log("Downloading file from storage:", document.storage_path);
 
-    // Download file from storage
     const { data: fileData, error: downloadError } = await supabaseClient.storage
       .from("documents")
       .download(document.storage_path);
@@ -151,7 +145,6 @@ Deno.serve(async (req: Request) => {
 
     console.log("File downloaded, size:", fileData.size);
 
-    // Parse based on source type
     const artifact = {
       importId,
       sourceType: importRecord.source_type,
@@ -163,12 +156,13 @@ Deno.serve(async (req: Request) => {
       },
     };
 
-    const extractedItems: any[] = [];
+    let extractedItems: any[] = [];
+    let parseError: string | null = null;
+    let parseErrorCode: string | null = null;
 
     try {
       if (importRecord.source_type === "csv") {
         console.log("Parsing CSV file");
-        // Parse CSV
         const text = await fileData.text();
         const lines = text.split("\n").filter((line) => line.trim());
         console.log("CSV lines:", lines.length);
@@ -183,18 +177,13 @@ Deno.serve(async (req: Request) => {
             row[h] = values[idx] || "";
           });
 
-          console.log(`Processing row ${i}:`, JSON.stringify(row));
           const item = extractItemFromRow(row, i, importRecord.project_id, importId);
           if (item) {
-            console.log(`Row ${i} extracted successfully:`, item.member_mark, item.section_size_raw);
             extractedItems.push(item);
-          } else {
-            console.log(`Row ${i} returned null - skipped`);
           }
         }
 
-        console.log("Extracted items:", extractedItems.length);
-        console.log("All extracted items:", JSON.stringify(extractedItems, null, 2));
+        console.log("Extracted items from CSV:", extractedItems.length);
 
         artifact.pages.push({
           pageNumber: 1,
@@ -203,66 +192,140 @@ Deno.serve(async (req: Request) => {
           lineCount: lines.length,
           errors: [],
         });
-      } else if (importRecord.source_type === "xlsx") {
-        // For XLSX, we'd use a library like xlsx-parse
-        // For now, return a placeholder that indicates XLSX support needed
-        artifact.pages.push({
-          pageNumber: 1,
-          method: "text",
-          confidence: 0.0,
-          errors: ["XLSX parsing requires additional library - not yet implemented"],
-        });
       } else if (importRecord.source_type === "pdf") {
-        // For PDF, we'd use pdf-parse or call external OCR service
-        // For now, return a placeholder
+        console.log("Parsing PDF file - calling Python parser service");
+        console.log("Python parser URL:", PYTHON_PARSER_URL);
+
+        const formData = new FormData();
+        formData.append("file", new Blob([fileData]), document.filename);
+
+        const parseResponse = await fetch(`${PYTHON_PARSER_URL}/parse-loading-schedule`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!parseResponse.ok) {
+          const errorText = await parseResponse.text();
+          console.error("Python parser error:", errorText);
+          parseErrorCode = "PYTHON_PARSER_ERROR";
+          parseError = `Python parser returned ${parseResponse.status}: ${errorText}`;
+
+          artifact.pages.push({
+            pageNumber: 1,
+            method: "python_pdfplumber",
+            confidence: 0.0,
+            errors: [parseError],
+          });
+        } else {
+          const parseResult = await parseResponse.json();
+          console.log("Python parser result:", parseResult);
+
+          if (parseResult.status === "failed") {
+            parseErrorCode = parseResult.error_code || "PARSER_FAILED";
+            parseError = parseResult.error_message || "Parser failed";
+
+            artifact.metadata = {
+              ...artifact.metadata,
+              ...parseResult.metadata,
+            };
+
+            artifact.pages.push({
+              pageNumber: 1,
+              method: "python_pdfplumber",
+              confidence: 0.0,
+              errors: parseResult.metadata?.errors || [parseError],
+            });
+          } else {
+            const items = parseResult.items || [];
+            console.log(`Python parser extracted ${items.length} items`);
+
+            for (const item of items) {
+              extractedItems.push({
+                import_id: importId,
+                project_id: importRecord.project_id,
+                loading_schedule_ref: null,
+                member_mark: item.member_mark,
+                element_type: item.element_type,
+                section_size_raw: item.section_size_raw,
+                section_size_normalized: item.section_size_normalized,
+                frr_minutes: item.frr_minutes,
+                frr_format: item.frr_format,
+                coating_product: item.coating_product,
+                dft_required_microns: item.dft_required_microns,
+                needs_review: item.needs_review,
+                confidence: item.confidence,
+                cite_page: item.page,
+                cite_line_start: item.line,
+                cite_line_end: item.line,
+              });
+            }
+
+            artifact.metadata = {
+              ...artifact.metadata,
+              ...parseResult.metadata,
+            };
+
+            for (let i = 1; i <= (parseResult.metadata?.total_pages || 1); i++) {
+              artifact.pages.push({
+                pageNumber: i,
+                method: "python_pdfplumber",
+                confidence: 0.95,
+                errors: parseResult.metadata?.errors || [],
+              });
+            }
+          }
+        }
+      } else if (importRecord.source_type === "xlsx") {
+        parseErrorCode = "UNSUPPORTED_FORMAT";
+        parseError = "XLSX parsing not yet implemented";
         artifact.pages.push({
           pageNumber: 1,
           method: "text",
           confidence: 0.0,
-          errors: ["PDF parsing requires external service - use parse-pdf function instead"],
+          errors: [parseError],
+        });
+      } else {
+        parseErrorCode = "UNSUPPORTED_FORMAT";
+        parseError = `Unknown source type: ${importRecord.source_type}`;
+        artifact.pages.push({
+          pageNumber: 1,
+          method: "none",
+          confidence: 0.0,
+          errors: [parseError],
         });
       }
-    } catch (parseError: any) {
-      console.error("Parse error:", parseError);
+    } catch (error: any) {
+      console.error("Parse error:", error);
+      parseErrorCode = "PARSE_ERROR";
+      parseError = error.message;
       artifact.pages.push({
         pageNumber: 1,
         method: "none",
         confidence: 0.0,
-        errors: [parseError.message],
+        errors: [error.message],
       });
     }
 
     console.log("Uploading artifact to storage");
 
-    // Upload artifact JSON
     const artifactPath = `loading-schedules/${importId}/artifact.json`;
-    const { error: artifactUploadError } = await supabaseClient.storage
+    await supabaseClient.storage
       .from("parsing-artifacts")
       .upload(artifactPath, JSON.stringify(artifact, null, 2), {
         contentType: "application/json",
         upsert: true,
       });
 
-    if (artifactUploadError) {
-      console.error("Failed to upload artifact:", artifactUploadError);
-    }
-
-    // Upload result JSON
     const resultPath = `loading-schedules/${importId}/result.json`;
-    const { error: resultUploadError } = await supabaseClient.storage
+    await supabaseClient.storage
       .from("parsing-artifacts")
       .upload(resultPath, JSON.stringify(extractedItems, null, 2), {
         contentType: "application/json",
         upsert: true,
       });
 
-    if (resultUploadError) {
-      console.error("Failed to upload result:", resultUploadError);
-    }
-
     console.log("Inserting items into database");
 
-    // Insert items into loading_schedule_items
     if (extractedItems.length > 0) {
       const { error: insertError } = await supabaseClient
         .from("loading_schedule_items")
@@ -273,24 +336,28 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Determine final status
     const needsReview = extractedItems.some((item) => item.needs_review);
     const hasErrors = artifact.pages.some((p) => p.errors.length > 0);
-    const finalStatus = hasErrors && extractedItems.length === 0
-      ? "failed"
-      : needsReview
-      ? "needs_review"
-      : extractedItems.length > 0
-      ? "completed"
-      : "partial_completed";
+
+    let finalStatus: string;
+    if (parseError && extractedItems.length === 0) {
+      finalStatus = "failed";
+    } else if (needsReview) {
+      finalStatus = "needs_review";
+    } else if (extractedItems.length > 0) {
+      finalStatus = "completed";
+    } else {
+      finalStatus = "partial_completed";
+    }
 
     console.log("Final status:", finalStatus);
 
-    // Update import record
     await supabaseClient
       .from("loading_schedule_imports")
       .update({
         status: finalStatus,
+        error_code: parseErrorCode,
+        error_message: parseError,
         artifact_json_path: artifactPath,
         result_json_path: resultPath,
         page_count: artifact.pages.length,
@@ -301,11 +368,13 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({
-        success: true,
+        success: !parseError || extractedItems.length > 0,
         importId,
         status: finalStatus,
         itemsExtracted: extractedItems.length,
         needsReview,
+        error: parseError,
+        errorCode: parseErrorCode,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -329,11 +398,6 @@ function extractItemFromRow(
   projectId: string,
   importId: string
 ): any | null {
-  console.log(`extractItemFromRow called for line ${lineNo}`);
-  console.log(`Row keys:`, Object.keys(row));
-  console.log(`Row values:`, Object.values(row));
-
-  // Extract section size (try various column names)
   const sectionRaw =
     row["section"] ||
     row["Section"] ||
@@ -342,16 +406,12 @@ function extractItemFromRow(
     row["member_size"] ||
     "";
 
-  console.log(`Section raw: "${sectionRaw}"`);
-
   if (!sectionRaw) {
-    console.log(`No section found, returning null`);
     return null;
   }
 
   const sectionNormalized = normalizeSectionSize(sectionRaw);
 
-  // Extract member mark
   const memberMark =
     row["member_mark"] ||
     row["Member Mark"] ||
@@ -361,7 +421,6 @@ function extractItemFromRow(
     row["Member"] ||
     "";
 
-  // Extract FRR
   const frrRaw =
     row["frr"] ||
     row["FRR"] ||
@@ -371,7 +430,6 @@ function extractItemFromRow(
     "";
   const { minutes, format } = extractFRR(frrRaw);
 
-  // Extract DFT
   const dftRaw =
     row["dft"] ||
     row["DFT"] ||
@@ -381,7 +439,6 @@ function extractItemFromRow(
     "";
   const dft = parseInt(dftRaw) || null;
 
-  // Extract coating product
   const coating =
     row["coating"] ||
     row["Coating"] ||
@@ -391,7 +448,6 @@ function extractItemFromRow(
     row["Coating System"] ||
     "";
 
-  // Extract element type
   const elementType = (
     row["element_type"] ||
     row["Element Type"] ||
@@ -408,7 +464,6 @@ function extractItemFromRow(
       ? elementType
       : null;
 
-  // Extract schedule ref
   const scheduleRef =
     row["schedule_ref"] ||
     row["Schedule Ref"] ||
@@ -418,7 +473,6 @@ function extractItemFromRow(
     row["Sheet"] ||
     "";
 
-  // Determine confidence and needs_review
   const confidence = calculateConfidence(minutes, dft, coating);
   const needsReview = confidence < 0.75 || !minutes || !dft || !coating;
 
@@ -443,29 +497,23 @@ function extractItemFromRow(
 }
 
 function normalizeSectionSize(raw: string): string {
-  // Remove extra spaces
   let normalized = raw.trim().replace(/\s+/g, "");
-  // Uppercase
   normalized = normalized.toUpperCase();
-  // Standardize formats like "610 UB 125" -> "610UB125"
   return normalized;
 }
 
 function extractFRR(raw: string): { minutes: number | null; format: string | null } {
   if (!raw) return { minutes: null, format: null };
 
-  // Try to extract number
   const match = raw.match(/\d+/);
   if (!match) return { minutes: null, format: null };
 
   const num = parseInt(match[0]);
 
-  // Check for formats like "60/-/-" or "-/60/60" or "60/60/60"
   if (raw.includes("/")) {
     return { minutes: num, format: raw };
   }
 
-  // Default format
   return { minutes: num, format: `${num}/-/-` };
 }
 

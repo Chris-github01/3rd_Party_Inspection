@@ -171,7 +171,6 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         console.error('Parse error details:', JSON.stringify(parseError, null, 2));
         console.error('Parse error context:', parseError.context);
 
-        // Update import status to failed
         await supabase
           .from('loading_schedule_imports')
           .update({
@@ -186,13 +185,17 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         alert(`Failed to parse schedule:\n${errorMsg}\n\n${errorDetails}\n\nCheck browser console for full details.`);
       } else {
         console.log('Parse result:', parseResult);
-        console.log('Parse result JSON:', JSON.stringify(parseResult, null, 2));
-        if (parseResult?.success) {
-          console.log(`Successfully parsed ${parseResult.itemsExtracted} items`);
-          if (parseResult.itemsExtracted === 0) {
-            console.warn('WARNING: No items were extracted. Check edge function logs for details.');
-            console.log('Parse status:', parseResult.status);
-            console.log('Needs review:', parseResult.needsReview);
+
+        if (parseResult?.errorCode === 'NO_STRUCTURAL_ROWS_DETECTED') {
+          alert('⚠️ No structural members detected.\n\nThe schedule format may be incompatible or the PDF may not contain valid structural steel data.\n\nPlease check:\n- The file is a loading schedule\n- It contains columns for member sections and FRR ratings\n- The format is readable (not scanned/image-based)');
+        } else if (parseResult?.error && parseResult.itemsExtracted === 0) {
+          alert(`⚠️ Parsing failed: ${parseResult.error}\n\nError Code: ${parseResult.errorCode || 'UNKNOWN'}\n\nCheck the browser console for details.`);
+        } else if (parseResult?.itemsExtracted === 0) {
+          alert('⚠️ No items were extracted from the schedule.\n\nThis may indicate:\n- The file format is not supported\n- The schedule uses an unusual layout\n- The Python parser service is not available\n\nCheck the browser console for details.');
+        } else if (parseResult?.success) {
+          console.log(`✓ Successfully parsed ${parseResult.itemsExtracted} items`);
+          if (parseResult.needsReview) {
+            alert(`✓ Parsed ${parseResult.itemsExtracted} items\n\nNote: Some items need manual review due to missing data.`);
           }
         }
       }
