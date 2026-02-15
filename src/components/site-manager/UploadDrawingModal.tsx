@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Upload, FileImage } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { createParsingJob, triggerParsing } from '../../lib/parsingUtils';
 
 interface UploadDrawingModalProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export function UploadDrawingModal({
 
       if (docError) throw docError;
 
-      const { error: drawingError } = await supabase.from('drawings').insert([
+      const { data: drawing, error: drawingError } = await supabase.from('drawings').insert([
         {
           level_id: levelId,
           document_id: document.id,
@@ -84,9 +85,26 @@ export function UploadDrawingModal({
           preview_image_path: filePath,
           scale_factor: scaleFactor ? parseFloat(scaleFactor) : null,
         },
-      ]);
+      ]).select().single();
 
       if (drawingError) throw drawingError;
+
+      if (file.type === 'application/pdf') {
+        try {
+          const jobId = await createParsingJob(
+            document.id,
+            'documents',
+            filePath,
+            file.type,
+            projectId,
+            drawing.id
+          );
+          await triggerParsing(jobId);
+          console.log('PDF parsing job created:', jobId);
+        } catch (parseError) {
+          console.error('Failed to create parsing job:', parseError);
+        }
+      }
 
       setFile(null);
       setPageNumber('1');
