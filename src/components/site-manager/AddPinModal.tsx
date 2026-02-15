@@ -31,6 +31,7 @@ export function AddPinModal({
   const [members, setMembers] = useState<any[]>([]);
   const [inspections, setInspections] = useState<any[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedInspectionId, setSelectedInspectionId] = useState('');
   const [blockId, setBlockId] = useState('');
   const [creating, setCreating] = useState(false);
@@ -39,6 +40,15 @@ export function AddPinModal({
   useEffect(() => {
     loadData();
   }, [projectId, levelId]);
+
+  useEffect(() => {
+    if (selectedMemberId && members.length > 0) {
+      const member = members.find((m) => m.member_id === selectedMemberId);
+      setSelectedMember(member || null);
+    } else {
+      setSelectedMember(null);
+    }
+  }, [selectedMemberId, members]);
 
   const loadData = async () => {
     try {
@@ -53,11 +63,7 @@ export function AddPinModal({
       }
 
       const [membersResult, inspectionsResult] = await Promise.all([
-        supabase
-          .from('members')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('member_mark'),
+        supabase.rpc('get_project_members_for_dropdown', { p_project_id: projectId }),
         supabase
           .from('inspections')
           .select('*')
@@ -76,6 +82,11 @@ export function AddPinModal({
     e.preventDefault();
     if (!label.trim()) {
       setError('Label is required');
+      return;
+    }
+
+    if ((pinType === 'inspection' || pinType === 'member') && !selectedMemberId) {
+      setError('Member selection is required for inspection and member pins');
       return;
     }
 
@@ -183,7 +194,7 @@ export function AddPinModal({
           {(pinType === 'member' || pinType === 'inspection') && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Link to Member (optional)
+                Select Member <span className="text-red-500">*</span>
               </label>
               <select
                 value={selectedMemberId}
@@ -193,11 +204,64 @@ export function AddPinModal({
               >
                 <option value="">-- Select Member --</option>
                 {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.member_mark} - {member.element_type || 'Unknown'}
+                  <option key={member.member_id} value={member.member_id}>
+                    {member.member_mark || 'No Mark'} - {member.section_size || 'Unknown'}
+                    {member.loading_schedule_ref && ` (${member.loading_schedule_ref})`}
                   </option>
                 ))}
               </select>
+              {members.length === 0 && (
+                <p className="text-xs text-yellow-400 mt-1">
+                  No members found. Please upload a loading schedule or add members manually.
+                </p>
+              )}
+            </div>
+          )}
+
+          {selectedMember && (pinType === 'member' || pinType === 'inspection') && (
+            <div className="bg-primary-900/30 border border-primary-700/50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-primary-300 mb-2">Member Details</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-slate-400">Section:</span>
+                  <span className="text-white ml-2">{selectedMember.section_size || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Type:</span>
+                  <span className="text-white ml-2">{selectedMember.element_type || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">FRR:</span>
+                  <span className="text-white ml-2">{selectedMember.frr_format || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Required DFT:</span>
+                  <span className="text-white ml-2">
+                    {selectedMember.dft_required_microns ? `${selectedMember.dft_required_microns} µm` : 'N/A'}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-400">Product:</span>
+                  <span className="text-white ml-2">{selectedMember.coating_product || 'N/A'}</span>
+                </div>
+                {selectedMember.loading_schedule_ref && (
+                  <div className="col-span-2">
+                    <span className="text-slate-400">Schedule Ref:</span>
+                    <span className="text-white ml-2">{selectedMember.loading_schedule_ref}</span>
+                  </div>
+                )}
+                {selectedMember.source && (
+                  <div className="col-span-2">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
+                      selectedMember.source === 'schedule'
+                        ? 'bg-green-500/20 text-green-300'
+                        : 'bg-blue-500/20 text-blue-300'
+                    }`}>
+                      {selectedMember.source === 'schedule' ? 'From Loading Schedule' : 'Manual Entry'}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

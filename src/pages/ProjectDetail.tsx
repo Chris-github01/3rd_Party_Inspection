@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, FileText, Users, ClipboardCheck, AlertTriangle, Download, Paperclip, Map, Smartphone, FileCheck, BookOpen } from 'lucide-react';
+import { ArrowLeft, FileText, Users, ClipboardCheck, AlertTriangle, Download, Paperclip, Map, Smartphone, FileCheck, BookOpen, ListChecks } from 'lucide-react';
 import { DocumentsTab } from '../components/DocumentsTab';
+import { LoadingScheduleTab } from '../components/LoadingScheduleTab';
 import { MembersTab } from '../components/MembersTab';
 import { InspectionsTab } from '../components/InspectionsTab';
 import { NCRsTab } from '../components/NCRsTab';
@@ -23,7 +24,7 @@ interface Project {
   notes: string;
 }
 
-type TabType = 'documents' | 'members' | 'inspections' | 'ncrs' | 'attachments' | 'exports' | 'site-manager' | 'executive-summary' | 'introduction';
+type TabType = 'documents' | 'loading-schedule' | 'members' | 'inspections' | 'ncrs' | 'attachments' | 'exports' | 'site-manager' | 'executive-summary' | 'introduction';
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -81,6 +82,7 @@ export function ProjectDetail() {
 
   const tabs = [
     { id: 'documents' as TabType, label: 'Documents', icon: FileText },
+    { id: 'loading-schedule' as TabType, label: 'Loading Schedule', icon: ListChecks },
     { id: 'site-manager' as TabType, label: 'Site Manager', icon: Map },
     { id: 'members' as TabType, label: 'Member Register', icon: Users },
     { id: 'inspections' as TabType, label: 'Inspections', icon: ClipboardCheck },
@@ -152,6 +154,7 @@ export function ProjectDetail() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
               {activeTab === 'documents' && <DocumentsTab projectId={project.id} />}
+              {activeTab === 'loading-schedule' && <LoadingScheduleTab projectId={project.id} />}
               {activeTab === 'members' && <MembersTab projectId={project.id} />}
               {activeTab === 'inspections' && <InspectionsTab projectId={project.id} />}
               {activeTab === 'ncrs' && <NCRsTab projectId={project.id} />}
@@ -159,8 +162,7 @@ export function ProjectDetail() {
               {activeTab === 'introduction' && <IntroductionPreview projectId={project.id} />}
               {activeTab === 'executive-summary' && <ExecutiveSummaryPreview projectId={project.id} />}
               {activeTab === 'exports' && <ExportsTab project={project} />}
-            </div>
-          </div>
+            </div>          </div>
         </div>
       )}
     </div>
