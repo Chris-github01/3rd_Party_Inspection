@@ -196,19 +196,99 @@ Deno.serve(async (req: Request) => {
         console.log("Parsing PDF file - calling Python parser service");
         console.log("Python parser URL:", PYTHON_PARSER_URL);
 
-        const formData = new FormData();
-        formData.append("file", new Blob([fileData]), document.filename);
+        try {
+          const formData = new FormData();
+          formData.append("file", new Blob([fileData]), document.filename);
 
-        const parseResponse = await fetch(`${PYTHON_PARSER_URL}/parse-loading-schedule`, {
-          method: "POST",
-          body: formData,
-        });
+          const parseResponse = await fetch(`${PYTHON_PARSER_URL}/parse-loading-schedule`, {
+            method: "POST",
+            body: formData,
+            signal: AbortSignal.timeout(60000),
+          });
 
-        if (!parseResponse.ok) {
-          const errorText = await parseResponse.text();
-          console.error("Python parser error:", errorText);
-          parseErrorCode = "PYTHON_PARSER_ERROR";
-          parseError = `Python parser returned ${parseResponse.status}: ${errorText}`;
+          if (!parseResponse.ok) {
+            const errorText = await parseResponse.text();
+            console.error("Python parser error:", errorText);
+
+            if (parseResponse.status === 404) {
+              parseErrorCode = "PYTHON_PARSER_NOT_DEPLOYED";
+              parseError = "Python parser service not deployed. Please deploy the service from python-parser/ directory to Render, Railway, or another platform. See PYTHON_PARSER_DEPLOYMENT.md for instructions.";
+            } else {
+              parseErrorCode = "PYTHON_PARSER_ERROR";
+              parseError = `Python parser returned ${parseResponse.status}: ${errorText}`;
+            }
+
+            artifact.pages.push({
+              pageNumber: 1,
+              method: "python_pdfplumber",
+              confidence: 0.0,
+              errors: [parseError],
+            });
+          } else {
+            const parseResult = await parseResponse.json();
+            console.log("Python parser result:", parseResult);
+
+            if (parseResult.status === "failed") {
+              parseErrorCode = parseResult.error_code || "PARSER_FAILED";
+              parseError = parseResult.error_message || "Parser failed";
+
+              artifact.metadata = {
+                ...artifact.metadata,
+                ...parseResult.metadata,
+              };
+
+              artifact.pages.push({
+                pageNumber: 1,
+                method: "python_pdfplumber",
+                confidence: 0.0,
+                errors: parseResult.metadata?.errors || [parseError],
+              });
+            } else {
+              const items = parseResult.items || [];
+              console.log(`Python parser extracted ${items.length} items`);
+
+              for (const item of items) {
+                extractedItems.push({
+                  import_id: importId,
+                  project_id: importRecord.project_id,
+                  loading_schedule_ref: null,
+                  member_mark: item.member_mark,
+                  element_type: item.element_type,
+                  section_size_raw: item.section_size_raw,
+                  section_size_normalized: item.section_size_normalized,
+                  frr_minutes: item.frr_minutes,
+                  frr_format: item.frr_format,
+                  coating_product: item.coating_product,
+                  dft_required_microns: item.dft_required_microns,
+                  needs_review: item.needs_review,
+                  confidence: item.confidence,
+                  cite_page: item.page,
+                  cite_line_start: item.line,
+                  cite_line_end: item.line,
+                });
+              }
+
+              artifact.metadata = {
+                ...artifact.metadata,
+                ...parseResult.metadata,
+              };
+
+              for (let i = 1; i <= (parseResult.metadata?.total_pages || 1); i++) {
+                artifact.pages.push({
+                  pageNumber: i,
+                  method: "python_pdfplumber",
+                  confidence: 0.95,
+                  errors: parseResult.metadata?.errors || [],
+                });
+              }
+            }
+          }
+        } catch (fetchError: any) {
+          console.error("Failed to call Python parser:", fetchError);
+          parseErrorCode = "PYTHON_PARSER_UNAVAILABLE";
+          parseError = fetchError.name === "TimeoutError"
+            ? "Python parser service timeout. Service may be cold-starting (takes 30-60s on first use) or unavailable."
+            : `Cannot connect to Python parser service. Please ensure it's deployed and accessible. Error: ${fetchError.message}`;
 
           artifact.pages.push({
             pageNumber: 1,
@@ -216,64 +296,6 @@ Deno.serve(async (req: Request) => {
             confidence: 0.0,
             errors: [parseError],
           });
-        } else {
-          const parseResult = await parseResponse.json();
-          console.log("Python parser result:", parseResult);
-
-          if (parseResult.status === "failed") {
-            parseErrorCode = parseResult.error_code || "PARSER_FAILED";
-            parseError = parseResult.error_message || "Parser failed";
-
-            artifact.metadata = {
-              ...artifact.metadata,
-              ...parseResult.metadata,
-            };
-
-            artifact.pages.push({
-              pageNumber: 1,
-              method: "python_pdfplumber",
-              confidence: 0.0,
-              errors: parseResult.metadata?.errors || [parseError],
-            });
-          } else {
-            const items = parseResult.items || [];
-            console.log(`Python parser extracted ${items.length} items`);
-
-            for (const item of items) {
-              extractedItems.push({
-                import_id: importId,
-                project_id: importRecord.project_id,
-                loading_schedule_ref: null,
-                member_mark: item.member_mark,
-                element_type: item.element_type,
-                section_size_raw: item.section_size_raw,
-                section_size_normalized: item.section_size_normalized,
-                frr_minutes: item.frr_minutes,
-                frr_format: item.frr_format,
-                coating_product: item.coating_product,
-                dft_required_microns: item.dft_required_microns,
-                needs_review: item.needs_review,
-                confidence: item.confidence,
-                cite_page: item.page,
-                cite_line_start: item.line,
-                cite_line_end: item.line,
-              });
-            }
-
-            artifact.metadata = {
-              ...artifact.metadata,
-              ...parseResult.metadata,
-            };
-
-            for (let i = 1; i <= (parseResult.metadata?.total_pages || 1); i++) {
-              artifact.pages.push({
-                pageNumber: i,
-                method: "python_pdfplumber",
-                confidence: 0.95,
-                errors: parseResult.metadata?.errors || [],
-              });
-            }
-          }
         }
       } else if (importRecord.source_type === "xlsx") {
         parseErrorCode = "UNSUPPORTED_FORMAT";

@@ -186,12 +186,16 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
       } else {
         console.log('Parse result:', parseResult);
 
-        if (parseResult?.errorCode === 'NO_STRUCTURAL_ROWS_DETECTED') {
+        if (parseResult?.errorCode === 'PYTHON_PARSER_NOT_DEPLOYED') {
+          alert('🚀 Python Parser Service Required\n\nThe Python parser service needs to be deployed before PDF parsing will work.\n\nQuick Setup:\n1. Sign up at https://render.com (free tier available)\n2. Create a new Web Service\n3. Upload the python-parser/ folder from this project\n4. Set Build: pip install -r requirements.txt\n5. Set Start: uvicorn main:app --host 0.0.0.0 --port 10000\n\nSee PYTHON_PARSER_DEPLOYMENT.md for detailed instructions.\n\nNote: CSV files work without this service.');
+        } else if (parseResult?.errorCode === 'PYTHON_PARSER_UNAVAILABLE') {
+          alert('⚠️ Cannot Connect to Python Parser\n\nThe Python parser service is not responding.\n\nThis could mean:\n- Service is not deployed yet\n- Service is cold-starting (first request takes 30-60s)\n- Service URL is incorrect\n- Network connectivity issue\n\nPlease wait a moment and try again, or check PYTHON_PARSER_DEPLOYMENT.md for setup instructions.');
+        } else if (parseResult?.errorCode === 'NO_STRUCTURAL_ROWS_DETECTED') {
           alert('⚠️ No structural members detected.\n\nThe schedule format may be incompatible or the PDF may not contain valid structural steel data.\n\nPlease check:\n- The file is a loading schedule\n- It contains columns for member sections and FRR ratings\n- The format is readable (not scanned/image-based)');
         } else if (parseResult?.error && parseResult.itemsExtracted === 0) {
           alert(`⚠️ Parsing failed: ${parseResult.error}\n\nError Code: ${parseResult.errorCode || 'UNKNOWN'}\n\nCheck the browser console for details.`);
         } else if (parseResult?.itemsExtracted === 0) {
-          alert('⚠️ No items were extracted from the schedule.\n\nThis may indicate:\n- The file format is not supported\n- The schedule uses an unusual layout\n- The Python parser service is not available\n\nCheck the browser console for details.');
+          alert('⚠️ No items were extracted from the schedule.\n\nThis may indicate:\n- The file format is not supported\n- The schedule uses an unusual layout\n\nCheck the browser console for details.');
         } else if (parseResult?.success) {
           console.log(`✓ Successfully parsed ${parseResult.itemsExtracted} items`);
           if (parseResult.needsReview) {
