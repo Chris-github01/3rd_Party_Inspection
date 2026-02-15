@@ -76,31 +76,31 @@ export function SiteMode() {
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
+      <div className="flex items-center justify-center h-screen bg-white/10 backdrop-blur-sm">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading project...</p>
+          <p className="text-blue-100">Loading project...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white">
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+    <div className="h-screen flex flex-col bg-white/5 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 bg-white/5 backdrop-blur-sm border-b border-white/10 shadow-sm">
         <div className="flex items-center justify-between px-4 h-14">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="p-2 -ml-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 -ml-2 hover:bg-white/5 rounded-lg transition-colors"
             aria-label="Open menu"
           >
-            <Menu className="w-6 h-6 text-slate-700" />
+            <Menu className="w-6 h-6 text-white" />
           </button>
 
           <div className="flex-1 text-center px-4">
-            <h1 className="text-sm font-semibold text-slate-900 truncate">{project.name}</h1>
+            <h1 className="text-sm font-semibold text-white truncate">{project.name}</h1>
             {currentLevel && (
-              <p className="text-xs text-slate-500 truncate">{currentLevel}</p>
+              <p className="text-xs text-blue-200 truncate">{currentLevel}</p>
             )}
           </div>
 
@@ -109,9 +109,9 @@ export function SiteMode() {
               {isSyncing ? (
                 <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
               ) : isOnline ? (
-                <Cloud className="w-5 h-5 text-green-600" />
+                <Cloud className="w-5 h-5 text-green-300" />
               ) : (
-                <CloudOff className="w-5 h-5 text-slate-400" />
+                <CloudOff className="w-5 h-5 text-blue-300" />
               )}
             </div>
             <button
@@ -129,7 +129,7 @@ export function SiteMode() {
         <Outlet context={{ project, currentLevel, setCurrentLevel }} />
       </main>
 
-      <nav className="sticky bottom-0 z-50 bg-white border-t border-slate-200 shadow-lg">
+      <nav className="sticky bottom-0 z-50 bg-white/5 backdrop-blur-sm border-t border-white/10 shadow-lg">
         <div className="flex items-center justify-around h-16">
           <NavButton
             icon={LayoutIcon}
@@ -170,26 +170,26 @@ export function SiteMode() {
           onClick={() => setDrawerOpen(false)}
         >
           <div
-            className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl overflow-y-auto"
+            className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white/5 backdrop-blur-sm shadow-2xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-white border-b border-slate-200 p-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Menu</h2>
+            <div className="sticky top-0 bg-white/5 backdrop-blur-sm border-b border-white/10 p-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">Menu</h2>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/5 rounded-lg transition-colors"
                 aria-label="Close menu"
               >
-                <X className="w-5 h-5 text-slate-600" />
+                <X className="w-5 h-5 text-blue-100" />
               </button>
             </div>
 
             <div className="p-4 space-y-6">
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <h3 className="font-medium text-slate-900 mb-2">{project.name}</h3>
-                <p className="text-sm text-slate-600">{project.client_name}</p>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/10">
+                <h3 className="font-medium text-white mb-2">{project.name}</h3>
+                <p className="text-sm text-blue-100">{project.client_name}</p>
                 {project.site_address && (
-                  <p className="text-xs text-slate-500 mt-1">{project.site_address}</p>
+                  <p className="text-xs text-blue-200 mt-1">{project.site_address}</p>
                 )}
               </div>
 
@@ -212,10 +212,10 @@ export function SiteMode() {
                 />
               </nav>
 
-              <div className="pt-4 border-t border-slate-200">
+              <div className="pt-4 border-t border-white/10">
                 <button
                   onClick={handleExitSiteMode}
-                  className="flex items-center space-x-3 px-3 py-2 w-full text-left rounded-lg hover:bg-slate-100 transition-colors text-slate-700"
+                  className="flex items-center space-x-3 px-3 py-2 w-full text-left rounded-lg hover:bg-white/5 transition-colors text-white"
                 >
                   <ChevronLeft className="w-5 h-5" />
                   <span className="text-sm font-medium">Exit Site Mode</span>
@@ -244,7 +244,7 @@ function NavButton({
     <button
       onClick={onClick}
       className={`flex flex-col items-center justify-center space-y-1 px-3 py-2 min-h-[44px] transition-colors ${
-        active ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
+        active ? 'text-primary-300' : 'text-blue-100 hover:text-white'
       }`}
     >
       <Icon className="w-6 h-6" />
@@ -265,7 +265,7 @@ function DrawerLink({
   return (
     <button
       onClick={onClick}
-      className="flex items-center space-x-3 px-3 py-2 w-full text-left rounded-lg hover:bg-slate-100 transition-colors text-slate-700"
+      className="flex items-center space-x-3 px-3 py-2 w-full text-left rounded-lg hover:bg-white/5 transition-colors text-white"
     >
       <Icon className="w-5 h-5" />
       <span className="text-sm font-medium">{label}</span>

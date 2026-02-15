@@ -57,7 +57,7 @@ export function ProjectDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white/10 backdrop-blur-sm flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -65,9 +65,9 @@ export function ProjectDetail() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white/10 backdrop-blur-sm flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Project not found</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Project not found</h2>
           <button
             onClick={() => navigate('/')}
             className="text-blue-600 hover:text-blue-700"
@@ -92,12 +92,12 @@ export function ProjectDetail() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="bg-white border-b border-slate-200">
+    <div className="min-h-screen bg-white/10 backdrop-blur-sm">
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center text-slate-600 hover:text-slate-900 mb-4"
+            className="flex items-center text-blue-100 hover:text-white mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Projects
@@ -105,7 +105,7 @@ export function ProjectDetail() {
 
           <div className="mb-6">
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold text-slate-900">{project.name}</h1>
+              <h1 className="text-3xl font-bold text-white">{project.name}</h1>
               <button
                 onClick={() => navigate(`/projects/${project.id}/site`)}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -114,14 +114,14 @@ export function ProjectDetail() {
                 <span className="font-medium">Site Mode</span>
               </button>
             </div>
-            <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-600">
+            <div className="mt-2 flex flex-wrap gap-4 text-sm text-blue-100">
               <span>Client: {project.client_name}</span>
               {project.main_contractor && <span>Contractor: {project.main_contractor}</span>}
               {project.project_ref && <span>Ref: {project.project_ref}</span>}
             </div>
           </div>
 
-          <div className="flex space-x-1 border-b border-slate-200">
+          <div className="flex space-x-1 border-b border-white/10">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -130,8 +130,8 @@ export function ProjectDetail() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
                     activeTab === tab.id
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                      ? 'border-primary-600 text-primary-300'
+                      : 'border-transparent text-blue-100 hover:text-white hover:border-white/10'
                   }`}
                 >
                   <Icon className="w-4 h-4 mr-2" />
@@ -149,7 +149,7 @@ export function ProjectDetail() {
         </div>
       ) : (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-xl shadow-xl p-8">
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
             {activeTab === 'documents' && <DocumentsTab projectId={project.id} />}
             {activeTab === 'members' && <MembersTab projectId={project.id} />}
             {activeTab === 'inspections' && <InspectionsTab projectId={project.id} />}

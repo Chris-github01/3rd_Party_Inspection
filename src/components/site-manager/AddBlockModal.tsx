@@ -51,12 +51,12 @@ export function AddBlockModal({ isOpen, projectId, onClose, onSuccess }: AddBloc
 
   return (
     <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 className="text-xl font-bold text-slate-900">Add Block</h2>
+      <div className="bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full border border-slate-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+          <h2 className="text-xl font-bold text-white">Add Block</h2>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg"
           >
             <X className="w-5 h-5" />
           </button>
@@ -64,7 +64,7 @@ export function AddBlockModal({ isOpen, projectId, onClose, onSuccess }: AddBloc
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Block Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -72,13 +72,13 @@ export function AddBlockModal({ isOpen, projectId, onClose, onSuccess }: AddBloc
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Building A, North Wing"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               disabled={creating}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Description
             </label>
             <textarea
@@ -86,13 +86,13 @@ export function AddBlockModal({ isOpen, projectId, onClose, onSuccess }: AddBloc
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description of this block"
               rows={3}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               disabled={creating}
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
@@ -109,7 +109,7 @@ export function AddBlockModal({ isOpen, projectId, onClose, onSuccess }: AddBloc
               type="button"
               onClick={onClose}
               disabled={creating}
-              className="px-4 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+              className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 disabled:opacity-50"
             >
               Cancel
             </button>

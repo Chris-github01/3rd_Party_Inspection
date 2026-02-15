@@ -81,42 +81,42 @@ export function Organization() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8 max-w-4xl">
-        <div className="bg-white rounded-xl shadow-xl p-8">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">
               <Building2 className="w-8 h-8 text-primary-600" />
-              <h1 className="text-3xl font-bold text-slate-900">Organization Settings</h1>
+              <h1 className="text-3xl font-bold text-white">Organization Settings</h1>
             </div>
-            <p className="text-slate-600">
+            <p className="text-blue-100">
               Manage your organization details and branding
             </p>
           </div>
 
-          <div className="bg-slate-50 rounded-lg border border-slate-200 p-6 space-y-6">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-white mb-2">
               Organization Name
             </label>
             <input
               type="text"
               value={organizationName}
               onChange={(e) => setOrganizationName(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               placeholder="e.g., P&R Consulting Limited"
             />
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-blue-200">
               This name will appear on reports and documents
             </p>
           </div>
 
-          <div className="border-t border-slate-200 pt-6">
+          <div className="border-t border-white/10 pt-6">
             <ImageUpload
               currentImagePath={logoPath}
               onImageUploaded={(path) => setLogoPath(path)}
               label="Organization Logo"
               maxSizeMB={5}
             />
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-blue-200">
               Upload your organization logo. This will appear on all generated reports.
               Recommended size: 300x100 pixels (PNG or JPG)
             </p>
@@ -126,8 +126,8 @@ export function Organization() {
             <div
               className={`px-4 py-3 rounded-lg ${
                 message.includes('success')
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-red-50 border border-red-200 text-red-700'
+                  ? 'bg-green-500/10 border border-green-500/20 text-green-300'
+                  : 'bg-red-500/10 border border-red-500/20 text-red-300'
               }`}
             >
               {message}

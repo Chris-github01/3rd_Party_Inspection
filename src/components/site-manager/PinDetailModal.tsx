@@ -97,15 +97,15 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
 
   return (
     <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <div className="bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full border border-slate-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <div className="flex items-center gap-3">
             {getTypeIcon(pin.pin_type)}
-            <h2 className="text-xl font-bold text-slate-900">Pin Details</h2>
+            <h2 className="text-xl font-bold text-white">Pin Details</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg"
           >
             <X className="w-5 h-5" />
           </button>
@@ -113,9 +113,9 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
 
         <div className="p-6 space-y-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">{pin.label}</h3>
+            <h3 className="text-lg font-semibold text-white">{pin.label}</h3>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs px-2 py-1 bg-slate-100 text-slate-700 rounded font-medium uppercase">
+              <span className="text-xs px-2 py-1 bg-slate-700 text-slate-300 rounded font-medium uppercase">
                 {pin.pin_type}
               </span>
               <span
@@ -128,47 +128,47 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
             </div>
           </div>
 
-          <div className="border-t border-slate-200 pt-4">
-            <h4 className="text-sm font-medium text-slate-700 mb-3">Update Status</h4>
+          <div className="border-t border-slate-700 pt-4">
+            <h4 className="text-sm font-medium text-slate-300 mb-3">Update Status</h4>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => handleUpdateStatus('not_started')}
                 disabled={updating || pin.status === 'not_started'}
-                className="px-3 py-2 text-sm border-2 border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50"
+                className="px-3 py-2 text-sm border-2 border-blue-600 text-blue-300 rounded-lg hover:bg-blue-900/30 disabled:opacity-50"
               >
                 Not Started
               </button>
               <button
                 onClick={() => handleUpdateStatus('in_progress')}
                 disabled={updating || pin.status === 'in_progress'}
-                className="px-3 py-2 text-sm border-2 border-orange-200 text-orange-700 rounded-lg hover:bg-orange-50 disabled:opacity-50"
+                className="px-3 py-2 text-sm border-2 border-orange-600 text-orange-300 rounded-lg hover:bg-orange-900/30 disabled:opacity-50"
               >
                 In Progress
               </button>
               <button
                 onClick={() => handleUpdateStatus('pass')}
                 disabled={updating || pin.status === 'pass'}
-                className="px-3 py-2 text-sm border-2 border-green-200 text-green-700 rounded-lg hover:bg-green-50 disabled:opacity-50"
+                className="px-3 py-2 text-sm border-2 border-green-600 text-green-300 rounded-lg hover:bg-green-900/30 disabled:opacity-50"
               >
                 Pass
               </button>
               <button
                 onClick={() => handleUpdateStatus('repair_required')}
                 disabled={updating || pin.status === 'repair_required'}
-                className="px-3 py-2 text-sm border-2 border-red-200 text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                className="px-3 py-2 text-sm border-2 border-red-600 text-red-300 rounded-lg hover:bg-red-900/30 disabled:opacity-50"
               >
                 Repair Required
               </button>
             </div>
           </div>
 
-          <div className="border-t border-slate-200 pt-4">
-            <h4 className="text-sm font-medium text-slate-700 mb-3">Actions</h4>
+          <div className="border-t border-slate-700 pt-4">
+            <h4 className="text-sm font-medium text-slate-300 mb-3">Actions</h4>
             <div className="space-y-2">
               {pin.inspection_id ? (
                 <button
                   onClick={handleOpenInspection}
-                  className="w-full flex items-center justify-between px-4 py-2 bg-primary-50 text-primary-700 border border-primary-200 rounded-lg hover:bg-primary-100"
+                  className="w-full flex items-center justify-between px-4 py-2 bg-primary-900/30 text-primary-300 border border-primary-600 rounded-lg hover:bg-primary-900/50"
                 >
                   <span className="flex items-center gap-2">
                     <FileText className="w-4 h-4" />
@@ -179,7 +179,7 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
               ) : (
                 <button
                   onClick={handleCreateInspection}
-                  className="w-full flex items-center justify-between px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-100"
+                  className="w-full flex items-center justify-between px-4 py-2 bg-slate-700 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-600"
                 >
                   <span className="flex items-center gap-2">
                     <FileText className="w-4 h-4" />
@@ -191,7 +191,7 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
 
               <button
                 onClick={handleCreateNCR}
-                className="w-full flex items-center justify-between px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-100"
+                className="w-full flex items-center justify-between px-4 py-2 bg-slate-700 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-600"
               >
                 <span className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4" />
@@ -202,22 +202,22 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
             </div>
           </div>
 
-          <div className="border-t border-slate-200 pt-4">
-            <h4 className="text-sm font-medium text-slate-700 mb-2">Position</h4>
-            <p className="text-sm text-slate-600">
+          <div className="border-t border-slate-700 pt-4">
+            <h4 className="text-sm font-medium text-slate-300 mb-2">Position</h4>
+            <p className="text-sm text-slate-300">
               X: {(pin.x * 100).toFixed(2)}%, Y: {(pin.y * 100).toFixed(2)}%
             </p>
           </div>
 
-          <div className="border-t border-slate-200 pt-4">
-            <h4 className="text-sm font-medium text-slate-700 mb-2">Created</h4>
-            <p className="text-sm text-slate-600">
+          <div className="border-t border-slate-700 pt-4">
+            <h4 className="text-sm font-medium text-slate-300 mb-2">Created</h4>
+            <p className="text-sm text-slate-300">
               {new Date(pin.created_at).toLocaleString()}
             </p>
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 flex justify-end">
+        <div className="px-6 py-4 border-t border-slate-700 flex justify-end">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"

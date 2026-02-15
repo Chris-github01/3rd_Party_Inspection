@@ -133,17 +133,17 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-6">
       {canEdit && (
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Upload Document</h3>
+        <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Upload Document</h3>
           <div className="flex items-end gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-slate-300 mb-1">
                 Document Type
               </label>
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {DOCUMENT_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -153,12 +153,12 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-slate-300 mb-1">
                 Select File
               </label>
-              <label className="flex items-center justify-center px-4 py-2 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
-                <Upload className="w-5 h-5 mr-2 text-slate-600" />
-                <span className="text-sm text-slate-600">
+              <label className="flex items-center justify-center px-4 py-2 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-slate-700 transition-colors">
+                <Upload className="w-5 h-5 mr-2 text-slate-400" />
+                <span className="text-sm text-slate-300">
                   {uploading ? 'Uploading...' : 'Choose file'}
                 </span>
                 <input
@@ -173,30 +173,30 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <div className="bg-white rounded-lg border border-slate-200">
-        <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900">Documents</h3>
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
+        <div className="px-6 py-4 border-b border-white/10">
+          <h3 className="text-lg font-semibold text-white">Documents</h3>
         </div>
 
         {documents.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-slate-400">
             No documents uploaded yet
           </div>
         ) : (
-          <div className="divide-y divide-slate-200">
+          <div className="divide-y divide-white/10">
             {documents.map((doc) => {
               const typeLabel =
                 DOCUMENT_TYPES.find((t) => t.value === doc.type)?.label || doc.type;
 
               return (
-                <div key={doc.id} className="px-6 py-4 hover:bg-slate-50">
+                <div key={doc.id} className="px-6 py-4 hover:bg-white/5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center flex-1">
-                      <File className="w-8 h-8 text-blue-600 mr-3" />
+                      <File className="w-8 h-8 text-blue-400 mr-3" />
                       <div className="flex-1">
-                        <h4 className="font-medium text-slate-900">{doc.original_name}</h4>
-                        <div className="flex items-center gap-3 text-sm text-slate-600 mt-1">
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                        <h4 className="font-medium text-white">{doc.original_name}</h4>
+                        <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
+                          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-xs">
                             {typeLabel}
                           </span>
                           <span>{formatFileSize(doc.size_bytes)}</span>
@@ -209,14 +209,14 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
                         href={getPublicUrl(doc)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-2 text-blue-400 hover:bg-white/10 rounded-lg transition-colors"
                       >
                         <Eye className="w-5 h-5" />
                       </a>
                       {canEdit && (
                         <button
                           onClick={() => handleDelete(doc)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-red-400 hover:bg-white/10 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>

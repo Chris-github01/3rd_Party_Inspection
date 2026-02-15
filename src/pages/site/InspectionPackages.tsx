@@ -205,10 +205,10 @@ export function InspectionPackages() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
-      <div className="bg-white border-b border-slate-200 p-4">
+    <div className="h-full flex flex-col bg-white/10 backdrop-blur-sm">
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 p-4">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold text-slate-900">Inspection Packages</h2>
+          <h2 className="text-lg font-semibold text-white">Inspection Packages</h2>
           <button
             onClick={handleCreate}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -217,7 +217,7 @@ export function InspectionPackages() {
             <span className="font-medium">New Package</span>
           </button>
         </div>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-blue-100">
           Configure inspection packages with materials, fire ratings, and required thickness.
         </p>
       </div>
@@ -225,9 +225,9 @@ export function InspectionPackages() {
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {packages.length === 0 ? (
           <div className="text-center py-12">
-            <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No packages yet</h3>
-            <p className="text-slate-600 mb-4">Create your first inspection package to get started</p>
+            <Package className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">No packages yet</h3>
+            <p className="text-blue-100 mb-4">Create your first inspection package to get started</p>
             <button
               onClick={handleCreate}
               className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -240,21 +240,21 @@ export function InspectionPackages() {
           packages.map((pkg) => (
             <div
               key={pkg.id}
-              className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm hover:shadow transition-shadow"
+              className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 shadow-sm hover:shadow transition-shadow"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className="font-semibold text-slate-900">{pkg.name}</h3>
+                    <h3 className="font-semibold text-white">{pkg.name}</h3>
                     {pkg.is_default && (
-                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 bg-yellow-500/20 text-yellow-300 text-xs font-medium rounded">
                         <Star className="w-3 h-3" />
                         <span>Default</span>
                       </span>
                     )}
                   </div>
                   {pkg.materials && (
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-blue-100">
                       {pkg.materials.manufacturer} {pkg.materials.product_name}
                     </p>
                   )}
@@ -263,47 +263,47 @@ export function InspectionPackages() {
                   {!pkg.is_default && (
                     <button
                       onClick={() => handleSetDefault(pkg.id)}
-                      className="p-2 hover:bg-slate-100 rounded transition-colors"
+                      className="p-2 hover:bg-white/5 rounded transition-colors"
                       title="Set as default"
                     >
-                      <Star className="w-4 h-4 text-slate-400" />
+                      <Star className="w-4 h-4 text-blue-300" />
                     </button>
                   )}
                   <button
                     onClick={() => handleEdit(pkg)}
-                    className="p-2 hover:bg-slate-100 rounded transition-colors"
+                    className="p-2 hover:bg-white/5 rounded transition-colors"
                     title="Edit"
                   >
-                    <Edit2 className="w-4 h-4 text-slate-600" />
+                    <Edit2 className="w-4 h-4 text-blue-100" />
                   </button>
                   <button
                     onClick={() => handleDelete(pkg.id)}
                     className="p-2 hover:bg-red-50 rounded transition-colors"
                     title="Delete"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <Trash2 className="w-4 h-4 text-red-300" />
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-slate-500">Fire Scenario:</span>
-                  <p className="font-medium text-slate-900">{pkg.fire_scenario}</p>
+                  <span className="text-blue-200">Fire Scenario:</span>
+                  <p className="font-medium text-white">{pkg.fire_scenario}</p>
                 </div>
                 <div>
-                  <span className="text-slate-500">FRR:</span>
-                  <p className="font-medium text-slate-900">{pkg.frr_minutes} min</p>
+                  <span className="text-blue-200">FRR:</span>
+                  <p className="font-medium text-white">{pkg.frr_minutes} min</p>
                 </div>
                 <div>
-                  <span className="text-slate-500">Required:</span>
-                  <p className="font-medium text-slate-900">
+                  <span className="text-blue-200">Required:</span>
+                  <p className="font-medium text-white">
                     {pkg.required_thickness_value} {pkg.required_thickness_unit}
                   </p>
                 </div>
                 {pkg.section_factor_required && (
                   <div>
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    <span className="text-xs bg-primary-500/20 text-primary-300 px-2 py-1 rounded">
                       Section Factor Required
                     </span>
                   </div>
@@ -311,7 +311,7 @@ export function InspectionPackages() {
               </div>
 
               {pkg.notes && (
-                <p className="text-sm text-slate-600 mt-3 pt-3 border-t border-slate-100">
+                <p className="text-sm text-blue-100 mt-3 pt-3 border-t border-white/10">
                   {pkg.notes}
                 </p>
               )}
@@ -322,22 +322,22 @@ export function InspectionPackages() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-lg font-semibold text-slate-900">
+          <div className="bg-white/5 backdrop-blur-sm rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white/5 backdrop-blur-sm border-b border-white/10 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-lg font-semibold text-white">
                 {editingPackage ? 'Edit Package' : 'New Package'}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/5 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-slate-600" />
+                <X className="w-5 h-5 text-blue-100" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-white mb-1">
                   Package Name *
                 </label>
                 <input
@@ -345,20 +345,20 @@ export function InspectionPackages() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white placeholder-blue-200"
                   placeholder="e.g., Columns 120min SC902"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-white mb-1">
                   Material *
                 </label>
                 <select
                   required
                   value={formData.material_id}
                   onChange={(e) => handleMaterialChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white"
                 >
                   <option value="">Select material...</option>
                   {materials.map((mat) => (
@@ -371,14 +371,14 @@ export function InspectionPackages() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Fire Scenario *
                   </label>
                   <select
                     required
                     value={formData.fire_scenario}
                     onChange={(e) => setFormData({ ...formData, fire_scenario: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white"
                   >
                     <option value="Cellulosic">Cellulosic</option>
                     <option value="Hydrocarbon">Hydrocarbon</option>
@@ -389,7 +389,7 @@ export function InspectionPackages() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     FRR (minutes) *
                   </label>
                   <select
@@ -398,7 +398,7 @@ export function InspectionPackages() {
                     onChange={(e) =>
                       setFormData({ ...formData, frr_minutes: parseInt(e.target.value) })
                     }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white"
                   >
                     <option value="30">30</option>
                     <option value="60">60</option>
@@ -411,7 +411,7 @@ export function InspectionPackages() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-white mb-1">
                   Required Thickness *
                 </label>
                 <div className="flex space-x-2">
@@ -427,7 +427,7 @@ export function InspectionPackages() {
                         required_thickness_value: parseFloat(e.target.value),
                       })
                     }
-                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="flex-1 px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white"
                     placeholder="0"
                   />
                   <select
@@ -435,7 +435,7 @@ export function InspectionPackages() {
                     onChange={(e) =>
                       setFormData({ ...formData, required_thickness_unit: e.target.value })
                     }
-                    className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white"
                   >
                     <option value="microns">µm</option>
                     <option value="mm">mm</option>
@@ -451,9 +451,9 @@ export function InspectionPackages() {
                   onChange={(e) =>
                     setFormData({ ...formData, section_factor_required: e.target.checked })
                   }
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 border-white/10 rounded focus:ring-2 focus:ring-primary-500"
                 />
-                <label htmlFor="section_factor" className="text-sm font-medium text-slate-700">
+                <label htmlFor="section_factor" className="text-sm font-medium text-white">
                   Section factor required
                 </label>
               </div>
@@ -464,20 +464,20 @@ export function InspectionPackages() {
                   id="is_default"
                   checked={formData.is_default}
                   onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                  className="w-4 h-4 text-blue-600 border-white/10 rounded focus:ring-2 focus:ring-primary-500"
                 />
-                <label htmlFor="is_default" className="text-sm font-medium text-slate-700">
+                <label htmlFor="is_default" className="text-sm font-medium text-white">
                   Set as default package
                 </label>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                <label className="block text-sm font-medium text-white mb-1">Notes</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white placeholder-blue-200"
                   placeholder="Additional notes..."
                 />
               </div>
@@ -486,7 +486,7 @@ export function InspectionPackages() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-white/10 text-white rounded-lg hover:bg-white/5 transition-colors"
                 >
                   Cancel
                 </button>

@@ -40,25 +40,25 @@ export function WizardStep6({ data, updateData }: WizardStep6Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+        <h3 className="text-xl font-semibold text-white mb-2">
           Site Location
         </h3>
-        <p className="text-slate-600">
+        <p className="text-slate-300">
           Set the precise GPS coordinates for the project site
         </p>
       </div>
 
-      <div className="bg-slate-100 border border-slate-300 rounded-lg p-8 text-center">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center">
         <MapPin className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-        <p className="text-slate-600 mb-2">Interactive map will appear here</p>
-        <p className="text-sm text-slate-500">
+        <p className="text-slate-300 mb-2">Interactive map will appear here</p>
+        <p className="text-sm text-slate-400">
           In production, this would show a draggable map centered on the address
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Latitude <span className="text-red-500">*</span>
           </label>
           <input
@@ -67,12 +67,12 @@ export function WizardStep6({ data, updateData }: WizardStep6Props) {
             value={data.latitude || ''}
             onChange={(e) => handleLatLngChange(e.target.value, String(data.longitude || ''))}
             placeholder="e.g., -36.5489"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Longitude <span className="text-red-500">*</span>
           </label>
           <input
@@ -81,19 +81,19 @@ export function WizardStep6({ data, updateData }: WizardStep6Props) {
             value={data.longitude || ''}
             onChange={(e) => handleLatLngChange(String(data.latitude || ''), e.target.value)}
             placeholder="e.g., 174.6977"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
           />
         </div>
       </div>
 
-      <div className="border-t border-slate-200 pt-6">
+      <div className="border-t border-slate-700 pt-6">
         <div className="flex items-center justify-between mb-4">
-          <label className="block text-sm font-medium text-slate-700">
+          <label className="block text-sm font-medium text-slate-300">
             what3words (optional)
           </label>
           <button
             onClick={() => setShowWhat3WordsHelp(!showWhat3WordsHelp)}
-            className="flex items-center gap-1 text-sm text-primary-600 hover:underline"
+            className="flex items-center gap-1 text-sm text-primary-400 hover:underline"
           >
             <HelpCircle className="w-4 h-4" />
             What is what3words?
@@ -101,11 +101,11 @@ export function WizardStep6({ data, updateData }: WizardStep6Props) {
         </div>
 
         {showWhat3WordsHelp && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
-            <p className="text-sm text-slate-700 mb-2">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-4">
+            <p className="text-sm text-slate-300 mb-2">
               what3words is a simple way to share exact geolocations using just three words.
             </p>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-300">
               Every 3m x 3m square in the world has been given a unique combination of three words.
               For example, the Orewa Beach location might be ///filled.count.soap
             </p>
@@ -114,7 +114,7 @@ export function WizardStep6({ data, updateData }: WizardStep6Props) {
 
         <div className="flex gap-2">
           <div className="flex-1 relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400">
               ///
             </span>
             <input
@@ -122,7 +122,7 @@ export function WizardStep6({ data, updateData }: WizardStep6Props) {
               value={what3wordsInput.replace('///', '')}
               onChange={(e) => setWhat3wordsInput(`///${e.target.value.replace('///', '')}`)}
               placeholder="word.word.word"
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
             />
           </div>
           <button
@@ -134,17 +134,17 @@ export function WizardStep6({ data, updateData }: WizardStep6Props) {
         </div>
 
         {data.what3words && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800">
+          <div className="mt-3 p-3 bg-green-900/30 border border-green-700 rounded-lg">
+            <p className="text-sm text-green-300">
               what3words recognized: <span className="font-mono font-semibold">{data.what3words}</span>
             </p>
           </div>
         )}
       </div>
 
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-        <h5 className="font-semibold text-slate-900 mb-2">Location Summary</h5>
-        <div className="text-sm text-slate-700 space-y-1">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+        <h5 className="font-semibold text-white mb-2">Location Summary</h5>
+        <div className="text-sm text-slate-300 space-y-1">
           <p>
             <span className="font-medium">Coordinates:</span>{' '}
             {data.latitude && data.longitude

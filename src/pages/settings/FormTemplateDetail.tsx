@@ -188,25 +188,25 @@ export function FormTemplateDetail() {
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-slate-50">
-      <div className="bg-white border-b border-slate-200 px-8 py-4">
+    <div className="flex-1 overflow-auto bg-white/10 backdrop-blur-sm">
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/settings/templates/forms')}
-              className="p-2 hover:bg-slate-100 rounded-lg"
+              className="p-2 hover:bg-white/10 rounded-lg"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <div className="text-sm text-slate-600 mb-1">
+              <div className="text-sm text-blue-100 mb-1">
                 Library &gt; Forms &gt; {template.template_name}
               </div>
-              <h1 className="text-2xl font-bold text-slate-900">{template.template_name}</h1>
+              <h1 className="text-2xl font-bold text-white">{template.template_name}</h1>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg">
+            <button className="px-4 py-2 text-white hover:bg-white/10 rounded-lg">
               Cancel
             </button>
             <button
@@ -231,18 +231,18 @@ export function FormTemplateDetail() {
                 <Plus className="w-4 h-4" />
                 Add
               </button>
-              <button className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50">
+              <button className="p-2 border border-white/10 rounded-lg hover:bg-white/5">
                 <Menu className="w-5 h-5" />
               </button>
-              <button className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50">
+              <button className="p-2 border border-white/10 rounded-lg hover:bg-white/5">
                 <List className="w-5 h-5" />
               </button>
             </div>
 
             {sections.map((section, sectionIdx) => (
               <div key={section.id} className="mb-4">
-                <div className="bg-white rounded-lg border border-slate-200">
-                  <div className="flex items-center gap-2 p-4 border-b border-slate-200">
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
+                  <div className="flex items-center gap-2 p-4 border-b border-white/10">
                     <button onClick={() => toggleSection(section.id)} className="p-1">
                       {section.collapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
                     </button>
@@ -254,9 +254,9 @@ export function FormTemplateDetail() {
                         updated[sectionIdx].title = e.target.value;
                         setSections(updated);
                       }}
-                      className="flex-1 text-lg font-medium bg-transparent border-none focus:outline-none"
+                      className="flex-1 text-lg font-medium bg-transparent border-none focus:outline-none text-white placeholder-blue-300"
                     />
-                    <button className="p-1 hover:bg-slate-100 rounded">
+                    <button className="p-1 hover:bg-white/10 rounded">
                       <MoreHorizontal className="w-5 h-5" />
                     </button>
                   </div>
@@ -268,18 +268,18 @@ export function FormTemplateDetail() {
                           key={field.id}
                           onClick={() => setSelectedField(field)}
                           className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer ${
-                            selectedField?.id === field.id ? 'border-primary-500 bg-primary-50' : 'border-slate-200 hover:border-slate-300'
+                            selectedField?.id === field.id ? 'border-primary-500 bg-primary-500/10' : 'border-white/10 hover:border-white/10'
                           }`}
                         >
-                          <GripVertical className="w-5 h-5 text-slate-400" />
+                          <GripVertical className="w-5 h-5 text-blue-300" />
                           <div className="flex-1">
-                            <div className="text-xs text-slate-600 mb-1">#{field.type}</div>
+                            <div className="text-xs text-blue-100 mb-1">#{field.type}</div>
                             <input
                               type="text"
                               value={field.label}
                               onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-full bg-transparent border-none focus:outline-none"
+                              className="w-full bg-transparent border-none focus:outline-none text-white placeholder-blue-300"
                             />
                           </div>
                           <button
@@ -287,15 +287,15 @@ export function FormTemplateDetail() {
                               e.stopPropagation();
                               deleteField(section.id, field.id);
                             }}
-                            className="p-1 hover:bg-red-50 rounded"
+                            className="p-1 hover:bg-red-500/10 rounded"
                           >
-                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-600" />
+                            <Trash2 className="w-4 h-4 text-blue-300 hover:text-red-300" />
                           </button>
                         </div>
                       ))}
                       <button
                         onClick={() => setShowAddModal(true)}
-                        className="w-full py-2 text-sm text-slate-600 hover:text-slate-900 flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-lg hover:border-slate-300"
+                        className="w-full py-2 text-sm text-blue-100 hover:text-white flex items-center justify-center gap-2 border-2 border-dashed border-white/10 rounded-lg hover:border-white/10"
                       >
                         <Plus className="w-4 h-4" />
                         Add
@@ -308,13 +308,13 @@ export function FormTemplateDetail() {
           </div>
         </div>
 
-        <div className="w-96 bg-white border-l border-slate-200 overflow-y-auto">
+        <div className="w-96 bg-white/5 backdrop-blur-sm border-l border-white/10 overflow-y-auto">
           <div className="p-6">
-            <div className="flex gap-4 border-b border-slate-200 mb-6">
+            <div className="flex gap-4 border-b border-white/10 mb-6">
               <button
                 onClick={() => setActiveTab('field')}
                 className={`pb-3 font-medium ${
-                  activeTab === 'field' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-slate-600'
+                  activeTab === 'field' ? 'text-primary-300 border-b-2 border-primary-500' : 'text-blue-100'
                 }`}
               >
                 Field
@@ -322,7 +322,7 @@ export function FormTemplateDetail() {
               <button
                 onClick={() => setActiveTab('settings')}
                 className={`pb-3 font-medium ${
-                  activeTab === 'settings' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-slate-600'
+                  activeTab === 'settings' ? 'text-primary-300 border-b-2 border-primary-500' : 'text-blue-100'
                 }`}
               >
                 Form Settings
@@ -360,60 +360,60 @@ function FieldSettings({ field }: { field: FormField }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">Field Title</label>
+        <label className="block text-sm font-medium text-white mb-2">Field Title</label>
         <input
           type="text"
           value={field.label}
-          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+          className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
         />
       </div>
 
       {field.type === 'number' && (
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-white mb-2">
             Decimal places (optional)
           </label>
           <input
             type="number"
             defaultValue="0"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
           />
         </div>
       )}
 
       <div>
         <label className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-700">Required (*)</span>
+          <span className="text-sm font-medium text-white">Required (*)</span>
           <input type="checkbox" className="toggle" defaultChecked={field.required} />
         </label>
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-blue-100">
           This entry is required before the job sheet is submitted
         </p>
       </div>
 
-      <div className="pt-6 border-t border-slate-200">
-        <h4 className="text-sm font-semibold text-slate-900 mb-4">Advanced</h4>
+      <div className="pt-6 border-t border-white/10">
+        <h4 className="text-sm font-semibold text-white mb-4">Advanced</h4>
 
         <div className="space-y-4">
           <label className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-slate-900">Remember previous entry</div>
-              <div className="text-xs text-slate-600">Entry will be remembered and added to new job sheets</div>
+              <div className="text-sm font-medium text-white">Remember previous entry</div>
+              <div className="text-xs text-blue-100">Entry will be remembered and added to new job sheets</div>
             </div>
             <input type="checkbox" className="toggle" />
           </label>
 
           <label className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-slate-900">Show in job sheets table</div>
-              <div className="text-xs text-slate-600">Entries will appear in their own table column</div>
+              <div className="text-sm font-medium text-white">Show in job sheets table</div>
+              <div className="text-xs text-blue-100">Entries will appear in their own table column</div>
             </div>
             <input type="checkbox" className="toggle" />
           </label>
 
           <label className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-slate-900">Enable filter for job sheets table</div>
+              <div className="text-sm font-medium text-white">Enable filter for job sheets table</div>
             </div>
             <input type="checkbox" className="toggle" />
           </label>
@@ -426,34 +426,34 @@ function FieldSettings({ field }: { field: FormField }) {
 function FormSettings() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+      <div className="flex items-center justify-between p-4 bg-white/10 backdrop-blur-sm rounded-lg">
         <div className="flex items-center gap-3">
-          <span>👥</span>
+          <span>��</span>
           <div>
-            <div className="font-medium text-slate-900">Member Declaration</div>
-            <div className="text-sm text-slate-600">Require members to accept a declaration</div>
+            <div className="font-medium text-white">Member Declaration</div>
+            <div className="text-sm text-blue-100">Require members to accept a declaration</div>
           </div>
         </div>
-        <span className="text-sm text-slate-500">Off</span>
+        <span className="text-sm text-blue-200">Off</span>
       </div>
 
-      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+      <div className="flex items-center justify-between p-4 bg-white/10 backdrop-blur-sm rounded-lg">
         <div className="flex items-center gap-3">
           <span>✓</span>
           <div>
-            <div className="font-medium text-slate-900">Approvals</div>
-            <div className="text-sm text-slate-600">Require job sheets to go through approval process</div>
+            <div className="font-medium text-white">Approvals</div>
+            <div className="text-sm text-blue-100">Require job sheets to go through approval process</div>
           </div>
         </div>
-        <span className="text-sm text-slate-500">Off</span>
+        <span className="text-sm text-blue-200">Off</span>
       </div>
 
-      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+      <div className="flex items-center justify-between p-4 bg-white/10 backdrop-blur-sm rounded-lg">
         <div className="flex items-center gap-3">
           <span>⚙</span>
           <div>
-            <div className="font-medium text-slate-900">Advanced Options</div>
-            <div className="text-sm text-slate-600">Settings for required fields and other additional options</div>
+            <div className="font-medium text-white">Advanced Options</div>
+            <div className="text-sm text-blue-100">Settings for required fields and other additional options</div>
           </div>
         </div>
       </div>
@@ -472,10 +472,10 @@ function AddElementModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">Add Form Elements</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-white/10">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">Add Form Elements</h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -483,13 +483,13 @@ function AddElementModal({
         <div className="p-6 grid grid-cols-2 gap-4">
           <button
             onClick={onAddSection}
-            className="p-4 text-left border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300"
+            className="p-4 text-left border border-white/10 rounded-lg hover:bg-white/5 hover:border-white/10"
           >
             <div className="flex items-start gap-3">
               <span className="text-2xl">☰</span>
               <div>
-                <div className="font-medium text-slate-900 mb-1">New Section</div>
-                <div className="text-sm text-slate-600">Organise your forms by section</div>
+                <div className="font-medium text-white mb-1">New Section</div>
+                <div className="text-sm text-blue-100">Organise your forms by section</div>
               </div>
             </div>
           </button>
@@ -498,13 +498,13 @@ function AddElementModal({
             <button
               key={fieldType.id}
               onClick={() => onAddField(fieldType.id)}
-              className="p-4 text-left border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300"
+              className="p-4 text-left border border-white/10 rounded-lg hover:bg-white/5 hover:border-white/10"
             >
               <div className="flex items-start gap-3">
                 <span className="text-2xl">{fieldType.icon}</span>
                 <div>
-                  <div className="font-medium text-slate-900 mb-1">{fieldType.label}</div>
-                  <div className="text-sm text-slate-600">{fieldType.description}</div>
+                  <div className="font-medium text-white mb-1">{fieldType.label}</div>
+                  <div className="text-sm text-blue-100">{fieldType.description}</div>
                 </div>
               </div>
             </button>

@@ -66,11 +66,11 @@ export function Reports() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
-        <div className="bg-white rounded-xl shadow-xl p-8">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Report Profiles</h1>
-              <p className="text-slate-600 mt-1">Configure report templates and settings</p>
+              <h1 className="text-3xl font-bold text-white">Report Profiles</h1>
+              <p className="text-blue-100 mt-1">Configure report templates and settings</p>
             </div>
           {isAdmin && (
             <button
@@ -87,10 +87,10 @@ export function Reports() {
         </div>
 
           {reports.length === 0 ? (
-            <div className="bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 p-12 text-center">
-            <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No report profiles yet</h3>
-            <p className="text-slate-600 mb-6">Create your first report profile</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border-2 border-dashed border-white/10 p-12 text-center">
+            <FileText className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">No report profiles yet</h3>
+            <p className="text-blue-100 mb-6">Create your first report profile</p>
             {isAdmin && (
               <button
                 onClick={() => {
@@ -109,14 +109,14 @@ export function Reports() {
               {reports.map((report) => (
                 <div
                   key={report.id}
-                  className="bg-slate-50 rounded-lg border border-slate-200 p-6 hover:shadow-lg transition-shadow"
+                  className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:shadow-lg transition-shadow"
                 >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                    <h3 className="text-lg font-semibold text-white mb-2">
                       {report.report_name}
                     </h3>
-                    <div className="text-sm text-slate-600">
+                    <div className="text-sm text-blue-100">
                       {Object.values(report.config_json?.sections || {}).filter(Boolean).length} sections enabled
                     </div>
                   </div>
@@ -127,13 +127,13 @@ export function Reports() {
                           setEditingReport(report);
                           setShowModal(true);
                         }}
-                        className="p-1 text-primary-600 hover:bg-primary-50 rounded"
+                        className="p-1 text-primary-300 hover:bg-white/5 rounded"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(report.id)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        className="p-1 text-red-300 hover:bg-red-500/10 rounded"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -233,26 +233,26 @@ function ReportModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">
             {report ? 'Edit Report Profile' : 'New Report Profile'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Profile Name *
               </label>
               <input
@@ -260,7 +260,7 @@ function ReportModal({
                 required
                 value={formData.report_name}
                 onChange={(e) => setFormData({ ...formData, report_name: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 placeholder="e.g., Standard Inspection Report"
               />
             </div>
@@ -270,7 +270,7 @@ function ReportModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg"
             >
               Cancel
             </button>

@@ -86,35 +86,35 @@ export function PinsList() {
     switch (status) {
       case 'not_started':
         return (
-          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-primary-500/20 text-primary-300 text-xs font-medium rounded">
             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
             <span>Not Started</span>
           </span>
         );
       case 'in_progress':
         return (
-          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs font-medium rounded">
             <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
             <span>In Progress</span>
           </span>
         );
       case 'pass':
         return (
-          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-green-500/20 text-green-300 text-xs font-medium rounded">
             <div className="w-2 h-2 rounded-full bg-green-500"></div>
             <span>Passed</span>
           </span>
         );
       case 'repair_required':
         return (
-          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded">
+          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-red-500/20 text-red-300 text-xs font-medium rounded">
             <div className="w-2 h-2 rounded-full bg-red-500"></div>
             <span>Failed</span>
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-slate-100 text-slate-800 text-xs font-medium rounded">
+          <span className="inline-flex items-center space-x-1 px-2 py-1 bg-white/10 text-blue-100 text-xs font-medium rounded">
             <div className="w-2 h-2 rounded-full bg-slate-500"></div>
             <span>Unknown</span>
           </span>
@@ -136,21 +136,21 @@ export function PinsList() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
-      <div className="bg-white border-b border-slate-200 p-4 space-y-3">
+    <div className="h-full flex flex-col bg-white/10 backdrop-blur-sm">
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 p-4 space-y-3">
         <div className="flex items-center space-x-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-300" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white placeholder-blue-200"
               placeholder="Search by member name..."
             />
           </div>
-          <button className="p-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-            <Filter className="w-5 h-5 text-slate-600" />
+          <button className="p-2 border border-white/10 rounded-lg hover:bg-white/5 transition-colors">
+            <Filter className="w-5 h-5 text-blue-100" />
           </button>
         </div>
 
@@ -195,11 +195,11 @@ export function PinsList() {
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {filteredPins.length === 0 ? (
           <div className="text-center py-12">
-            <MapPin className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">
+            <MapPin className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">
               {searchQuery || statusFilter !== 'all' ? 'No pins found' : 'No pins yet'}
             </h3>
-            <p className="text-slate-600">
+            <p className="text-blue-100">
               {searchQuery || statusFilter !== 'all'
                 ? 'Try adjusting your search or filters'
                 : 'Drop pins on drawings to start inspecting'}
@@ -210,15 +210,15 @@ export function PinsList() {
             <button
               key={pin.id}
               onClick={() => navigate(`/projects/${projectId}/site/pins/${pin.id}`)}
-              className="w-full bg-white rounded-lg border border-slate-200 p-4 shadow-sm hover:shadow transition-shadow text-left"
+              className="w-full bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 shadow-sm hover:shadow transition-shadow text-left"
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-slate-900 mb-1">
+                  <h3 className="font-semibold text-white mb-1">
                     {pin.member_name || pin.label || 'Unnamed Pin'}
                   </h3>
                   {pin.inspection_packages && (
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-blue-100">
                       {pin.inspection_packages.name} ({pin.inspection_packages.frr_minutes} min)
                     </p>
                   )}
@@ -227,12 +227,12 @@ export function PinsList() {
               </div>
 
               {pin.levels && (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-blue-200">
                   {pin.levels.blocks?.name} - {pin.levels.name}
                 </p>
               )}
 
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-xs text-blue-300 mt-2">
                 Updated {new Date(pin.updated_at).toLocaleDateString()}
               </p>
             </button>
@@ -257,11 +257,11 @@ function FilterChip({
   color?: string;
 }) {
   const colorClasses = {
-    slate: active ? 'bg-slate-600 text-white' : 'bg-slate-100 text-slate-700',
-    blue: active ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700',
-    yellow: active ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-700',
-    green: active ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700',
-    red: active ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700',
+    slate: active ? 'bg-slate-600 text-white' : 'bg-white/10 text-white',
+    blue: active ? 'bg-blue-600 text-white' : 'bg-primary-500/20 text-primary-300',
+    yellow: active ? 'bg-yellow-600 text-white' : 'bg-yellow-500/20 text-yellow-300',
+    green: active ? 'bg-green-600 text-white' : 'bg-green-500/20 text-green-300',
+    red: active ? 'bg-red-600 text-white' : 'bg-red-500/20 text-red-300',
   };
 
   return (

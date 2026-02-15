@@ -77,11 +77,11 @@ export function Clients() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
-        <div className="bg-white rounded-xl shadow-xl p-8">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Clients</h1>
-              <p className="text-slate-600 mt-1">Manage client contacts and information</p>
+              <h1 className="text-3xl font-bold text-white">Clients</h1>
+              <p className="text-blue-100 mt-1">Manage client contacts and information</p>
             </div>
             <button
               onClick={() => {
@@ -96,10 +96,10 @@ export function Clients() {
           </div>
 
           {clients.length === 0 ? (
-            <div className="rounded-lg border-2 border-dashed border-slate-300 p-12 text-center bg-slate-50">
-              <Building2 className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-slate-900 mb-2">No clients yet</h3>
-              <p className="text-slate-600 mb-6">Get started by adding your first client</p>
+            <div className="rounded-lg border-2 border-dashed border-white/10 p-12 text-center bg-white/10 backdrop-blur-sm">
+              <Building2 className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">No clients yet</h3>
+              <p className="text-blue-100 mb-6">Get started by adding your first client</p>
               {canEdit && (
                 <button
                   onClick={() => {
@@ -118,15 +118,15 @@ export function Clients() {
               {clients.map((client) => (
                 <div
                   key={client.id}
-                  className="bg-slate-50 rounded-lg border border-slate-200 p-6 hover:shadow-lg transition-shadow"
+                  className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:shadow-lg transition-shadow"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                      <h3 className="text-lg font-semibold text-white mb-1">
                         {client.client_name}
                       </h3>
                       {client.main_contractor && (
-                        <p className="text-sm text-slate-600">Contractor: {client.main_contractor}</p>
+                        <p className="text-sm text-blue-100">Contractor: {client.main_contractor}</p>
                       )}
                     </div>
                     {canEdit && (
@@ -136,13 +136,13 @@ export function Clients() {
                             setEditingClient(client);
                             setShowModal(true);
                           }}
-                          className="p-1 text-primary-600 hover:bg-primary-50 rounded"
+                          className="p-1 text-primary-600 hover:bg-white/5 rounded"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(client.id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          className="p-1 text-red-600 hover:bg-red-500/20 rounded"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -152,18 +152,18 @@ export function Clients() {
 
                   <div className="space-y-2">
                     {client.contact_name && (
-                      <p className="text-sm text-slate-700">
+                      <p className="text-sm text-white">
                         <span className="font-medium">Contact:</span> {client.contact_name}
                       </p>
                     )}
                     {client.contact_email && (
-                      <div className="flex items-center text-sm text-slate-600">
+                      <div className="flex items-center text-sm text-blue-100">
                         <Mail className="w-4 h-4 mr-2" />
                         {client.contact_email}
                       </div>
                     )}
                     {client.contact_phone && (
-                      <div className="flex items-center text-sm text-slate-600">
+                      <div className="flex items-center text-sm text-blue-100">
                         <Phone className="w-4 h-4 mr-2" />
                         {client.contact_phone}
                       </div>
@@ -172,7 +172,7 @@ export function Clients() {
 
                   <button
                     onClick={() => navigate(`/clients/${client.id}`)}
-                    className="mt-4 w-full px-4 py-2 text-sm text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
+                    className="mt-4 w-full px-4 py-2 text-sm text-primary-600 border border-primary-600 rounded-lg hover:bg-white/5 transition-colors"
                   >
                     View Projects
                   </button>
@@ -247,26 +247,26 @@ function ClientModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">
             {client ? 'Edit Client' : 'New Client'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-500/20 border border-red-500/20 text-red-300 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Client Name *
               </label>
               <input
@@ -274,19 +274,19 @@ function ClientModal({
                 required
                 value={formData.client_name}
                 onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Main Contractor
               </label>
               <input
                 type="text"
                 value={formData.main_contractor}
                 onChange={(e) => setFormData({ ...formData, main_contractor: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -299,51 +299,51 @@ function ClientModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-white mb-1">
                   Contact Name
                 </label>
                 <input
                   type="text"
                   value={formData.contact_name}
                   onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-white mb-1">
                   Contact Email
                 </label>
                 <input
                   type="email"
                   value={formData.contact_email}
                   onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Contact Phone
               </label>
               <input
                 type="tel"
                 value={formData.contact_phone}
                 onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Billing Notes
               </label>
               <textarea
                 value={formData.billing_notes}
                 onChange={(e) => setFormData({ ...formData, billing_notes: e.target.value })}
                 rows={3}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -352,7 +352,7 @@ function ClientModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg"
             >
               Cancel
             </button>

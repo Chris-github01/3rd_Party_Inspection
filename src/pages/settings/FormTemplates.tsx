@@ -75,17 +75,17 @@ export function FormTemplates() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
-        <div className="bg-white rounded-xl shadow-xl p-8">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
           <div className="flex items-center gap-4 mb-8">
             <button
               onClick={() => navigate('/settings/templates')}
-              className="p-2 hover:bg-slate-100 rounded-lg"
+              className="p-2 hover:bg-white/10 rounded-lg"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-slate-900">Form Templates</h1>
-              <p className="text-slate-600 mt-1">Create and manage custom form templates for inspections</p>
+              <h1 className="text-3xl font-bold text-white">Form Templates</h1>
+              <p className="text-blue-100 mt-1">Create and manage custom form templates for inspections</p>
             </div>
           {isAdmin && (
             <button
@@ -102,10 +102,10 @@ export function FormTemplates() {
         </div>
 
           {templates.length === 0 ? (
-            <div className="bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 p-12 text-center">
-            <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No form templates yet</h3>
-            <p className="text-slate-600 mb-6">Create your first form template</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border-2 border-dashed border-white/10 p-12 text-center">
+            <FileText className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">No form templates yet</h3>
+            <p className="text-blue-100 mb-6">Create your first form template</p>
             {isAdmin && (
               <button
                 onClick={() => {
@@ -125,14 +125,14 @@ export function FormTemplates() {
                 <div
                   key={template.id}
                   onClick={() => navigate(`/settings/templates/forms/${template.id}`)}
-                  className="bg-slate-50 rounded-lg border border-slate-200 p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                  className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:shadow-lg transition-shadow cursor-pointer"
                 >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                    <h3 className="text-lg font-semibold text-white mb-1">
                       {template.template_name}
                     </h3>
-                    <span className="inline-block px-2 py-1 text-xs font-medium bg-primary-100 text-primary-700 rounded capitalize">
+                    <span className="inline-block px-2 py-1 text-xs font-medium bg-primary-500/20 text-primary-300 rounded capitalize">
                       {template.applies_to}
                     </span>
                   </div>
@@ -143,13 +143,13 @@ export function FormTemplates() {
                           setEditingTemplate(template);
                           setShowModal(true);
                         }}
-                        className="p-1 text-primary-600 hover:bg-primary-50 rounded"
+                        className="p-1 text-primary-300 hover:bg-white/5 rounded"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(template.id)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        className="p-1 text-red-300 hover:bg-red-500/10 rounded"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -157,7 +157,7 @@ export function FormTemplates() {
                   )}
                 </div>
 
-                <div className="text-sm text-slate-600">
+                <div className="text-sm text-blue-100">
                   {template.template_json?.sections?.length || 0} sections
                 </div>
               </div>
@@ -232,26 +232,26 @@ function TemplateModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">
             {template ? 'Edit Template' : 'New Template'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Template Name *
               </label>
               <input
@@ -259,19 +259,19 @@ function TemplateModal({
                 required
                 value={formData.template_name}
                 onChange={(e) => setFormData({ ...formData, template_name: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 placeholder="e.g., Standard Intumescent Inspection"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Applies To *
               </label>
               <select
                 value={formData.applies_to}
                 onChange={(e) => setFormData({ ...formData, applies_to: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
                 {APPLIES_TO_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -286,7 +286,7 @@ function TemplateModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg"
             >
               Cancel
             </button>

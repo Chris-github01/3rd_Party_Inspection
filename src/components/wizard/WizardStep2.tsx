@@ -91,10 +91,10 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+        <h3 className="text-xl font-semibold text-white mb-2">
           Choose a Client
         </h3>
-        <p className="text-slate-600">
+        <p className="text-slate-300">
           Select an existing client or create a new one
         </p>
       </div>
@@ -108,26 +108,26 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search or create a client"
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
             />
           </div>
 
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-slate-700">
+            <h4 className="text-sm font-medium text-slate-300">
               All Clients ({filteredClients.length})
             </h4>
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-4 py-2 text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50"
+              className="flex items-center gap-2 px-4 py-2 text-primary-400 border border-primary-600 rounded-lg hover:bg-slate-700"
             >
               <Plus className="w-4 h-4" />
               Create New Client
             </button>
           </div>
 
-          <div className="border border-slate-200 rounded-lg divide-y divide-slate-200 max-h-96 overflow-y-auto">
+          <div className="border border-slate-700 rounded-lg divide-y divide-slate-700 max-h-96 overflow-y-auto">
             {filteredClients.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">
+              <div className="p-8 text-center text-slate-400">
                 No clients found. Create a new one to get started.
               </div>
             ) : (
@@ -140,25 +140,25 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                       clientName: client.client_name,
                     })
                   }
-                  className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${
-                    data.clientId === client.id ? 'bg-primary-50 border-l-4 border-primary-600' : ''
+                  className={`p-4 cursor-pointer hover:bg-slate-700 transition-colors ${
+                    data.clientId === client.id ? 'bg-primary-900/30 border-l-4 border-primary-600' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="p-2 bg-primary-100 rounded-lg">
-                      <Building className="w-5 h-5 text-primary-600" />
+                    <div className="p-2 bg-primary-900/30 rounded-lg">
+                      <Building className="w-5 h-5 text-primary-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h5 className="font-semibold text-slate-900">
+                      <h5 className="font-semibold text-white">
                         {client.client_name}
                       </h5>
                       {client.main_contractor && (
-                        <p className="text-sm text-slate-600 mt-1">
+                        <p className="text-sm text-slate-300 mt-1">
                           Main Contractor: {client.main_contractor}
                         </p>
                       )}
                       {client.contact_name && (
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-slate-400 mt-1">
                           Contact: {client.contact_name}
                           {client.contact_email && ` (${client.contact_email})`}
                         </p>
@@ -190,11 +190,11 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
           </div>
         </>
       ) : (
-        <div className="space-y-4 border border-slate-200 rounded-lg p-6">
-          <h4 className="font-semibold text-slate-900 mb-4">Create New Client</h4>
+        <div className="space-y-4 border border-slate-700 rounded-lg p-6 bg-slate-800">
+          <h4 className="font-semibold text-white mb-4">Create New Client</h4>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Client Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -204,12 +204,12 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                 setNewClient({ ...newClient, client_name: e.target.value })
               }
               placeholder="e.g., Auckland City Council"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Main Contractor
             </label>
             <input
@@ -219,12 +219,12 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                 setNewClient({ ...newClient, main_contractor: e.target.value })
               }
               placeholder="e.g., Fletcher Construction"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Contact Name
             </label>
             <input
@@ -234,12 +234,12 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                 setNewClient({ ...newClient, contact_name: e.target.value })
               }
               placeholder="e.g., John Smith"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Contact Email
             </label>
             <input
@@ -249,12 +249,12 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                 setNewClient({ ...newClient, contact_email: e.target.value })
               }
               placeholder="e.g., john.smith@example.com"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Contact Phone
             </label>
             <input
@@ -264,7 +264,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                 setNewClient({ ...newClient, contact_phone: e.target.value })
               }
               placeholder="e.g., +64 21 123 4567"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
             />
           </div>
 
@@ -279,7 +279,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
             <button
               onClick={() => setShowCreate(false)}
               disabled={creating}
-              className="px-4 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+              className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 disabled:opacity-50"
             >
               Cancel
             </button>

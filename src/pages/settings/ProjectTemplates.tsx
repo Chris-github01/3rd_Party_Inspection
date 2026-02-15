@@ -80,17 +80,17 @@ export function ProjectTemplates() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
-        <div className="bg-white rounded-xl shadow-xl p-8">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
           <div className="flex items-center gap-4 mb-8">
             <button
               onClick={() => navigate('/settings/templates')}
-              className="p-2 hover:bg-slate-100 rounded-lg"
+              className="p-2 hover:bg-white/10 rounded-lg"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-slate-900">Project Templates</h1>
-              <p className="text-slate-600 mt-1">Manage member templates for streamlined project setup</p>
+              <h1 className="text-3xl font-bold text-white">Project Templates</h1>
+              <p className="text-blue-100 mt-1">Manage member templates for streamlined project setup</p>
             </div>
           {isAdmin && (
             <button
@@ -107,10 +107,10 @@ export function ProjectTemplates() {
         </div>
 
           {templates.length === 0 ? (
-            <div className="bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 p-12 text-center">
-            <FolderOpen className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No project templates yet</h3>
-            <p className="text-slate-600 mb-6">Create your first project template</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border-2 border-dashed border-white/10 p-12 text-center">
+            <FolderOpen className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">No project templates yet</h3>
+            <p className="text-blue-100 mb-6">Create your first project template</p>
             {isAdmin && (
               <button
                 onClick={() => {
@@ -125,53 +125,53 @@ export function ProjectTemplates() {
             )}
             </div>
           ) : (
-            <div className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-white/10 backdrop-blur-sm border-b border-white/10">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">
                       Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">
                       Element Type
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">
                       Measurement Method
                     </th>
                     {isAdmin && (
-                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-700 uppercase">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase">
                         Actions
                       </th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-white/10">
                   {templates.map((template) => (
                     <tr
                       key={template.id}
                       onClick={() => navigate(`/settings/templates/projects/${template.id}`)}
-                      className="hover:bg-slate-50 cursor-pointer"
+                      className="hover:bg-white/5 cursor-pointer"
                     >
-                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                      <td className="px-6 py-4 text-sm font-medium text-white">
                         {template.name}
                       </td>
                       <td className="px-6 py-4">
                         {template.element_type_default ? (
-                          <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded capitalize">
+                          <span className="inline-block px-2 py-1 text-xs font-medium bg-primary-500/20 text-primary-300 rounded capitalize">
                             {template.element_type_default}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-sm">-</span>
+                          <span className="text-blue-300 text-sm">-</span>
                         )}
                       </td>
                       <td className="px-6 py-4">
                         {template.measurement_method_default ? (
-                          <span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded uppercase">
+                          <span className="inline-block px-2 py-1 text-xs font-medium bg-green-500/20 text-green-300 rounded uppercase">
                             {template.measurement_method_default}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-sm">-</span>
+                          <span className="text-blue-300 text-sm">-</span>
                         )}
                       </td>
                       {isAdmin && (
@@ -182,13 +182,13 @@ export function ProjectTemplates() {
                                 setEditingTemplate(template);
                                 setShowModal(true);
                               }}
-                              className="p-1 text-primary-600 hover:bg-primary-50 rounded"
+                              className="p-1 text-primary-300 hover:bg-white/5 rounded"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(template.id)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              className="p-1 text-red-300 hover:bg-red-500/10 rounded"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -274,26 +274,26 @@ function TemplateModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">
             {template ? 'Edit Template' : 'New Template'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Template Name *
               </label>
               <input
@@ -301,19 +301,19 @@ function TemplateModal({
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 placeholder="e.g., Standard Steel Beam"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Default Element Type
               </label>
               <select
                 value={formData.element_type_default || ''}
                 onChange={(e) => setFormData({ ...formData, element_type_default: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
                 <option value="">None</option>
                 {ELEMENT_TYPES.map((option) => (
@@ -325,13 +325,13 @@ function TemplateModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Default Measurement Method
               </label>
               <select
                 value={formData.measurement_method_default || ''}
                 onChange={(e) => setFormData({ ...formData, measurement_method_default: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
                 {MEASUREMENT_METHODS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -342,14 +342,14 @@ function TemplateModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Notes
               </label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                 placeholder="Additional notes about this template..."
               />
             </div>
@@ -359,7 +359,7 @@ function TemplateModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg"
             >
               Cancel
             </button>

@@ -380,55 +380,55 @@ export function PinInspection() {
   const pkg = inspection.drawing_pins?.inspection_packages;
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
-      <div className="bg-white border-b border-slate-200 shadow-sm">
+    <div className="h-full flex flex-col bg-white/10 backdrop-blur-sm">
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 shadow-sm">
         <div className="px-4 py-3 flex items-center space-x-3">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-slate-700" />
+            <ArrowLeft className="w-5 h-5 text-white" />
           </button>
           <div className="flex-1">
-            <h1 className="text-lg font-semibold text-slate-900">
+            <h1 className="text-lg font-semibold text-white">
               {inspection.drawing_pins?.member_name || 'Inspection'}
             </h1>
-            <p className="text-xs text-slate-600">{pkg?.name}</p>
+            <p className="text-xs text-blue-100">{pkg?.name}</p>
           </div>
           <span
             className={`px-3 py-1 rounded-full text-xs font-medium ${
               inspection.inspection_status === 'Passed'
-                ? 'bg-green-100 text-green-800'
+                ? 'bg-green-500/20 text-green-300'
                 : inspection.inspection_status === 'Failed'
-                ? 'bg-red-100 text-red-800'
-                : 'bg-slate-100 text-slate-800'
+                ? 'bg-red-500/20 text-red-300'
+                : 'bg-white/10 text-blue-100'
             }`}
           >
             {inspection.inspection_status}
           </span>
         </div>
 
-        <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 grid grid-cols-3 gap-3 text-sm">
+        <div className="bg-white/10 backdrop-blur-sm px-4 py-3 border-t border-white/10 grid grid-cols-3 gap-3 text-sm">
           <div>
-            <span className="text-slate-500 block text-xs">Material</span>
-            <p className="font-medium text-slate-900 truncate">
+            <span className="text-blue-200 block text-xs">Material</span>
+            <p className="font-medium text-white truncate">
               {pkg?.materials?.manufacturer}
             </p>
           </div>
           <div>
-            <span className="text-slate-500 block text-xs">FRR</span>
-            <p className="font-medium text-slate-900">{pkg?.frr_minutes} min</p>
+            <span className="text-blue-200 block text-xs">FRR</span>
+            <p className="font-medium text-white">{pkg?.frr_minutes} min</p>
           </div>
           <div>
-            <span className="text-slate-500 block text-xs">Required</span>
-            <p className="font-medium text-slate-900">
+            <span className="text-blue-200 block text-xs">Required</span>
+            <p className="font-medium text-white">
               {pkg?.required_thickness_value} {pkg?.required_thickness_unit}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10">
         <div className="flex overflow-x-auto">
           <TabButton label="Thickness" active={activeTab === 'thickness'} onClick={() => setActiveTab('thickness')} />
           <TabButton label="Environment" active={activeTab === 'environment'} onClick={() => setActiveTab('environment')} />
@@ -441,31 +441,31 @@ export function PinInspection() {
         {activeTab === 'thickness' && (
           <div className="space-y-4">
             {stats && (
-              <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-                <h3 className="font-semibold text-slate-900 mb-3">Summary</h3>
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 shadow-sm">
+                <h3 className="font-semibold text-white mb-3">Summary</h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <span className="text-slate-500">Readings</span>
-                    <p className="font-semibold text-slate-900">{stats.count}</p>
+                    <span className="text-blue-200">Readings</span>
+                    <p className="font-semibold text-white">{stats.count}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Average</span>
-                    <p className="font-semibold text-slate-900">{stats.avg.toFixed(1)} {pkg?.required_thickness_unit}</p>
+                    <span className="text-blue-200">Average</span>
+                    <p className="font-semibold text-white">{stats.avg.toFixed(1)} {pkg?.required_thickness_unit}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Min / Max</span>
-                    <p className="font-semibold text-slate-900">
+                    <span className="text-blue-200">Min / Max</span>
+                    <p className="font-semibold text-white">
                       {stats.min} / {stats.max} {pkg?.required_thickness_unit}
                     </p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Std Dev</span>
-                    <p className="font-semibold text-slate-900">{stats.stdDev.toFixed(1)}</p>
+                    <span className="text-blue-200">Std Dev</span>
+                    <p className="font-semibold text-white">{stats.stdDev.toFixed(1)}</p>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-slate-500">Compliance</span>
+                    <span className="text-blue-200">Compliance</span>
                     <div className="flex items-center space-x-2 mt-1">
-                      <div className="flex-1 bg-slate-200 rounded-full h-2">
+                      <div className="flex-1 bg-white/10 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full ${
                             stats.passPercent >= 100 ? 'bg-green-500' : 'bg-yellow-500'
@@ -473,15 +473,15 @@ export function PinInspection() {
                           style={{ width: `${Math.min(stats.passPercent, 100)}%` }}
                         />
                       </div>
-                      <span className="font-semibold text-slate-900">{stats.passPercent.toFixed(0)}%</span>
+                      <span className="font-semibold text-white">{stats.passPercent.toFixed(0)}%</span>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-              <h3 className="font-semibold text-slate-900 mb-3">Add Reading</h3>
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 shadow-sm">
+              <h3 className="font-semibold text-white mb-3">Add Reading</h3>
               <div className="flex space-x-2">
                 <input
                   type="number"
@@ -493,7 +493,7 @@ export function PinInspection() {
                       handleAddReading();
                     }
                   }}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="flex-1 px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white placeholder-blue-200"
                   placeholder="Enter value"
                 />
                 <button
@@ -505,18 +505,18 @@ export function PinInspection() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
-              <div className="p-4 border-b border-slate-200">
-                <h3 className="font-semibold text-slate-900">Readings ({readings.length})</h3>
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 shadow-sm">
+              <div className="p-4 border-b border-white/10">
+                <h3 className="font-semibold text-white">Readings ({readings.length})</h3>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-white/10">
                 {readings.map((reading) => (
-                  <div key={reading.id} className="flex items-center justify-between p-3 hover:bg-slate-50">
+                  <div key={reading.id} className="flex items-center justify-between p-3 hover:bg-white/5">
                     <div>
-                      <span className="text-sm font-medium text-slate-900">
+                      <span className="text-sm font-medium text-white">
                         Reading #{reading.reading_no}
                       </span>
-                      <p className="text-lg font-semibold text-slate-900">
+                      <p className="text-lg font-semibold text-white">
                         {reading.thickness_value} {pkg?.required_thickness_unit}
                       </p>
                     </div>
@@ -524,12 +524,12 @@ export function PinInspection() {
                       onClick={() => handleDeleteReading(reading.id)}
                       className="p-2 hover:bg-red-50 rounded transition-colors"
                     >
-                      <Trash2 className="w-4 h-4 text-red-600" />
+                      <Trash2 className="w-4 h-4 text-red-300" />
                     </button>
                   </div>
                 ))}
                 {readings.length === 0 && (
-                  <div className="p-8 text-center text-slate-500">
+                  <div className="p-8 text-center text-blue-200">
                     No readings yet. Add your first reading above.
                   </div>
                 )}
@@ -540,11 +540,11 @@ export function PinInspection() {
 
         {activeTab === 'environment' && (
           <div className="space-y-4">
-            <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-              <h3 className="font-semibold text-slate-900 mb-4">Environmental Conditions</h3>
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 shadow-sm">
+              <h3 className="font-semibold text-white mb-4">Environmental Conditions</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Ambient Temperature (°C)
                   </label>
                   <input
@@ -552,11 +552,11 @@ export function PinInspection() {
                     step="0.1"
                     value={envForm.ambient_temp_c}
                     onChange={(e) => setEnvForm({ ...envForm, ambient_temp_c: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Steel Temperature (°C)
                   </label>
                   <input
@@ -564,11 +564,11 @@ export function PinInspection() {
                     step="0.1"
                     value={envForm.steel_temp_c}
                     onChange={(e) => setEnvForm({ ...envForm, steel_temp_c: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Relative Humidity (%)
                   </label>
                   <input
@@ -576,7 +576,7 @@ export function PinInspection() {
                     step="0.1"
                     value={envForm.rh_percent}
                     onChange={(e) => setEnvForm({ ...envForm, rh_percent: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white"
                   />
                 </div>
                 <button
@@ -589,28 +589,28 @@ export function PinInspection() {
             </div>
 
             {environment && (
-              <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-                <h3 className="font-semibold text-slate-900 mb-3">Calculated Values</h3>
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 shadow-sm">
+                <h3 className="font-semibold text-white mb-3">Calculated Values</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Dew Point:</span>
-                    <span className="font-medium text-slate-900">
+                    <span className="text-blue-100">Dew Point:</span>
+                    <span className="font-medium text-white">
                       {environment.dew_point_c?.toFixed(1)}°C
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Dew Point Spread:</span>
-                    <span className="font-medium text-slate-900">
+                    <span className="text-blue-100">Dew Point Spread:</span>
+                    <span className="font-medium text-white">
                       {environment.dew_point_spread_c?.toFixed(1)}°C
                     </span>
                   </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                    <span className="text-slate-600">Conforms:</span>
+                  <div className="flex justify-between items-center pt-2 border-t border-white/10">
+                    <span className="text-blue-100">Conforms:</span>
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
                         environment.conforms
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-green-500/20 text-green-300'
+                          : 'bg-red-500/20 text-red-300'
                       }`}
                     >
                       {environment.conforms ? 'Yes (≥3°C)' : 'No (<3°C)'}
@@ -651,22 +651,22 @@ export function PinInspection() {
 
             <div className="grid grid-cols-2 gap-3">
               {photos.map((photo) => (
-                <div key={photo.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                <div key={photo.id} className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden shadow-sm">
                   <img
                     src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/documents/${photo.storage_path}`}
                     alt={photo.caption || 'Photo'}
                     className="w-full h-32 object-cover"
                   />
                   <div className="p-2">
-                    <span className="text-xs text-slate-600">{photo.photo_type}</span>
+                    <span className="text-xs text-blue-100">{photo.photo_type}</span>
                   </div>
                 </div>
               ))}
             </div>
 
             {photos.length === 0 && (
-              <div className="text-center py-12 text-slate-500">
-                <Camera className="w-16 h-16 text-slate-300 mx-auto mb-2" />
+              <div className="text-center py-12 text-blue-200">
+                <Camera className="w-16 h-16 text-blue-300 mx-auto mb-2" />
                 <p>No photos yet</p>
               </div>
             )}
@@ -674,23 +674,23 @@ export function PinInspection() {
         )}
 
         {activeTab === 'notes' && (
-          <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-            <h3 className="font-semibold text-slate-900 mb-3">Inspection Notes</h3>
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 shadow-sm">
+            <h3 className="font-semibold text-white mb-3">Inspection Notes</h3>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={8}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/5 backdrop-blur-sm text-white placeholder-blue-200"
               placeholder="Add any notes or observations..."
             />
           </div>
         )}
       </div>
 
-      <div className="bg-white border-t border-slate-200 p-4 space-y-2">
+      <div className="bg-white/5 backdrop-blur-sm border-t border-white/10 p-4 space-y-2">
         <button
           onClick={handleSaveDraft}
-          className="w-full flex items-center justify-center space-x-2 px-4 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+          className="w-full flex items-center justify-center space-x-2 px-4 py-3 border border-white/10 text-white rounded-lg hover:bg-white/5 transition-colors font-medium"
         >
           <Save className="w-5 h-5" />
           <span>Save Draft</span>
@@ -739,13 +739,13 @@ function TabButton({
       onClick={onClick}
       className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
         active
-          ? 'border-blue-600 text-blue-600'
-          : 'border-transparent text-slate-600 hover:text-slate-900'
+          ? 'border-primary-500 text-primary-300'
+          : 'border-transparent text-blue-100 hover:text-white'
       }`}
     >
       {label}
       {count !== undefined && count > 0 && (
-        <span className="ml-1 px-2 py-0.5 bg-slate-200 text-slate-700 rounded-full text-xs">
+        <span className="ml-1 px-2 py-0.5 bg-white/10 text-white rounded-full text-xs">
           {count}
         </span>
       )}

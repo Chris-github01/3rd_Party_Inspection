@@ -13,23 +13,23 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+        <h3 className="text-xl font-semibold text-white mb-2">
           Site Address
         </h3>
-        <p className="text-slate-600">
+        <p className="text-slate-300">
           Enter the physical location of the project site
         </p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Country
           </label>
           <select
             value={data.country}
             onChange={(e) => updateData({ country: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="New Zealand">New Zealand</option>
             <option value="Australia">Australia</option>
@@ -41,7 +41,7 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
 
         {!manualEntry ? (
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Search Address
             </label>
             <div className="relative">
@@ -51,15 +51,15 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
                 value={data.addressLine}
                 onChange={(e) => updateData({ addressLine: e.target.value })}
                 placeholder="Start typing an address..."
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               />
             </div>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-slate-400">
               Address search integration coming soon. Use manual entry for now.
             </p>
             <button
               onClick={() => setManualEntry(true)}
-              className="mt-2 text-sm text-primary-600 hover:underline"
+              className="mt-2 text-sm text-primary-400 hover:underline"
             >
               Enter address manually
             </button>
@@ -67,7 +67,7 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
         ) : (
           <>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 Street Address <span className="text-red-500">*</span>
               </label>
               <input
@@ -75,12 +75,12 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
                 value={data.addressLine}
                 onChange={(e) => updateData({ addressLine: e.target.value })}
                 placeholder="e.g., 123 Main Street"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 Suburb
               </label>
               <input
@@ -88,13 +88,13 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
                 value={data.suburb}
                 onChange={(e) => updateData({ suburb: e.target.value })}
                 placeholder="e.g., Orewa"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   City <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -102,12 +102,12 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
                   value={data.city}
                   onChange={(e) => updateData({ city: e.target.value })}
                   placeholder="e.g., Auckland"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Postcode
                 </label>
                 <input
@@ -115,14 +115,14 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
                   value={data.postcode}
                   onChange={(e) => updateData({ postcode: e.target.value })}
                   placeholder="e.g., 0931"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
                 />
               </div>
             </div>
 
             <button
               onClick={() => setManualEntry(false)}
-              className="text-sm text-primary-600 hover:underline"
+              className="text-sm text-primary-400 hover:underline"
             >
               Use address search instead
             </button>
@@ -130,16 +130,16 @@ export function WizardStep5({ data, updateData }: WizardStep5Props) {
         )}
       </div>
 
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-        <h5 className="font-semibold text-slate-900 mb-2">Preview</h5>
-        <p className="text-sm text-slate-700">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+        <h5 className="font-semibold text-white mb-2">Preview</h5>
+        <p className="text-sm text-slate-300">
           {data.addressLine && `${data.addressLine}`}
           {data.suburb && `, ${data.suburb}`}
           {data.city && `, ${data.city}`}
           {data.postcode && ` ${data.postcode}`}
           {data.country && `, ${data.country}`}
           {!data.addressLine && !data.city && (
-            <span className="text-slate-500">Enter address details above</span>
+            <span className="text-slate-400">Enter address details above</span>
           )}
         </p>
       </div>

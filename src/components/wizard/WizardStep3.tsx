@@ -93,16 +93,16 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
   );
 
   if (loading) {
-    return <div className="text-center py-12 text-slate-600">Loading...</div>;
+    return <div className="text-center py-12 text-slate-300">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+        <h3 className="text-xl font-semibold text-white mb-2">
           Project Setup Mode
         </h3>
-        <p className="text-slate-600">
+        <p className="text-slate-300">
           Choose how you want to set up your new project
         </p>
       </div>
@@ -112,49 +112,49 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
           onClick={() => updateData({ setupMode: 'template' })}
           className={`p-6 border-2 rounded-lg text-left transition-all ${
             data.setupMode === 'template'
-              ? 'border-primary-600 bg-primary-50'
-              : 'border-slate-200 hover:border-slate-300'
+              ? 'border-primary-600 bg-primary-900/30'
+              : 'border-slate-700 hover:border-slate-600'
           }`}
         >
-          <FileText className={`w-8 h-8 mb-3 ${data.setupMode === 'template' ? 'text-primary-600' : 'text-slate-400'}`} />
-          <h4 className="font-semibold text-slate-900 mb-2">Start From Template</h4>
-          <p className="text-sm text-slate-600">Create from a library template</p>
+          <FileText className={`w-8 h-8 mb-3 ${data.setupMode === 'template' ? 'text-primary-400' : 'text-slate-400'}`} />
+          <h4 className="font-semibold text-white mb-2">Start From Template</h4>
+          <p className="text-sm text-slate-300">Create from a library template</p>
         </button>
 
         <button
           onClick={() => updateData({ setupMode: 'duplicate' })}
           className={`p-6 border-2 rounded-lg text-left transition-all ${
             data.setupMode === 'duplicate'
-              ? 'border-primary-600 bg-primary-50'
-              : 'border-slate-200 hover:border-slate-300'
+              ? 'border-primary-600 bg-primary-900/30'
+              : 'border-slate-700 hover:border-slate-600'
           }`}
         >
-          <Copy className={`w-8 h-8 mb-3 ${data.setupMode === 'duplicate' ? 'text-primary-600' : 'text-slate-400'}`} />
-          <h4 className="font-semibold text-slate-900 mb-2">Duplicate Project</h4>
-          <p className="text-sm text-slate-600">Clone existing project structure</p>
+          <Copy className={`w-8 h-8 mb-3 ${data.setupMode === 'duplicate' ? 'text-primary-400' : 'text-slate-400'}`} />
+          <h4 className="font-semibold text-white mb-2">Duplicate Project</h4>
+          <p className="text-sm text-slate-300">Clone existing project structure</p>
         </button>
 
         <button
           onClick={() => updateData({ setupMode: 'hybrid' })}
           className={`p-6 border-2 rounded-lg text-left transition-all ${
             data.setupMode === 'hybrid'
-              ? 'border-primary-600 bg-primary-50'
-              : 'border-slate-200 hover:border-slate-300'
+              ? 'border-primary-600 bg-primary-900/30'
+              : 'border-slate-700 hover:border-slate-600'
           }`}
         >
-          <Blend className={`w-8 h-8 mb-3 ${data.setupMode === 'hybrid' ? 'text-primary-600' : 'text-slate-400'}`} />
-          <h4 className="font-semibold text-slate-900 mb-2">Hybrid</h4>
-          <p className="text-sm text-slate-600">Template + import settings</p>
+          <Blend className={`w-8 h-8 mb-3 ${data.setupMode === 'hybrid' ? 'text-primary-400' : 'text-slate-400'}`} />
+          <h4 className="font-semibold text-white mb-2">Hybrid</h4>
+          <p className="text-sm text-slate-300">Template + import settings</p>
         </button>
       </div>
 
       {data.setupMode === 'template' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-slate-700">
+            <h4 className="text-sm font-medium text-slate-300">
               All Templates ({templates.length})
             </h4>
-            <button className="text-sm text-primary-600 hover:underline flex items-center gap-1">
+            <button className="text-sm text-primary-400 hover:underline flex items-center gap-1">
               <Settings className="w-4 h-4" />
               Need to add a new template?
             </button>
@@ -172,17 +172,17 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
                 }
                 className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                   data.templateId === template.id
-                    ? 'border-primary-600 bg-primary-50'
-                    : 'border-slate-200 hover:border-slate-300'
+                    ? 'border-primary-600 bg-primary-900/30'
+                    : 'border-slate-700 hover:border-slate-600'
                 }`}
               >
-                <h5 className="font-semibold text-slate-900 mb-1">
+                <h5 className="font-semibold text-white mb-1">
                   {template.template_name}
                 </h5>
-                <p className="text-sm text-slate-600 mb-2">
+                <p className="text-sm text-slate-300 mb-2">
                   {template.applies_to}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Updated {format(new Date(template.created_at), 'MMM d, yyyy')}
                 </p>
               </div>
@@ -200,11 +200,11 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search existing projects"
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
             />
           </div>
 
-          <div className="border border-slate-200 rounded-lg divide-y divide-slate-200 max-h-64 overflow-y-auto">
+          <div className="border border-slate-700 rounded-lg divide-y divide-slate-700 max-h-64 overflow-y-auto">
             {filteredProjects.map((project) => (
               <div
                 key={project.id}
@@ -215,15 +215,15 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
                     clonedElements: CLONE_OPTIONS.filter((opt) => opt.default).map((opt) => opt.id),
                   })
                 }
-                className={`p-4 cursor-pointer hover:bg-slate-50 ${
-                  data.sourceProjectId === project.id ? 'bg-primary-50 border-l-4 border-primary-600' : ''
+                className={`p-4 cursor-pointer hover:bg-slate-700 ${
+                  data.sourceProjectId === project.id ? 'bg-primary-900/30 border-l-4 border-primary-600' : ''
                 }`}
               >
-                <h5 className="font-semibold text-slate-900">{project.name}</h5>
-                <p className="text-sm text-slate-600 mt-1">
+                <h5 className="font-semibold text-white">{project.name}</h5>
+                <p className="text-sm text-slate-300 mt-1">
                   Client: {project.client_name}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-400 mt-1">
                   Created {format(new Date(project.created_at), 'MMM d, yyyy')}
                 </p>
               </div>
@@ -231,8 +231,8 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
           </div>
 
           {data.sourceProjectId && (
-            <div className="border border-slate-200 rounded-lg p-4">
-              <h5 className="font-semibold text-slate-900 mb-3">Clone Options</h5>
+            <div className="border border-slate-700 rounded-lg p-4 bg-slate-800">
+              <h5 className="font-semibold text-white mb-3">Clone Options</h5>
               <div className="space-y-2">
                 {CLONE_OPTIONS.map((option) => (
                   <label key={option.id} className="flex items-center gap-3 cursor-pointer">
@@ -242,12 +242,12 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
                       onChange={() => handleCloneOptionToggle(option.id)}
                       className="w-4 h-4 text-primary-600 rounded focus:ring-2 focus:ring-primary-500"
                     />
-                    <span className="text-sm text-slate-700">{option.label}</span>
+                    <span className="text-sm text-slate-300">{option.label}</span>
                   </label>
                 ))}
               </div>
               {data.clonedElements.length === 0 && (
-                <p className="text-sm text-red-600 mt-3">
+                <p className="text-sm text-red-400 mt-3">
                   At least one option must be selected
                 </p>
               )}
@@ -259,7 +259,7 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
       {data.setupMode === 'hybrid' && (
         <div className="space-y-6">
           <div>
-            <h5 className="font-semibold text-slate-900 mb-3">1. Select Template</h5>
+            <h5 className="font-semibold text-white mb-3">1. Select Template</h5>
             <div className="grid grid-cols-2 gap-3">
               {templates.map((template) => (
                 <div
@@ -272,19 +272,19 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
                   }
                   className={`p-3 border-2 rounded-lg cursor-pointer text-sm ${
                     data.templateId === template.id
-                      ? 'border-primary-600 bg-primary-50'
-                      : 'border-slate-200 hover:border-slate-300'
+                      ? 'border-primary-600 bg-primary-900/30'
+                      : 'border-slate-700 hover:border-slate-600'
                   }`}
                 >
-                  <h6 className="font-semibold text-slate-900">{template.template_name}</h6>
-                  <p className="text-xs text-slate-600">{template.applies_to}</p>
+                  <h6 className="font-semibold text-white">{template.template_name}</h6>
+                  <p className="text-xs text-slate-300">{template.applies_to}</p>
                 </div>
               ))}
             </div>
           </div>
 
           <div>
-            <h5 className="font-semibold text-slate-900 mb-3">2. Select Reference Project</h5>
+            <h5 className="font-semibold text-white mb-3">2. Select Reference Project</h5>
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -292,10 +292,10 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search projects"
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               />
             </div>
-            <div className="border border-slate-200 rounded-lg divide-y divide-slate-200 max-h-48 overflow-y-auto">
+            <div className="border border-slate-700 rounded-lg divide-y divide-slate-700 max-h-48 overflow-y-auto">
               {filteredProjects.map((project) => (
                 <div
                   key={project.id}
@@ -306,20 +306,20 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
                       clonedElements: IMPORT_OPTIONS.map((opt) => opt.id),
                     })
                   }
-                  className={`p-3 cursor-pointer hover:bg-slate-50 text-sm ${
-                    data.sourceProjectId === project.id ? 'bg-primary-50 border-l-4 border-primary-600' : ''
+                  className={`p-3 cursor-pointer hover:bg-slate-700 text-sm ${
+                    data.sourceProjectId === project.id ? 'bg-primary-900/30 border-l-4 border-primary-600' : ''
                   }`}
                 >
-                  <h6 className="font-semibold text-slate-900">{project.name}</h6>
-                  <p className="text-xs text-slate-600">{project.client_name}</p>
+                  <h6 className="font-semibold text-white">{project.name}</h6>
+                  <p className="text-xs text-slate-300">{project.client_name}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {data.sourceProjectId && (
-            <div className="border border-slate-200 rounded-lg p-4">
-              <h5 className="font-semibold text-slate-900 mb-3">3. Import Settings</h5>
+            <div className="border border-slate-700 rounded-lg p-4 bg-slate-800">
+              <h5 className="font-semibold text-white mb-3">3. Import Settings</h5>
               <div className="space-y-2">
                 {IMPORT_OPTIONS.map((option) => (
                   <label key={option.id} className="flex items-center gap-3 cursor-pointer">
@@ -329,11 +329,11 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
                       onChange={() => handleCloneOptionToggle(option.id)}
                       className="w-4 h-4 text-primary-600 rounded focus:ring-2 focus:ring-primary-500"
                     />
-                    <span className="text-sm text-slate-700">{option.label}</span>
+                    <span className="text-sm text-slate-300">{option.label}</span>
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-slate-500 mt-3">
+              <p className="text-xs text-slate-400 mt-3">
                 This will NOT clone: Members, Inspections, NCRs, or Attachments
               </p>
             </div>

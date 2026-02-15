@@ -104,12 +104,12 @@ export function UploadDrawingModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 className="text-xl font-bold text-slate-900">Upload Drawing</h2>
+      <div className="bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full border border-slate-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+          <h2 className="text-xl font-bold text-white">Upload Drawing</h2>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg"
           >
             <X className="w-5 h-5" />
           </button>
@@ -117,13 +117,13 @@ export function UploadDrawingModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Drawing File <span className="text-red-500">*</span>
             </label>
-            <p className="text-xs text-slate-600 mb-2 bg-blue-50 border border-blue-200 rounded p-2">
+            <p className="text-xs text-slate-300 mb-2 bg-blue-900/30 border border-blue-700 rounded p-2">
               <strong>Tip:</strong> Both PDF and image files (PNG, JPG) are supported with full pin annotation capabilities.
             </p>
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6">
+            <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 bg-slate-700">
               <input
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg"
@@ -138,19 +138,19 @@ export function UploadDrawingModal({
               >
                 {file ? (
                   <>
-                    <FileImage className="w-12 h-12 text-green-500 mb-2" />
-                    <p className="text-sm text-slate-900 font-medium">{file.name}</p>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <FileImage className="w-12 h-12 text-green-400 mb-2" />
+                    <p className="text-sm text-white font-medium">{file.name}</p>
+                    <p className="text-xs text-slate-400 mt-1">
                       {(file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </>
                 ) : (
                   <>
                     <Upload className="w-12 h-12 text-slate-400 mb-2" />
-                    <p className="text-sm text-slate-900 font-medium">
+                    <p className="text-sm text-white font-medium">
                       Click to upload a drawing
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">PDF, PNG, or JPG</p>
+                    <p className="text-xs text-slate-400 mt-1">PDF, PNG, or JPG</p>
                   </>
                 )}
               </label>
@@ -158,7 +158,7 @@ export function UploadDrawingModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Page Number (for PDFs)
             </label>
             <input
@@ -167,16 +167,16 @@ export function UploadDrawingModal({
               value={pageNumber}
               onChange={(e) => setPageNumber(e.target.value)}
               placeholder="1"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               disabled={uploading}
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               For multi-page PDFs, specify which page to use
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Scale Factor (optional)
             </label>
             <input
@@ -185,16 +185,16 @@ export function UploadDrawingModal({
               value={scaleFactor}
               onChange={(e) => setScaleFactor(e.target.value)}
               placeholder="e.g., 100 (1:100 scale)"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               disabled={uploading}
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               Optional: Drawing scale ratio for measurements
             </p>
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
@@ -211,7 +211,7 @@ export function UploadDrawingModal({
               type="button"
               onClick={onClose}
               disabled={uploading}
-              className="px-4 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+              className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 disabled:opacity-50"
             >
               Cancel
             </button>

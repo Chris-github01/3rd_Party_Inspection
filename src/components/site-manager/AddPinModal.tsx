@@ -120,12 +120,12 @@ export function AddPinModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 className="text-xl font-bold text-slate-900">Add Pin</h2>
+      <div className="bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full border border-slate-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+          <h2 className="text-xl font-bold text-white">Add Pin</h2>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg"
           >
             <X className="w-5 h-5" />
           </button>
@@ -133,7 +133,7 @@ export function AddPinModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Label <span className="text-red-500">*</span>
             </label>
             <input
@@ -141,19 +141,19 @@ export function AddPinModal({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g., Door Frame A1, Wall Penetration"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
               disabled={creating}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Pin Type <span className="text-red-500">*</span>
             </label>
             <select
               value={pinType}
               onChange={(e) => setPinType(e.target.value as any)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               disabled={creating}
             >
               <option value="inspection">Inspection</option>
@@ -164,13 +164,13 @@ export function AddPinModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Status <span className="text-red-500">*</span>
             </label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               disabled={creating}
             >
               <option value="not_started">Not Started</option>
@@ -182,13 +182,13 @@ export function AddPinModal({
 
           {(pinType === 'member' || pinType === 'inspection') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 Link to Member (optional)
               </label>
               <select
                 value={selectedMemberId}
                 onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 disabled={creating}
               >
                 <option value="">-- Select Member --</option>
@@ -203,13 +203,13 @@ export function AddPinModal({
 
           {pinType === 'inspection' && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 Link to Inspection (optional)
               </label>
               <select
                 value={selectedInspectionId}
                 onChange={(e) => setSelectedInspectionId(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 disabled={creating}
               >
                 <option value="">-- Select Inspection --</option>
@@ -223,15 +223,15 @@ export function AddPinModal({
             </div>
           )}
 
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-            <p className="text-xs text-slate-600">
+          <div className="bg-slate-700 border border-slate-600 rounded-lg p-3">
+            <p className="text-xs text-slate-300">
               <span className="font-medium">Position:</span> X: {(position.x * 100).toFixed(1)}%,
               Y: {(position.y * 100).toFixed(1)}%
             </p>
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
@@ -248,7 +248,7 @@ export function AddPinModal({
               type="button"
               onClick={onClose}
               disabled={creating}
-              className="px-4 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+              className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 disabled:opacity-50"
             >
               Cancel
             </button>

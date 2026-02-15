@@ -13,17 +13,17 @@ export function WizardStep1({ data, updateData }: WizardStep1Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+        <h3 className="text-xl font-semibold text-white mb-2">
           Add Project Details
         </h3>
-        <p className="text-slate-600">
+        <p className="text-slate-300">
           Enter the basic information for your new project
         </p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Project Name <span className="text-red-500">*</span>
           </label>
           <input
@@ -31,12 +31,12 @@ export function WizardStep1({ data, updateData }: WizardStep1Props) {
             value={data.projectName}
             onChange={(e) => updateData({ projectName: e.target.value })}
             placeholder="e.g., Orewa Primary School Fire Protection"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Package
           </label>
           <input
@@ -44,9 +44,9 @@ export function WizardStep1({ data, updateData }: WizardStep1Props) {
             value={data.package}
             onChange={(e) => updateData({ package: e.target.value })}
             placeholder="e.g., Phase 1, Building A"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
           />
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-400">
             Optional: Specify a package or phase identifier
           </p>
         </div>
@@ -59,29 +59,29 @@ export function WizardStep1({ data, updateData }: WizardStep1Props) {
         />
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Site Type
           </label>
           <input
             type="text"
             value={data.siteType}
             disabled
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-slate-400 rounded-lg"
           />
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-400">
             This wizard creates single site projects only
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Created By
           </label>
           <input
             type="text"
             value={profile?.name || 'Current User'}
             disabled
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+            className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-slate-400 rounded-lg"
           />
         </div>
       </div>

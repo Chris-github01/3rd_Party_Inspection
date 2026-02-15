@@ -63,11 +63,11 @@ export function Projects() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
-        <div className="bg-white rounded-xl shadow-xl p-8">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Projects</h1>
-              <p className="text-slate-600 mt-1">View and manage inspection projects</p>
+              <h1 className="text-3xl font-bold text-white">Projects</h1>
+              <p className="text-blue-100 mt-1">View and manage inspection projects</p>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -79,10 +79,10 @@ export function Projects() {
           </div>
 
           {projects.length === 0 ? (
-            <div className="rounded-lg border-2 border-dashed border-slate-300 p-12 text-center bg-slate-50">
-              <FolderOpen className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-slate-900 mb-2">No projects yet</h3>
-              <p className="text-slate-600 mb-6">Create your first inspection project</p>
+            <div className="rounded-lg border-2 border-dashed border-white/10 p-12 text-center bg-white/10 backdrop-blur-sm">
+              <FolderOpen className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">No projects yet</h3>
+              <p className="text-blue-100 mb-6">Create your first inspection project</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -90,12 +90,12 @@ export function Projects() {
                 <div
                   key={project.id}
                   onClick={() => navigate(`/projects/${project.id}`)}
-                  className="bg-slate-50 rounded-lg border border-slate-200 p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                  className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:shadow-lg transition-shadow cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-slate-900 mb-1">{project.name}</h3>
-                      <p className="text-sm text-slate-600">
+                      <h3 className="text-lg font-semibold text-white mb-1">{project.name}</h3>
+                      <p className="text-sm text-blue-100">
                         {project.clients?.client_name || project.client_name}
                       </p>
                     </div>
@@ -103,13 +103,13 @@ export function Projects() {
                   </div>
                   <div className="space-y-2">
                     {project.site_address && (
-                      <p className="text-sm text-slate-600 truncate">{project.site_address}</p>
+                      <p className="text-sm text-blue-100 truncate">{project.site_address}</p>
                     )}
                     {project.project_ref && (
-                      <p className="text-xs text-slate-500">Ref: {project.project_ref}</p>
+                      <p className="text-xs text-blue-200">Ref: {project.project_ref}</p>
                     )}
                     {project.start_date && (
-                      <div className="flex items-center text-xs text-slate-500">
+                      <div className="flex items-center text-xs text-blue-200">
                         <Calendar className="w-3 h-3 mr-1" />
                         {format(new Date(project.start_date), 'MMM d, yyyy')}
                       </div>

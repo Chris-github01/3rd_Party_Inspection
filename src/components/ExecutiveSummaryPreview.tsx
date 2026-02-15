@@ -77,12 +77,12 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg shadow-sm border border-white/10 overflow-hidden">
+        <div className="border-b border-white/10 bg-white/5 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">Executive Summary</h3>
-              <p className="text-sm text-slate-600 mt-1">
+              <h3 className="text-lg font-semibold text-white">Executive Summary</h3>
+              <p className="text-sm text-slate-400 mt-1">
                 Auto-generated from inspection data
               </p>
             </div>
@@ -103,14 +103,14 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
           </div>
         </div>
 
-        <div className="px-6 py-4 border-b border-slate-200 bg-white">
+        <div className="px-6 py-4 border-b border-white/10 bg-white/5">
           <div className="flex space-x-2">
             <button
               onClick={() => setActiveView('short')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeView === 'short'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : 'bg-white/10 text-slate-300 hover:bg-white/20'
               }`}
             >
               Short Summary
@@ -120,7 +120,7 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeView === 'full'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : 'bg-white/10 text-slate-300 hover:bg-white/20'
               }`}
             >
               Full Legal Summary
@@ -129,8 +129,8 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
         </div>
 
         <div className="px-6 py-6">
-          <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
-            <pre className="whitespace-pre-wrap font-sans text-slate-800 leading-relaxed">
+          <div className="bg-white/10 rounded-lg p-6 border border-white/10">
+            <pre className="whitespace-pre-wrap font-sans text-white leading-relaxed">
               {activeView === 'short'
                 ? summary.short_summary_text
                 : summary.full_summary_text}
@@ -138,11 +138,11 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-white/5 border-t border-white/10 flex items-center justify-between">
           <div className="flex space-x-3">
             <button
               onClick={handleCopy}
-              className="inline-flex items-center space-x-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+              className="inline-flex items-center space-x-2 px-4 py-2 bg-white/10 border border-white/10 text-slate-300 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
             >
               <Copy className="w-4 h-4" />
               <span>{copied ? 'Copied!' : 'Copy Text'}</span>
@@ -157,7 +157,7 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
           </div>
           <button
             onClick={loadSummary}
-            className="text-sm text-slate-600 hover:text-slate-900 transition-colors"
+            className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
           >
             Refresh Data
           </button>
@@ -165,14 +165,14 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <div className="text-sm font-medium text-slate-600 mb-1">Materials Inspected</div>
-          <div className="text-2xl font-bold text-slate-900">
+        <div className="bg-white/5 backdrop-blur-sm rounded-lg shadow-sm border border-white/10 p-4">
+          <div className="text-sm font-medium text-slate-400 mb-1">Materials Inspected</div>
+          <div className="text-2xl font-bold text-white">
             {summary.materials_list.length}
           </div>
           <div className="mt-2 space-y-1">
             {summary.materials_list.slice(0, 3).map((material: string, index: number) => (
-              <div key={index} className="text-xs text-slate-600 truncate" title={material}>
+              <div key={index} className="text-xs text-slate-400 truncate" title={material}>
                 {material}
               </div>
             ))}
@@ -184,16 +184,16 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <div className="text-sm font-medium text-slate-600 mb-1">FRR Ratings</div>
-          <div className="text-2xl font-bold text-slate-900">
+        <div className="bg-white/5 backdrop-blur-sm rounded-lg shadow-sm border border-white/10 p-4">
+          <div className="text-sm font-medium text-slate-400 mb-1">FRR Ratings</div>
+          <div className="text-2xl font-bold text-white">
             {summary.frr_list.length}
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {summary.frr_list.map((frr: number, index: number) => (
               <span
                 key={index}
-                className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs font-medium"
+                className="px-2 py-1 bg-white/10 text-slate-300 rounded text-xs font-medium"
               >
                 {frr} min
               </span>
@@ -201,30 +201,30 @@ export function ExecutiveSummaryPreview({ projectId }: ExecutiveSummaryPreviewPr
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-          <div className="text-sm font-medium text-slate-600 mb-1">Total Inspections</div>
-          <div className="text-2xl font-bold text-slate-900">
+        <div className="bg-white/5 backdrop-blur-sm rounded-lg shadow-sm border border-white/10 p-4">
+          <div className="text-sm font-medium text-slate-400 mb-1">Total Inspections</div>
+          <div className="text-2xl font-bold text-white">
             {summary.data.inspection_stats.total_inspections}
           </div>
           <div className="mt-2 space-y-1 text-xs">
-            <div className="flex justify-between text-slate-600">
+            <div className="flex justify-between text-slate-400">
               <span>Completed:</span>
-              <span className="font-medium text-green-700">
+              <span className="font-medium text-green-400">
                 {summary.data.inspection_stats.completed_inspections}
               </span>
             </div>
             {summary.data.inspection_stats.failed_inspections > 0 && (
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-400">
                 <span>Failed:</span>
-                <span className="font-medium text-red-700">
+                <span className="font-medium text-red-400">
                   {summary.data.inspection_stats.failed_inspections}
                 </span>
               </div>
             )}
             {summary.data.inspection_stats.draft_inspections > 0 && (
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-400">
                 <span>Draft:</span>
-                <span className="font-medium text-slate-700">
+                <span className="font-medium text-slate-300">
                   {summary.data.inspection_stats.draft_inspections}
                 </span>
               </div>

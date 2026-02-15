@@ -92,15 +92,15 @@ export function ProjectTemplateDetail() {
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => navigate('/settings/templates/projects')}
-            className="p-2 hover:bg-slate-100 rounded-lg"
+            className="p-2 hover:bg-white/10 rounded-lg"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="text-sm text-slate-600 mb-1">
+            <div className="text-sm text-blue-100 mb-1">
               Library &gt; Project Templates
             </div>
-            <h1 className="text-3xl font-bold text-slate-900">
+            <h1 className="text-3xl font-bold text-white">
               Project Template: {template.name}
             </h1>
           </div>
@@ -115,8 +115,8 @@ export function ProjectTemplateDetail() {
                   onClick={() => setActiveTab(tab.id as TabType)}
                   className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
                     activeTab === tab.id
-                      ? 'bg-slate-100 text-slate-900 font-medium'
-                      : 'text-slate-600 hover:bg-slate-50'
+                      ? 'bg-white/10 text-white font-medium'
+                      : 'text-blue-100 hover:bg-white/5'
                   }`}
                 >
                   {tab.label}
@@ -158,15 +158,15 @@ export function ProjectTemplateDetail() {
 function DetailsTab({ template, onEdit }: { template: MemberTemplate; onEdit: () => void }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold text-slate-900 mb-2">Details</h2>
-      <p className="text-slate-600 mb-6">Manage your template details.</p>
+      <h2 className="text-2xl font-semibold text-white mb-2">Details</h2>
+      <p className="text-blue-100 mb-6">Manage your template details.</p>
 
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-medium text-slate-900">Details</h3>
+          <h3 className="text-lg font-medium text-white">Details</h3>
           <button
             onClick={onEdit}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded-lg"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary-300 hover:bg-white/5 rounded-lg"
           >
             <Edit className="w-4 h-4" />
             Edit
@@ -175,28 +175,28 @@ function DetailsTab({ template, onEdit }: { template: MemberTemplate; onEdit: ()
 
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-700">Template Name</label>
-            <p className="text-slate-900 mt-1">{template.name}</p>
+            <label className="text-sm font-medium text-white">Template Name</label>
+            <p className="text-white mt-1">{template.name}</p>
           </div>
 
           {template.element_type_default && (
             <div>
-              <label className="text-sm font-medium text-slate-700">Default Element Type</label>
-              <p className="text-slate-900 mt-1 capitalize">{template.element_type_default}</p>
+              <label className="text-sm font-medium text-white">Default Element Type</label>
+              <p className="text-white mt-1 capitalize">{template.element_type_default}</p>
             </div>
           )}
 
           {template.measurement_method_default && (
             <div>
-              <label className="text-sm font-medium text-slate-700">Default Measurement Method</label>
-              <p className="text-slate-900 mt-1 uppercase">{template.measurement_method_default}</p>
+              <label className="text-sm font-medium text-white">Default Measurement Method</label>
+              <p className="text-white mt-1 uppercase">{template.measurement_method_default}</p>
             </div>
           )}
 
           {template.notes && (
             <div>
-              <label className="text-sm font-medium text-slate-700">Notes</label>
-              <p className="text-slate-900 mt-1">{template.notes}</p>
+              <label className="text-sm font-medium text-white">Notes</label>
+              <p className="text-white mt-1">{template.notes}</p>
             </div>
           )}
         </div>
@@ -232,12 +232,12 @@ function FormsTab({ templateId }: { templateId: string }) {
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold text-slate-900 mb-2">Forms</h2>
-      <p className="text-slate-600 mb-6">Select the Forms to be used with this template.</p>
+      <h2 className="text-2xl font-semibold text-white mb-2">Forms</h2>
+      <p className="text-blue-100 mb-6">Select the Forms to be used with this template.</p>
 
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-lg font-medium text-slate-900 mb-4">Linked Forms</h3>
-        <p className="text-slate-600 mb-4">{linkedForms.length} form(s) linked with this Project Template</p>
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+        <h3 className="text-lg font-medium text-white mb-4">Linked Forms</h3>
+        <p className="text-blue-100 mb-4">{linkedForms.length} form(s) linked with this Project Template</p>
 
         <button
           onClick={() => navigate('/settings/templates/forms')}
@@ -251,11 +251,11 @@ function FormsTab({ templateId }: { templateId: string }) {
             {linkedForms.map((form) => (
               <div
                 key={form.id}
-                className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50"
+                className="flex items-center justify-between p-3 border border-white/10 rounded-lg hover:bg-white/5"
               >
-                <span className="text-slate-900">{form.template_name}</span>
+                <span className="text-white">{form.template_name}</span>
                 <div className="flex gap-2">
-                  <button className="p-1 text-slate-400 hover:text-slate-600">
+                  <button className="p-1 text-blue-300 hover:text-blue-100">
                     <Edit className="w-4 h-4" />
                   </button>
                 </div>
@@ -271,12 +271,12 @@ function FormsTab({ templateId }: { templateId: string }) {
 function PlaceholderTab({ title }: { title: string }) {
   return (
     <div>
-      <h2 className="text-2xl font-semibold text-slate-900 mb-2">{title}</h2>
-      <p className="text-slate-600 mb-6">Configure {title.toLowerCase()} for this template.</p>
+      <h2 className="text-2xl font-semibold text-white mb-2">{title}</h2>
+      <p className="text-blue-100 mb-6">Configure {title.toLowerCase()} for this template.</p>
 
-      <div className="bg-white rounded-lg border-2 border-dashed border-slate-300 p-12 text-center">
-        <h3 className="text-lg font-medium text-slate-900 mb-2">Coming Soon</h3>
-        <p className="text-slate-600">{title} configuration will be available here</p>
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg border-2 border-dashed border-white/10 p-12 text-center">
+        <h3 className="text-lg font-medium text-white mb-2">Coming Soon</h3>
+        <p className="text-blue-100">{title} configuration will be available here</p>
       </div>
     </div>
   );
@@ -340,24 +340,24 @@ function EditTemplateModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">Edit Template</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">Edit Template</h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded mb-4">
               {error}
             </div>
           )}
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Template Name *
               </label>
               <input
@@ -365,18 +365,18 @@ function EditTemplateModal({
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Default Element Type
               </label>
               <select
                 value={formData.element_type_default}
                 onChange={(e) => setFormData({ ...formData, element_type_default: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
                 {ELEMENT_TYPES.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -387,13 +387,13 @@ function EditTemplateModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Default Measurement Method
               </label>
               <select
                 value={formData.measurement_method_default}
                 onChange={(e) => setFormData({ ...formData, measurement_method_default: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
                 {MEASUREMENT_METHODS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -404,12 +404,12 @@ function EditTemplateModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+              <label className="block text-sm font-medium text-white mb-1">Notes</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
           </div>
@@ -418,7 +418,7 @@ function EditTemplateModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg"
             >
               Cancel
             </button>

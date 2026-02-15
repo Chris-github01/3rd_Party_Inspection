@@ -39,13 +39,13 @@ export function Members() {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'bg-red-100 text-red-700';
+        return 'bg-red-500/20 text-red-300';
       case 'inspector':
-        return 'bg-blue-100 text-blue-700';
+        return 'bg-primary-500/20 text-primary-300';
       case 'client':
-        return 'bg-green-100 text-green-700';
+        return 'bg-green-500/20 text-green-300';
       default:
-        return 'bg-slate-100 text-slate-700';
+        return 'bg-white/10 text-white';
     }
   };
 
@@ -60,11 +60,11 @@ export function Members() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-8">
-        <div className="bg-white rounded-xl shadow-xl p-8">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Team Members</h1>
-              <p className="text-slate-600 mt-1">Manage team members and their access levels</p>
+              <h1 className="text-3xl font-bold text-white">Team Members</h1>
+              <p className="text-blue-100 mt-1">Manage team members and their access levels</p>
             </div>
             {profile?.role === 'admin' && (
               <button className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
@@ -75,42 +75,42 @@ export function Members() {
           </div>
 
           {members.length === 0 ? (
-            <div className="bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 p-12 text-center">
-            <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No team members yet</h3>
-            <p className="text-slate-600">Invite team members to collaborate</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border-2 border-dashed border-white/10 p-12 text-center">
+            <Users className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">No team members yet</h3>
+            <p className="text-blue-100">Invite team members to collaborate</p>
           </div>
           ) : (
-            <div className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-white/10 backdrop-blur-sm border-b border-white/10">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">
                       Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">
                       Role
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">
                       Joined
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-white/10">
                   {members.map((member) => (
-                    <tr key={member.id} className="hover:bg-slate-50">
+                    <tr key={member.id} className="hover:bg-white/5">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-semibold mr-3">
+                          <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-300 font-semibold mr-3">
                             {member.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="text-sm font-medium text-slate-900">{member.name}</span>
+                          <span className="text-sm font-medium text-white">{member.name}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <Shield className="w-4 h-4 mr-2 text-slate-400" />
+                          <Shield className="w-4 h-4 mr-2 text-blue-300" />
                           <span
                             className={`inline-block px-2 py-1 text-xs font-medium rounded capitalize ${getRoleBadgeColor(
                               member.role
@@ -120,7 +120,7 @@ export function Members() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-blue-100">
                         {new Date(member.created_at).toLocaleDateString()}
                       </td>
                     </tr>
