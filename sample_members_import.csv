@@ -1,0 +1,7 @@
+member_mark,element_type,section,level,block,frr_minutes,coating_system,required_dft_microns,required_thickness_mm,notes
+B734,beam,610UB125,L2,B,120,SC601,580,,Main structural beam in Block B
+B735,beam,610UB125,L2,B,120,SC601,580,,Secondary beam Block B
+C105,column,310UC118,L1,A,90,SC601,480,,Primary column Block A
+C106,column,310UC118,L1,A,90,SC601,480,,Secondary column Block A
+B737,beam,530UB92,L3,C,90,SC902,420,,Alternative coating system
+BR201,brace,200UC52,L2,B,60,SC601,380,,Diagonal brace
