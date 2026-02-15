@@ -92,9 +92,9 @@ export function ProjectDetail() {
   ];
 
   return (
-    <div className="min-h-screen bg-white/10 backdrop-blur-sm">
-      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="flex flex-col h-screen overflow-hidden">
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 flex-shrink-0">
+        <div className="max-w-full px-4 sm:px-6 lg:px-8 py-6">
           <button
             onClick={() => navigate('/')}
             className="flex items-center text-blue-100 hover:text-white mb-4"
@@ -121,14 +121,14 @@ export function ProjectDetail() {
             </div>
           </div>
 
-          <div className="flex space-x-1 border-b border-white/10">
+          <div className="flex space-x-1 border-b border-white/10 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
+                  className={`flex items-center px-4 py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-primary-600 text-primary-300'
                       : 'border-transparent text-blue-100 hover:text-white hover:border-white/10'
@@ -144,20 +144,22 @@ export function ProjectDetail() {
       </div>
 
       {activeTab === 'site-manager' ? (
-        <div className="h-[calc(100vh-240px)]">
+        <div className="flex-1 overflow-hidden">
           <SiteManagerTab projectId={project.id} />
         </div>
       ) : (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
-            {activeTab === 'documents' && <DocumentsTab projectId={project.id} />}
-            {activeTab === 'members' && <MembersTab projectId={project.id} />}
-            {activeTab === 'inspections' && <InspectionsTab projectId={project.id} />}
-            {activeTab === 'ncrs' && <NCRsTab projectId={project.id} />}
-            {activeTab === 'attachments' && <ExportAttachmentsTab projectId={project.id} />}
-            {activeTab === 'introduction' && <IntroductionPreview projectId={project.id} />}
-            {activeTab === 'executive-summary' && <ExecutiveSummaryPreview projectId={project.id} />}
-            {activeTab === 'exports' && <ExportsTab project={project} />}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
+              {activeTab === 'documents' && <DocumentsTab projectId={project.id} />}
+              {activeTab === 'members' && <MembersTab projectId={project.id} />}
+              {activeTab === 'inspections' && <InspectionsTab projectId={project.id} />}
+              {activeTab === 'ncrs' && <NCRsTab projectId={project.id} />}
+              {activeTab === 'attachments' && <ExportAttachmentsTab projectId={project.id} />}
+              {activeTab === 'introduction' && <IntroductionPreview projectId={project.id} />}
+              {activeTab === 'executive-summary' && <ExecutiveSummaryPreview projectId={project.id} />}
+              {activeTab === 'exports' && <ExportsTab project={project} />}
+            </div>
           </div>
         </div>
       )}

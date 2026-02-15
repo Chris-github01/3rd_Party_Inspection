@@ -60,13 +60,13 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
   const getResultColor = (result: string) => {
     switch (result) {
       case 'pass':
-        return 'bg-green-100 text-green-700';
+        return 'bg-green-500/20 text-green-200';
       case 'fail':
-        return 'bg-red-100 text-red-700';
+        return 'bg-red-500/20 text-red-200';
       case 'repair':
-        return 'bg-yellow-100 text-yellow-700';
+        return 'bg-yellow-500/20 text-yellow-200';
       default:
-        return 'bg-slate-100 text-slate-700';
+        return 'bg-white/10 text-blue-200';
     }
   };
 
@@ -88,23 +88,23 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
         </button>
       )}
 
-      <div className="bg-white rounded-lg border border-slate-200">
-        <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900">Inspections</h3>
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
+        <div className="px-6 py-4 border-b border-white/10">
+          <h3 className="text-lg font-semibold text-white">Inspections</h3>
         </div>
 
         {inspections.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">No inspections recorded yet</div>
+          <div className="text-center py-12 text-blue-200">No inspections recorded yet</div>
         ) : (
-          <div className="divide-y divide-slate-200">
+          <div className="divide-y divide-white/10">
             {inspections.map((inspection) => (
-              <div key={inspection.id} className="px-6 py-4 hover:bg-slate-50">
+              <div key={inspection.id} className="px-6 py-4 hover:bg-white/5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center flex-1">
                     <ClipboardCheck className="w-8 h-8 text-blue-600 mr-3" />
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
-                        <h4 className="font-medium text-slate-900">
+                        <h4 className="font-medium text-white">
                           {inspection.members.member_mark}
                         </h4>
                         <span
@@ -116,16 +116,16 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
                         </span>
                         {inspection.inspection_status && inspection.inspection_status !== 'Draft' && (
                           <span className={`px-2 py-0.5 text-xs font-medium rounded ${
-                            inspection.inspection_status === 'Passed' ? 'bg-green-100 text-green-700' :
-                            inspection.inspection_status === 'Passed_With_Observations' ? 'bg-blue-100 text-blue-700' :
-                            inspection.inspection_status === 'Failed' ? 'bg-red-100 text-red-700' :
-                            'bg-amber-100 text-amber-700'
+                            inspection.inspection_status === 'Passed' ? 'bg-green-500/20 text-green-200' :
+                            inspection.inspection_status === 'Passed_With_Observations' ? 'bg-blue-500/20 text-blue-200' :
+                            inspection.inspection_status === 'Failed' ? 'bg-red-500/20 text-red-200' :
+                            'bg-amber-500/20 text-amber-200'
                           }`}>
                             {inspection.inspection_status.replace(/_/g, ' ')}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-slate-600 mt-1">
+                      <div className="flex items-center gap-4 text-sm text-blue-100 mt-1">
                         {inspection.location_label && <span>{inspection.location_label}</span>}
                         {inspection.block && <span>Block {inspection.block}</span>}
                         {inspection.level && <span>Level {inspection.level}</span>}
@@ -163,19 +163,19 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
 
       {selectedInspection && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-slate-50 rounded-lg max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white/5 backdrop-blur-sm border-b border-white/10 px-6 py-4 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">
+                <h2 className="text-2xl font-bold text-white">
                   Inspection: {selectedInspection.members.member_mark}
                 </h2>
-                <p className="text-sm text-slate-600 mt-1">
+                <p className="text-sm text-blue-100 mt-1">
                   {format(new Date(selectedInspection.inspection_date_time), 'MMMM d, yyyy HH:mm')}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedInspection(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-blue-200 hover:text-blue-100"
               >
                 ✕
               </button>
@@ -197,39 +197,39 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
 
               <MemberDataViewer inspectionId={selectedInspection.id} />
 
-              <div className="bg-white rounded-lg border border-slate-200 p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Inspection Details</h3>
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Inspection Details</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-slate-600">Location:</span>
-                    <span className="ml-2 font-medium text-slate-900">
+                    <span className="text-blue-100">Location:</span>
+                    <span className="ml-2 font-medium text-white">
                       {selectedInspection.location_label || 'N/A'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-600">Block:</span>
-                    <span className="ml-2 font-medium text-slate-900">
+                    <span className="text-blue-100">Block:</span>
+                    <span className="ml-2 font-medium text-white">
                       {selectedInspection.block || 'N/A'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-600">Level:</span>
-                    <span className="ml-2 font-medium text-slate-900">
+                    <span className="text-blue-100">Level:</span>
+                    <span className="ml-2 font-medium text-white">
                       {selectedInspection.level || 'N/A'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-600">Appearance:</span>
-                    <span className="ml-2 font-medium text-slate-900">
+                    <span className="text-blue-100">Appearance:</span>
+                    <span className="ml-2 font-medium text-white">
                       {selectedInspection.appearance || 'N/A'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-600">Result:</span>
+                    <span className="text-blue-100">Result:</span>
                     <span className={`ml-2 font-medium ${
-                      selectedInspection.result === 'pass' ? 'text-green-600' :
-                      selectedInspection.result === 'fail' ? 'text-red-600' :
-                      'text-amber-600'
+                      selectedInspection.result === 'pass' ? 'text-green-200' :
+                      selectedInspection.result === 'fail' ? 'text-red-200' :
+                      'text-amber-200'
                     }`}>
                       {selectedInspection.result?.toUpperCase() || 'N/A'}
                     </span>
@@ -424,20 +424,20 @@ function CreateInspectionModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg max-w-4xl w-full my-8">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-4xl w-full my-8">
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">Create Inspection</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">Create Inspection</h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Select Member *
               </label>
               <select
                 required
                 value={selectedMember}
                 onChange={(e) => setSelectedMember(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
               >
                 <option value="">Choose a member...</option>
                 {members.map((m) => (
@@ -450,42 +450,42 @@ function CreateInspectionModal({
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-white mb-1">
                   Location No.
                 </label>
                 <input
                   type="text"
                   value={formData.location_label}
                   onChange={(e) => setFormData({ ...formData, location_label: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white placeholder-blue-200"
                   placeholder="Location No. 4"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Block</label>
+                <label className="block text-sm font-medium text-white mb-1">Block</label>
                 <input
                   type="text"
                   value={formData.block}
                   onChange={(e) => setFormData({ ...formData, block: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Level</label>
+                <label className="block text-sm font-medium text-white mb-1">Level</label>
                 <input
                   type="text"
                   value={formData.level}
                   onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                 />
               </div>
             </div>
 
-            <div className="border-t pt-4">
-              <h3 className="font-semibold text-slate-900 mb-3">Environmental Conditions</h3>
+            <div className="border-t border-white/10 pt-4">
+              <h3 className="font-semibold text-white mb-3">Environmental Conditions</h3>
               <div className="grid grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Ambient Temp (°C)
                   </label>
                   <input
@@ -493,11 +493,11 @@ function CreateInspectionModal({
                     step="0.1"
                     value={formData.ambient_temp_c}
                     onChange={(e) => setFormData({ ...formData, ambient_temp_c: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Steel Temp (°C)
                   </label>
                   <input
@@ -505,11 +505,11 @@ function CreateInspectionModal({
                     step="0.1"
                     value={formData.steel_temp_c}
                     onChange={(e) => setFormData({ ...formData, steel_temp_c: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">RH (%)</label>
+                  <label className="block text-sm font-medium text-white mb-1">RH (%)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -517,11 +517,11 @@ function CreateInspectionModal({
                     onChange={(e) =>
                       setFormData({ ...formData, relative_humidity_pct: e.target.value })
                     }
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Dew Point (°C)
                   </label>
                   <input
@@ -529,7 +529,7 @@ function CreateInspectionModal({
                     step="0.1"
                     value={formData.dew_point_c}
                     onChange={(e) => setFormData({ ...formData, dew_point_c: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                   />
                 </div>
               </div>
@@ -545,11 +545,11 @@ function CreateInspectionModal({
               </div>
             </div>
 
-            <div className="border-t pt-4">
-              <h3 className="font-semibold text-slate-900 mb-3">DFT Readings</h3>
+            <div className="border-t border-white/10 pt-4">
+              <h3 className="font-semibold text-white mb-3">DFT Readings</h3>
               <div className="grid grid-cols-2 gap-4 mb-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Batch Number
                   </label>
                   <input
@@ -558,19 +558,19 @@ function CreateInspectionModal({
                     onChange={(e) =>
                       setFormData({ ...formData, dft_batch_number: e.target.value })
                     }
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white placeholder-blue-200"
                     placeholder="1122"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Gauge Serial
                   </label>
                   <input
                     type="text"
                     value={formData.gauge_serial}
                     onChange={(e) => setFormData({ ...formData, gauge_serial: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                   />
                 </div>
               </div>
@@ -586,7 +586,7 @@ function CreateInspectionModal({
                         newReadings[idx].value = e.target.value;
                         setDftReadings(newReadings);
                       }}
-                      className="flex-1 px-4 py-2 border border-slate-300 rounded-lg"
+                      className="flex-1 px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white placeholder-blue-200"
                     />
                     <select
                       value={reading.face}
@@ -595,7 +595,7 @@ function CreateInspectionModal({
                         newReadings[idx].face = e.target.value;
                         setDftReadings(newReadings);
                       }}
-                      className="px-4 py-2 border border-slate-300 rounded-lg"
+                      className="px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                     >
                       <option value="web">Web</option>
                       <option value="flange1">Flange 1</option>
@@ -613,51 +613,51 @@ function CreateInspectionModal({
                 </button>
               </div>
               {calculateDFTStats() && (
-                <div className="mt-3 p-3 bg-slate-50 rounded">
+                <div className="mt-3 p-3 bg-white/10 backdrop-blur-sm rounded">
                   <div className="grid grid-cols-4 gap-2 text-sm">
                     <div>
-                      <span className="text-slate-600">Min:</span>{' '}
-                      <span className="font-medium">{calculateDFTStats()!.min}µm</span>
+                      <span className="text-blue-100">Min:</span>{' '}
+                      <span className="font-medium text-white">{calculateDFTStats()!.min}µm</span>
                     </div>
                     <div>
-                      <span className="text-slate-600">Max:</span>{' '}
-                      <span className="font-medium">{calculateDFTStats()!.max}µm</span>
+                      <span className="text-blue-100">Max:</span>{' '}
+                      <span className="font-medium text-white">{calculateDFTStats()!.max}µm</span>
                     </div>
                     <div>
-                      <span className="text-slate-600">Avg:</span>{' '}
-                      <span className="font-medium">{calculateDFTStats()!.avg.toFixed(1)}µm</span>
+                      <span className="text-blue-100">Avg:</span>{' '}
+                      <span className="font-medium text-white">{calculateDFTStats()!.avg.toFixed(1)}µm</span>
                     </div>
                     <div>
-                      <span className="text-slate-600">Std Dev:</span>{' '}
-                      <span className="font-medium">{calculateDFTStats()!.stddev.toFixed(1)}</span>
+                      <span className="text-blue-100">Std Dev:</span>{' '}
+                      <span className="font-medium text-white">{calculateDFTStats()!.stddev.toFixed(1)}</span>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="border-t pt-4">
-              <h3 className="font-semibold text-slate-900 mb-3">Result</h3>
+            <div className="border-t border-white/10 pt-4">
+              <h3 className="font-semibold text-white mb-3">Result</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Appearance
                   </label>
                   <select
                     value={formData.appearance}
                     onChange={(e) => setFormData({ ...formData, appearance: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                   >
                     <option value="conform">Conform</option>
                     <option value="nonconform">Non-Conform</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Result</label>
+                  <label className="block text-sm font-medium text-white mb-1">Result</label>
                   <select
                     value={formData.result}
                     onChange={(e) => setFormData({ ...formData, result: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
                   >
                     <option value="pass">Pass</option>
                     <option value="fail">Fail</option>
@@ -671,7 +671,7 @@ function CreateInspectionModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2 text-white hover:bg-white/10 rounded-lg"
               >
                 Cancel
               </button>

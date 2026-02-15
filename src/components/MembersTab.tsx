@@ -22,11 +22,11 @@ interface Member {
 const ELEMENT_TYPES = ['beam', 'column', 'brace', 'other'];
 const COATING_SYSTEMS = ['SC601', 'SC902', 'Pyrocrete40', 'Other'];
 const STATUSES = [
-  { value: 'not_started', label: 'Not Started', color: 'bg-slate-100 text-slate-700' },
-  { value: 'in_progress', label: 'In Progress', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'pass', label: 'Pass', color: 'bg-green-100 text-green-700' },
-  { value: 'repair_required', label: 'Repair Required', color: 'bg-red-100 text-red-700' },
-  { value: 'closed', label: 'Closed', color: 'bg-blue-100 text-blue-700' },
+  { value: 'not_started', label: 'Not Started', color: 'bg-white/10 text-blue-200' },
+  { value: 'in_progress', label: 'In Progress', color: 'bg-yellow-500/20 text-yellow-300' },
+  { value: 'pass', label: 'Pass', color: 'bg-green-500/20 text-green-300' },
+  { value: 'repair_required', label: 'Repair Required', color: 'bg-red-500/20 text-red-300' },
+  { value: 'closed', label: 'Closed', color: 'bg-primary-500/20 text-primary-300' },
 ];
 
 export function MembersTab({ projectId }: { projectId: string }) {
@@ -158,69 +158,69 @@ export function MembersTab({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden">
         {members.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-blue-200">
             No members in register. Add members or import from CSV.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-white/10 backdrop-blur-sm border-b border-white/10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Member Mark
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Type
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Section
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Level
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Block
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     FRR
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     System
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Req. DFT
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Status
                   </th>
                   {canEdit && (
-                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-700 uppercase">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-blue-200 uppercase">
                       Actions
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-white/10">
                 {members.map((member) => {
                   const status = STATUSES.find((s) => s.value === member.status);
                   return (
-                    <tr key={member.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                    <tr key={member.id} className="hover:bg-white/5">
+                      <td className="px-4 py-3 text-sm font-medium text-white">
                         {member.member_mark}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600 capitalize">
+                      <td className="px-4 py-3 text-sm text-blue-100 capitalize">
                         {member.element_type}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{member.section}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{member.level}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{member.block}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-4 py-3 text-sm text-blue-100">{member.section}</td>
+                      <td className="px-4 py-3 text-sm text-blue-100">{member.level}</td>
+                      <td className="px-4 py-3 text-sm text-blue-100">{member.block}</td>
+                      <td className="px-4 py-3 text-sm text-blue-100">
                         {member.frr_minutes} min
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{member.coating_system}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-4 py-3 text-sm text-blue-100">{member.coating_system}</td>
+                      <td className="px-4 py-3 text-sm text-blue-100">
                         {member.required_dft_microns ? `${member.required_dft_microns} µm` : '-'}
                       </td>
                       <td className="px-4 py-3">
@@ -238,13 +238,13 @@ export function MembersTab({ projectId }: { projectId: string }) {
                                 setEditingMember(member);
                                 setShowModal(true);
                               }}
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                              className="p-1 text-primary-400 hover:bg-white/10 rounded"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(member.id)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              className="p-1 text-red-400 hover:bg-red-500/20 rounded"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -331,16 +331,16 @@ function MemberModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-slate-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700">
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">
+          <h2 className="text-2xl font-bold text-white mb-6">
             {member ? 'Edit Member' : 'Add Member'}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-300 mb-1">
                   Member Mark *
                 </label>
                 <input
@@ -348,19 +348,19 @@ function MemberModal({
                   required
                   value={formData.member_mark}
                   onChange={(e) => setFormData({ ...formData, member_mark: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
                   placeholder="B734"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-300 mb-1">
                   Element Type *
                 </label>
                 <select
                   value={formData.element_type}
                   onChange={(e) => setFormData({ ...formData, element_type: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 >
                   {ELEMENT_TYPES.map((type) => (
                     <option key={type} value={type}>
@@ -371,40 +371,40 @@ function MemberModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Section</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Section</label>
                 <input
                   type="text"
                   value={formData.section}
                   onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
                   placeholder="610UB125"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Level</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Level</label>
                 <input
                   type="text"
                   value={formData.level}
                   onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
                   placeholder="L2"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Block</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Block</label>
                 <input
                   type="text"
                   value={formData.block}
                   onChange={(e) => setFormData({ ...formData, block: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
                   placeholder="B"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-300 mb-1">
                   FRR (minutes)
                 </label>
                 <input
@@ -413,18 +413,18 @@ function MemberModal({
                   onChange={(e) =>
                     setFormData({ ...formData, frr_minutes: parseInt(e.target.value) || 0 })
                   }
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-300 mb-1">
                   Coating System
                 </label>
                 <select
                   value={formData.coating_system}
                   onChange={(e) => setFormData({ ...formData, coating_system: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 >
                   {COATING_SYSTEMS.map((system) => (
                     <option key={system} value={system}>
@@ -435,7 +435,7 @@ function MemberModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-300 mb-1">
                   Required DFT (µm)
                 </label>
                 <input
@@ -444,17 +444,17 @@ function MemberModal({
                   onChange={(e) =>
                     setFormData({ ...formData, required_dft_microns: parseInt(e.target.value) || 0 })
                   }
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
 
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Notes</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
                 />
               </div>
             </div>
@@ -463,7 +463,7 @@ function MemberModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2 text-white hover:bg-slate-700 rounded-lg"
               >
                 Cancel
               </button>

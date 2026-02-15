@@ -138,9 +138,9 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
 
   return (
     <div className="flex h-full">
-      <div className="w-80 border-r border-slate-200 bg-slate-50 overflow-y-auto">
-        <div className="p-4 border-b border-slate-200 bg-white sticky top-0 z-10">
-          <h3 className="text-lg font-semibold text-slate-900 mb-3">Site Structure</h3>
+      <div className="w-80 border-r border-white/10 bg-white/10 backdrop-blur-sm overflow-y-auto">
+        <div className="p-4 border-b border-white/10 bg-white/5 backdrop-blur-sm sticky top-0 z-10">
+          <h3 className="text-lg font-semibold text-white mb-3">Site Structure</h3>
           <button
             onClick={() => setShowAddBlock(true)}
             className="flex items-center gap-2 w-full px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
@@ -152,27 +152,27 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
 
         <div className="p-4">
           {blocks.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
+            <div className="text-center py-8 text-blue-200">
               <p className="text-sm">No blocks yet</p>
               <p className="text-xs mt-1">Create a block to get started</p>
             </div>
           ) : (
             <div className="space-y-2">
               {blocks.map((block) => (
-                <div key={block.id} className="bg-white rounded-lg border border-slate-200">
+                <div key={block.id} className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
                   <div
-                    className="flex items-center gap-2 p-3 cursor-pointer hover:bg-slate-50"
+                    className="flex items-center gap-2 p-3 cursor-pointer hover:bg-white/10"
                     onClick={() => toggleBlock(block.id)}
                   >
                     {expandedBlocks.has(block.id) ? (
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                      <ChevronDown className="w-4 h-4 text-blue-300" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                      <ChevronRight className="w-4 h-4 text-blue-300" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-slate-900 truncate">{block.name}</h4>
+                      <h4 className="font-semibold text-white truncate">{block.name}</h4>
                       {block.description && (
-                        <p className="text-xs text-slate-500 truncate">{block.description}</p>
+                        <p className="text-xs text-blue-200 truncate">{block.description}</p>
                       )}
                     </div>
                   </div>
@@ -181,34 +181,34 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
                     <div className="px-3 pb-3 pl-8">
                       <button
                         onClick={() => handleAddLevel(block.id)}
-                        className="flex items-center gap-1 text-xs text-primary-600 hover:underline mb-2"
+                        className="flex items-center gap-1 text-xs text-primary-300 hover:underline mb-2"
                       >
                         <Plus className="w-3 h-3" />
                         Add Level
                       </button>
 
                       {block.levels.length === 0 ? (
-                        <p className="text-xs text-slate-500 py-2">No levels yet</p>
+                        <p className="text-xs text-blue-200 py-2">No levels yet</p>
                       ) : (
                         <div className="space-y-2">
                           {block.levels.map((level) => (
                             <div
                               key={level.id}
-                              className="bg-slate-50 rounded p-2 border border-slate-200"
+                              className="bg-white/5 backdrop-blur-sm rounded p-2 border border-white/10"
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
-                                  <h5 className="text-sm font-medium text-slate-900 truncate">
+                                  <h5 className="text-sm font-medium text-white truncate">
                                     {level.name}
                                   </h5>
-                                  <p className="text-xs text-slate-500 mt-1">
+                                  <p className="text-xs text-blue-200 mt-1">
                                     {level.drawings.length} drawing
                                     {level.drawings.length !== 1 ? 's' : ''}
                                   </p>
                                 </div>
                                 <button
                                   onClick={() => handleUploadDrawing(level.id)}
-                                  className="p-1 text-primary-600 hover:bg-primary-50 rounded"
+                                  className="p-1 text-primary-300 hover:bg-white/10 rounded"
                                   title="Upload drawing"
                                 >
                                   <Upload className="w-4 h-4" />
@@ -221,10 +221,10 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
                                     <button
                                       key={drawing.id}
                                       onClick={() => handleDrawingClick(drawing)}
-                                      className="flex items-center gap-2 w-full p-2 text-left hover:bg-white rounded text-xs"
+                                      className="flex items-center gap-2 w-full p-2 text-left hover:bg-white/10 rounded text-xs"
                                     >
-                                      <FileImage className="w-3 h-3 text-slate-400" />
-                                      <span className="text-slate-700">
+                                      <FileImage className="w-3 h-3 text-blue-300" />
+                                      <span className="text-white">
                                         Drawing {drawing.page_number || 1}
                                       </span>
                                     </button>
@@ -244,7 +244,7 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
         </div>
       </div>
 
-      <div className="flex-1 bg-white">
+      <div className="flex-1 bg-slate-900">
         {selectedDrawing ? (
           <DrawingViewer
             drawing={selectedDrawing}
@@ -253,10 +253,10 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
             onPinAdded={loadSiteStructure}
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-slate-400">
+          <div className="flex items-center justify-center h-full text-blue-200">
             <div className="text-center">
               <FileImage className="w-16 h-16 mx-auto mb-4" />
-              <p className="text-lg font-medium">No drawing selected</p>
+              <p className="text-lg font-medium text-white">No drawing selected</p>
               <p className="text-sm mt-1">Select a drawing from the left panel to view</p>
             </div>
           </div>
