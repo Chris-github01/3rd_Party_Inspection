@@ -121,7 +121,7 @@ export function UploadDrawingModal({
               Drawing File <span className="text-red-500">*</span>
             </label>
             <p className="text-xs text-slate-600 mb-2 bg-blue-50 border border-blue-200 rounded p-2">
-              <strong>Tip:</strong> For pin annotations, upload PNG or JPG images. PDFs can be viewed but cannot be annotated with pins.
+              <strong>Tip:</strong> Both PDF and image files (PNG, JPG) are supported with full pin annotation capabilities.
             </p>
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6">
               <input

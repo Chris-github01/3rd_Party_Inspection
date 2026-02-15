@@ -8,6 +8,7 @@ interface AddPinModalProps {
   levelId: string;
   projectId: string;
   position: { x: number; y: number };
+  pageNumber?: number;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -18,6 +19,7 @@ export function AddPinModal({
   levelId,
   projectId,
   position,
+  pageNumber = 1,
   onClose,
   onSuccess,
 }: AddPinModalProps) {
@@ -99,6 +101,7 @@ export function AddPinModal({
           status,
           member_id: selectedMemberId || null,
           inspection_id: selectedInspectionId || null,
+          page_number: pageNumber,
         },
       ]);
 

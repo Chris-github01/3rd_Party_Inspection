@@ -6,9 +6,11 @@ import {
   Maximize2,
   MapPin,
   Plus,
-  FileImage,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { pdfjsLib } from '../../lib/pdfjs';
 import { AddPinModal } from './AddPinModal';
 import { PinDetailModal } from './PinDetailModal';
 
@@ -35,6 +37,7 @@ interface Pin {
   pin_type: 'inspection' | 'member' | 'ncr' | 'note';
   status: 'not_started' | 'in_progress' | 'pass' | 'repair_required';
   created_at: string;
+  page_number?: number;
 }
 
 interface DrawingViewerProps {
@@ -57,36 +60,96 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
   const [imageUrl, setImageUrl] = useState<string>('');
   const [imageLoading, setImageLoading] = useState(true);
   const [isPdf, setIsPdf] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
+  const [renderedWidth, setRenderedWidth] = useState(0);
+  const [renderedHeight, setRenderedHeight] = useState(0);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const pdfDocRef = useRef<any>(null);
 
   useEffect(() => {
     loadPins();
-    loadImage();
+    loadContent();
   }, [drawing.id]);
 
-  const loadImage = async () => {
+  useEffect(() => {
+    if (isPdf && pdfDocRef.current) {
+      renderPdfPage(currentPage);
+    }
+  }, [currentPage]);
+
+  const loadContent = async () => {
     try {
       setImageLoading(true);
 
-      // Check if it's a PDF based on file extension
       const isPdfFile = drawing.preview_image_path.toLowerCase().endsWith('.pdf');
       setIsPdf(isPdfFile);
 
-      // Check if it's already a full URL
+      let url = '';
       if (drawing.preview_image_path.startsWith('http')) {
-        setImageUrl(drawing.preview_image_path);
+        url = drawing.preview_image_path;
       } else {
-        // It's a storage path, generate public URL
         const { data } = supabase.storage
           .from('documents')
           .getPublicUrl(drawing.preview_image_path);
-        setImageUrl(data.publicUrl);
+        url = data.publicUrl;
+      }
+      setImageUrl(url);
+
+      if (isPdfFile) {
+        await loadPdf(url);
       }
     } catch (error) {
-      console.error('Error loading image:', error);
+      console.error('Error loading content:', error);
     } finally {
       setImageLoading(false);
+    }
+  };
+
+  const loadPdf = async (url: string) => {
+    try {
+      const loadingTask = pdfjsLib.getDocument(url);
+      const pdf = await loadingTask.promise;
+      pdfDocRef.current = pdf;
+      setPageCount(pdf.numPages);
+      setCurrentPage(drawing.page_number || 1);
+      await renderPdfPage(drawing.page_number || 1);
+    } catch (error) {
+      console.error('Error loading PDF:', error);
+    }
+  };
+
+  const renderPdfPage = async (pageNum: number) => {
+    if (!pdfDocRef.current || !canvasRef.current) return;
+
+    try {
+      const page = await pdfDocRef.current.getPage(pageNum);
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+
+      const scale = 1.5 * window.devicePixelRatio;
+      const viewport = page.getViewport({ scale });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = `${viewport.width / window.devicePixelRatio}px`;
+      canvas.style.height = `${viewport.height / window.devicePixelRatio}px`;
+
+      setRenderedWidth(viewport.width / window.devicePixelRatio);
+      setRenderedHeight(viewport.height / window.devicePixelRatio);
+
+      const renderContext = {
+        canvasContext: context!,
+        viewport: viewport,
+      };
+
+      await page.render(renderContext).promise;
+    } catch (error) {
+      console.error('Error rendering PDF page:', error);
     }
   };
 
@@ -104,6 +167,11 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
       console.error('Error loading pins:', error);
     }
   };
+
+  const filteredPins = pins.filter((pin) => {
+    if (!isPdf) return true;
+    return (pin.page_number || 1) === currentPage;
+  });
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(prev + 0.25, 3));
@@ -137,10 +205,13 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
     setIsPanning(false);
   };
 
-  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!addingPin || !imageRef.current) return;
+  const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!addingPin) return;
 
-    const rect = imageRef.current.getBoundingClientRect();
+    const targetElement = isPdf ? canvasRef.current : imageRef.current;
+    if (!targetElement) return;
+
+    const rect = targetElement.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
 
@@ -172,12 +243,24 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
     }
   };
 
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < pageCount) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   return (
     <div className="relative h-full flex flex-col bg-slate-900">
       <div className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
         <div className="flex items-center gap-4">
           <h3 className="text-white font-semibold">
-            Drawing {drawing.page_number || 1}
+            {isPdf && pageCount > 1 ? `Drawing - Page ${currentPage} of ${pageCount}` : `Drawing ${drawing.page_number || 1}`}
           </h3>
           {drawing.scale_factor && (
             <span className="text-xs text-slate-400">
@@ -187,6 +270,30 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
         </div>
 
         <div className="flex items-center gap-2">
+          {isPdf && pageCount > 1 && (
+            <div className="flex items-center gap-1 bg-slate-700 rounded-lg p-1 mr-2">
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className="p-2 text-white hover:bg-slate-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-2 text-white text-sm">
+                {currentPage} / {pageCount}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === pageCount}
+                className="p-2 text-white hover:bg-slate-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <button
             onClick={() => setAddingPin(!addingPin)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
@@ -242,7 +349,6 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onClick={handleImageClick}
         style={{ cursor: addingPin ? 'crosshair' : isPanning ? 'grabbing' : 'grab' }}
       >
         <div
@@ -253,42 +359,64 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
             transition: isPanning ? 'none' : 'transform 0.2s ease-out',
           }}
         >
-          <div className="relative">
+          <div ref={contentRef} className="relative" onClick={handleContentClick}>
             {imageLoading ? (
               <div className="flex items-center justify-center min-w-[400px] min-h-[400px]">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
               </div>
             ) : isPdf ? (
-              <div className="flex items-center justify-center min-w-[600px] min-h-[400px] text-white">
-                <div className="text-center max-w-md bg-slate-800 p-8 rounded-lg border border-slate-600">
-                  <FileImage className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                  <p className="text-lg mb-2 font-semibold">PDF Drawing Detected</p>
-                  <p className="text-sm text-slate-300 mb-4">
-                    PDF files cannot be annotated with pins. To use the pin annotation feature, please:
-                  </p>
-                  <ol className="text-sm text-slate-300 text-left space-y-2 mb-4">
-                    <li>1. Convert the PDF to an image (PNG or JPG)</li>
-                    <li>2. Re-upload the image file</li>
-                  </ol>
-                  <a
-                    href={imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                  >
-                    View PDF
-                  </a>
+              <>
+                <canvas
+                  ref={canvasRef}
+                  className="select-none"
+                  style={{ display: 'block' }}
+                />
+                <div className="absolute inset-0 pointer-events-none">
+                  {filteredPins.map((pin) => (
+                    <button
+                      key={pin.id}
+                      onClick={(e) => handlePinClick(pin, e)}
+                      className={`absolute w-8 h-8 -ml-4 -mt-8 ${getPinColor(
+                        pin.status
+                      )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center pointer-events-auto`}
+                      style={{
+                        left: `${pin.x * 100}%`,
+                        top: `${pin.y * 100}%`,
+                      }}
+                      title={pin.label}
+                    >
+                      <MapPin className="w-5 h-5 text-white fill-current" />
+                    </button>
+                  ))}
                 </div>
-              </div>
+              </>
             ) : imageUrl ? (
-              <img
-                ref={imageRef}
-                src={imageUrl}
-                alt="Drawing"
-                className="max-w-full max-h-full select-none"
-                draggable={false}
-                onError={() => console.error('Failed to load image:', imageUrl)}
-              />
+              <>
+                <img
+                  ref={imageRef}
+                  src={imageUrl}
+                  alt="Drawing"
+                  className="max-w-full max-h-full select-none"
+                  draggable={false}
+                  onError={() => console.error('Failed to load image:', imageUrl)}
+                />
+                {filteredPins.map((pin) => (
+                  <button
+                    key={pin.id}
+                    onClick={(e) => handlePinClick(pin, e)}
+                    className={`absolute w-8 h-8 -ml-4 -mt-8 ${getPinColor(
+                      pin.status
+                    )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center`}
+                    style={{
+                      left: `${pin.x * 100}%`,
+                      top: `${pin.y * 100}%`,
+                    }}
+                    title={pin.label}
+                  >
+                    <MapPin className="w-5 h-5 text-white fill-current" />
+                  </button>
+                ))}
+              </>
             ) : (
               <div className="flex items-center justify-center min-w-[400px] min-h-[400px] text-white">
                 <div className="text-center">
@@ -297,23 +425,6 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
                 </div>
               </div>
             )}
-
-            {pins.map((pin) => (
-              <button
-                key={pin.id}
-                onClick={(e) => handlePinClick(pin, e)}
-                className={`absolute w-8 h-8 -ml-4 -mt-8 ${getPinColor(
-                  pin.status
-                )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center`}
-                style={{
-                  left: `${pin.x * 100}%`,
-                  top: `${pin.y * 100}%`,
-                }}
-                title={pin.label}
-              >
-                <MapPin className="w-5 h-5 text-white fill-current" />
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -321,7 +432,7 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
       <div className="px-4 py-2 bg-slate-800 border-t border-slate-700">
         <div className="flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-4">
-            <span>{pins.length} pins</span>
+            <span>{filteredPins.length} pins{isPdf && pageCount > 1 ? ' on this page' : ''}</span>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
@@ -356,6 +467,7 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
           levelId={drawing.level_id}
           projectId={projectId}
           position={newPinPosition}
+          pageNumber={isPdf ? currentPage : 1}
           onClose={() => {
             setShowAddPin(false);
             setNewPinPosition(null);
