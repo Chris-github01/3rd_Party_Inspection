@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +17,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    console.log("Parse loading schedule function invoked");
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -28,14 +30,20 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    const { importId }: ParseRequest = await req.json();
+    const body = await req.json();
+    console.log("Request body:", body);
+
+    const { importId }: ParseRequest = body;
 
     if (!importId) {
+      console.error("Missing importId");
       return new Response(
         JSON.stringify({ error: "importId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("Fetching import record:", importId);
 
     // Fetch import record
     const { data: importRecord, error: fetchError } = await supabaseClient
@@ -51,6 +59,8 @@ Deno.serve(async (req: Request) => {
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("Import record found:", importRecord);
 
     // Fetch document separately
     const { data: document, error: docError } = await supabaseClient
@@ -76,11 +86,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log("Document found:", document);
+
     // Update status to running
     await supabaseClient
       .from("loading_schedule_imports")
       .update({ status: "running" })
       .eq("id", importId);
+
+    console.log("Downloading file from storage:", document.storage_path);
 
     // Download file from storage
     const { data: fileData, error: downloadError } = await supabaseClient.storage
@@ -104,6 +118,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log("File downloaded, size:", fileData.size);
+
     // Parse based on source type
     const artifact = {
       importId,
@@ -120,10 +136,14 @@ Deno.serve(async (req: Request) => {
 
     try {
       if (importRecord.source_type === "csv") {
+        console.log("Parsing CSV file");
         // Parse CSV
         const text = await fileData.text();
         const lines = text.split("\n").filter((line) => line.trim());
+        console.log("CSV lines:", lines.length);
+
         const headers = lines[0].split(",").map((h) => h.trim());
+        console.log("CSV headers:", headers);
 
         for (let i = 1; i < lines.length; i++) {
           const values = lines[i].split(",").map((v) => v.trim());
@@ -137,6 +157,8 @@ Deno.serve(async (req: Request) => {
             extractedItems.push(item);
           }
         }
+
+        console.log("Extracted items:", extractedItems.length);
 
         artifact.pages.push({
           pageNumber: 1,
@@ -165,6 +187,7 @@ Deno.serve(async (req: Request) => {
         });
       }
     } catch (parseError: any) {
+      console.error("Parse error:", parseError);
       artifact.pages.push({
         pageNumber: 1,
         method: "none",
@@ -173,23 +196,35 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    console.log("Uploading artifact to storage");
+
     // Upload artifact JSON
     const artifactPath = `loading-schedules/${importId}/artifact.json`;
-    await supabaseClient.storage
+    const { error: artifactUploadError } = await supabaseClient.storage
       .from("parsing-artifacts")
       .upload(artifactPath, JSON.stringify(artifact, null, 2), {
         contentType: "application/json",
         upsert: true,
       });
 
+    if (artifactUploadError) {
+      console.error("Failed to upload artifact:", artifactUploadError);
+    }
+
     // Upload result JSON
     const resultPath = `loading-schedules/${importId}/result.json`;
-    await supabaseClient.storage
+    const { error: resultUploadError } = await supabaseClient.storage
       .from("parsing-artifacts")
       .upload(resultPath, JSON.stringify(extractedItems, null, 2), {
         contentType: "application/json",
         upsert: true,
       });
+
+    if (resultUploadError) {
+      console.error("Failed to upload result:", resultUploadError);
+    }
+
+    console.log("Inserting items into database");
 
     // Insert items into loading_schedule_items
     if (extractedItems.length > 0) {
@@ -213,6 +248,8 @@ Deno.serve(async (req: Request) => {
       ? "completed"
       : "partial_completed";
 
+    console.log("Final status:", finalStatus);
+
     // Update import record
     await supabaseClient
       .from("loading_schedule_imports")
@@ -223,6 +260,8 @@ Deno.serve(async (req: Request) => {
         page_count: artifact.pages.length,
       })
       .eq("id", importId);
+
+    console.log("Parse complete");
 
     return new Response(
       JSON.stringify({
@@ -235,9 +274,14 @@ Deno.serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
-    console.error("Error:", error);
+    console.error("Unhandled error:", error);
+    console.error("Error stack:", error.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        error: error.message,
+        stack: error.stack,
+        name: error.name
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

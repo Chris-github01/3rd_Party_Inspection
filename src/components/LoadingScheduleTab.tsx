@@ -155,6 +155,8 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
 
       // Trigger parsing
       setParsing(true);
+      console.log('Invoking parse-loading-schedule with importId:', importData.id);
+
       const { data: parseResult, error: parseError } = await supabase.functions.invoke(
         'parse-loading-schedule',
         {
@@ -162,9 +164,12 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         }
       );
 
+      console.log('Parse response:', { data: parseResult, error: parseError });
+
       if (parseError) {
         console.error('Parse error:', parseError);
         console.error('Parse error details:', JSON.stringify(parseError, null, 2));
+        console.error('Parse error context:', parseError.context);
 
         // Update import status to failed
         await supabase
@@ -176,9 +181,14 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
           })
           .eq('id', importData.id);
 
-        alert('Failed to parse schedule: ' + (parseError.message || 'Unknown error. Check console for details.'));
+        const errorMsg = parseError.message || 'Unknown error';
+        const errorDetails = parseError.context?.error || parseError.context || '';
+        alert(`Failed to parse schedule:\n${errorMsg}\n\n${errorDetails}\n\nCheck browser console for full details.`);
       } else {
         console.log('Parse result:', parseResult);
+        if (parseResult?.success) {
+          console.log(`Successfully parsed ${parseResult.itemsExtracted} items`);
+        }
       }
 
       // Reload imports
