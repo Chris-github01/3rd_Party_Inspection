@@ -40,13 +40,38 @@ Deno.serve(async (req: Request) => {
     // Fetch import record
     const { data: importRecord, error: fetchError } = await supabaseClient
       .from("loading_schedule_imports")
-      .select("*, document:documents(*)")
+      .select("*")
       .eq("id", importId)
       .single();
 
     if (fetchError || !importRecord) {
+      console.error("Failed to fetch import record:", fetchError);
       return new Response(
-        JSON.stringify({ error: "Import not found", details: fetchError }),
+        JSON.stringify({ error: "Import not found", details: fetchError?.message || "Unknown error" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch document separately
+    const { data: document, error: docError } = await supabaseClient
+      .from("documents")
+      .select("*")
+      .eq("id", importRecord.document_id)
+      .single();
+
+    if (docError || !document) {
+      console.error("Failed to fetch document:", docError);
+      await supabaseClient
+        .from("loading_schedule_imports")
+        .update({
+          status: "failed",
+          error_code: "DOCUMENT_NOT_FOUND",
+          error_message: "Document record not found",
+        })
+        .eq("id", importId);
+
+      return new Response(
+        JSON.stringify({ error: "Document not found", details: docError?.message || "Unknown error" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -60,9 +85,10 @@ Deno.serve(async (req: Request) => {
     // Download file from storage
     const { data: fileData, error: downloadError } = await supabaseClient.storage
       .from("documents")
-      .download(importRecord.document.storage_path);
+      .download(document.storage_path);
 
     if (downloadError || !fileData) {
+      console.error("Failed to download file:", downloadError);
       await supabaseClient
         .from("loading_schedule_imports")
         .update({
@@ -73,7 +99,7 @@ Deno.serve(async (req: Request) => {
         .eq("id", importId);
 
       return new Response(
-        JSON.stringify({ error: "Failed to download file", details: downloadError }),
+        JSON.stringify({ error: "Failed to download file", details: downloadError?.message || "Unknown error" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -84,7 +110,7 @@ Deno.serve(async (req: Request) => {
       sourceType: importRecord.source_type,
       pages: [] as any[],
       metadata: {
-        fileName: importRecord.document.filename,
+        fileName: document.filename,
         fileSize: fileData.size,
         parsedAt: new Date().toISOString(),
       },

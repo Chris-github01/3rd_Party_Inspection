@@ -62,19 +62,27 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
       setLoading(true);
       const { data, error } = await supabase
         .from('loading_schedule_imports')
-        .select('*, document:documents(*)')
+        .select(`
+          *,
+          document:documents(*)
+        `)
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading imports:', error);
+        throw error;
+      }
+
       setImports(data || []);
 
       // Auto-select most recent if available
       if (data && data.length > 0 && !selectedImport) {
         setSelectedImport(data[0]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading imports:', error);
+      alert('Failed to load imports: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -156,12 +164,31 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
 
       if (parseError) {
         console.error('Parse error:', parseError);
-        alert('Failed to parse schedule: ' + parseError.message);
+        console.error('Parse error details:', JSON.stringify(parseError, null, 2));
+
+        // Update import status to failed
+        await supabase
+          .from('loading_schedule_imports')
+          .update({
+            status: 'failed',
+            error_code: 'EDGE_FUNCTION_ERROR',
+            error_message: parseError.message || 'Edge function returned an error',
+          })
+          .eq('id', importData.id);
+
+        alert('Failed to parse schedule: ' + (parseError.message || 'Unknown error. Check console for details.'));
+      } else {
+        console.log('Parse result:', parseResult);
       }
 
       // Reload imports
       await loadImports();
-      setSelectedImport(importData);
+      if (parseError) {
+        // If parsing failed, don't auto-select the failed import
+        setSelectedImport(null);
+      } else {
+        setSelectedImport(importData);
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
       alert('Failed to upload: ' + error.message);

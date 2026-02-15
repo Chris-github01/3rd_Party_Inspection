@@ -1,0 +1,7 @@
+member_mark,section,frr,dft,coating,element_type,schedule_ref
+B10,610UB125,60,850,Nullifire SC601,beam,LS-001
+C5,310UC137,90,1200,Nullifire SC601,column,LS-002
+B11,410UB54,60,750,Nullifire SC601,beam,LS-003
+C6,310UC137,90,1200,Nullifire SC601,column,LS-004
+BR1,150x150x10RHS,60,650,Nullifire SC601,brace,LS-005
+B12,530UB82,60,800,Nullifire SC601,beam,LS-006
