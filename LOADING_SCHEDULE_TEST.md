@@ -7,13 +7,18 @@
 2. **Import error**: "Failed to load imports: TypeError: Failed to fetch"
 
 ### Root Causes:
-1. **Incorrect relationship query** in edge function (using `document:documents(*)` syntax that doesn't work in Deno)
-2. **Missing storage policies** for the `parsing-artifacts` bucket
-3. **Insufficient error logging** to diagnose issues
+1. **401 Unauthorized error** - Edge function had JWT verification enabled but wasn't properly handling user authentication
+2. **Incorrect relationship query** in edge function (using `document:documents(*)` syntax that doesn't work in Deno)
+3. **Missing storage policies** for the `parsing-artifacts` bucket
+4. **Insufficient error logging** to diagnose issues
 
 ### Fixes Applied:
 
 #### 1. Edge Function (`parse-loading-schedule`)
+- ✅ **Fixed authentication** - Disabled JWT verification and added manual auth checks inside function
+- ✅ Validates user authentication using the Authorization header
+- ✅ Uses service role client for database operations (bypasses RLS)
+- ✅ Uses user client to verify the requesting user is authenticated
 - ✅ Changed to fetch import and document records separately (no joins)
 - ✅ Added comprehensive console logging at every step
 - ✅ Improved error handling with detailed error messages
@@ -38,6 +43,8 @@
 The edge function now logs every step. You'll see:
 ```
 Parse loading schedule function invoked
+Auth header present: true
+User authenticated: abc-123-def...
 Request body: { importId: "..." }
 Fetching import record: ...
 Import record found: {...}
@@ -132,6 +139,12 @@ Open browser console (F12) and check for:
    - Check RLS policies are enabled
 
 ### Common Issues:
+
+**"401 Unauthorized" or "Edge Function returned a non-2xx status code"**
+- This was the main issue - now fixed!
+- Edge function now handles authentication manually
+- Make sure you're logged in to the application
+- Check that the Authorization header is being sent with the request
 
 **"Failed to fetch document"**
 - Document record might not exist

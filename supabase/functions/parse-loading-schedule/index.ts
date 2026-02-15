@@ -19,6 +19,11 @@ Deno.serve(async (req: Request) => {
   try {
     console.log("Parse loading schedule function invoked");
 
+    // Get the authorization header to verify the user
+    const authHeader = req.headers.get("Authorization");
+    console.log("Auth header present:", !!authHeader);
+
+    // Create service role client for database operations
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -29,6 +34,32 @@ Deno.serve(async (req: Request) => {
         },
       }
     );
+
+    // Also create a client with the user's token to verify access
+    const supabaseUserClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: authHeader ? { Authorization: authHeader } : {},
+        },
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // Verify user is authenticated
+    const { data: { user }, error: authError } = await supabaseUserClient.auth.getUser();
+    if (authError || !user) {
+      console.error("Authentication failed:", authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - user not authenticated" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    console.log("User authenticated:", user.id);
 
     const body = await req.json();
     console.log("Request body:", body);
