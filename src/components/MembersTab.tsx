@@ -36,6 +36,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadMembers();
@@ -122,6 +123,24 @@ export function MembersTab({ projectId }: { projectId: string }) {
     a.click();
   };
 
+  const toggleSelectAll = () => {
+    if (selectedMembers.size === members.length) {
+      setSelectedMembers(new Set());
+    } else {
+      setSelectedMembers(new Set(members.map(m => m.id)));
+    }
+  };
+
+  const toggleSelectMember = (memberId: string) => {
+    const newSelected = new Set(selectedMembers);
+    if (newSelected.has(memberId)) {
+      newSelected.delete(memberId);
+    } else {
+      newSelected.add(memberId);
+    }
+    setSelectedMembers(newSelected);
+  };
+
   const canEdit = profile?.role === 'admin' || profile?.role === 'inspector';
 
   if (loading) {
@@ -130,34 +149,50 @@ export function MembersTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-6">
-      {canEdit && (
-        <div className="flex gap-3">
-          <button
-            onClick={() => {
-              setEditingMember(null);
-              setShowModal(true);
-            }}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Member
-          </button>
-          <label className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer">
-            <Upload className="w-5 h-5 mr-2" />
-            Import CSV
-            <input type="file" accept=".csv" onChange={handleCSVImport} className="hidden" />
-          </label>
-          {members.length > 0 && (
+      <div className="flex items-center justify-between gap-3">
+        {canEdit && (
+          <div className="flex gap-3">
             <button
-              onClick={exportToCSV}
-              className="flex items-center px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+              onClick={() => {
+                setEditingMember(null);
+                setShowModal(true);
+              }}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              <Download className="w-5 h-5 mr-2" />
-              Export CSV
+              <Plus className="w-5 h-5 mr-2" />
+              Add Member
             </button>
-          )}
-        </div>
-      )}
+            <label className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer">
+              <Upload className="w-5 h-5 mr-2" />
+              Import CSV
+              <input type="file" accept=".csv" onChange={handleCSVImport} className="hidden" />
+            </label>
+            {members.length > 0 && (
+              <button
+                onClick={exportToCSV}
+                className="flex items-center px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Export CSV
+              </button>
+            )}
+          </div>
+        )}
+
+        {selectedMembers.size > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-200">
+            <span className="text-sm font-medium">
+              {selectedMembers.size} member{selectedMembers.size !== 1 ? 's' : ''} selected
+            </span>
+            <button
+              onClick={() => setSelectedMembers(new Set())}
+              className="text-xs text-blue-300 hover:text-blue-100 underline"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden">
         {members.length === 0 ? (
@@ -169,6 +204,14 @@ export function MembersTab({ projectId }: { projectId: string }) {
             <table className="w-full">
               <thead className="bg-white/10 backdrop-blur-sm border-b border-white/10">
                 <tr>
+                  <th className="px-4 py-3 text-center w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedMembers.size === members.length && members.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-white/20 bg-white/10 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Member Mark
                   </th>
@@ -206,8 +249,17 @@ export function MembersTab({ projectId }: { projectId: string }) {
               <tbody className="divide-y divide-white/10">
                 {members.map((member) => {
                   const status = STATUSES.find((s) => s.value === member.status);
+                  const isSelected = selectedMembers.has(member.id);
                   return (
-                    <tr key={member.id} className="hover:bg-white/5">
+                    <tr key={member.id} className={`hover:bg-white/5 ${isSelected ? 'bg-blue-500/10' : ''}`}>
+                      <td className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectMember(member.id)}
+                          className="w-4 h-4 rounded border-white/20 bg-white/10 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3 text-sm font-medium text-white">
                         {member.member_mark}
                       </td>
