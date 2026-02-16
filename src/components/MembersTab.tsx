@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Upload, Edit, Trash2, Download } from 'lucide-react';
+import { Plus, Upload, Edit, Trash2, Download, FlaskConical } from 'lucide-react';
 import Papa from 'papaparse';
 import { normalizeFRRValue } from '../lib/frrUtils';
+import { generateSimulatedReadings, calculateSummary, type MemberConfig } from '../lib/simulationUtils';
 
 interface Member {
   id: string;
@@ -37,6 +38,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   useEffect(() => {
     loadMembers();
@@ -180,16 +182,25 @@ export function MembersTab({ projectId }: { projectId: string }) {
         )}
 
         {selectedMembers.size > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-200">
-            <span className="text-sm font-medium">
-              {selectedMembers.size} member{selectedMembers.size !== 1 ? 's' : ''} selected
-            </span>
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setSelectedMembers(new Set())}
-              className="text-xs text-blue-300 hover:text-blue-100 underline"
+              onClick={() => setShowGenerateModal(true)}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
-              Clear
+              <FlaskConical className="w-5 h-5 mr-2" />
+              Generate Test Readings
             </button>
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-200">
+              <span className="text-sm font-medium">
+                {selectedMembers.size} member{selectedMembers.size !== 1 ? 's' : ''} selected
+              </span>
+              <button
+                onClick={() => setSelectedMembers(new Set())}
+                className="text-xs text-blue-300 hover:text-blue-100 underline"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -325,6 +336,18 @@ export function MembersTab({ projectId }: { projectId: string }) {
             setShowModal(false);
             setEditingMember(null);
             loadMembers();
+          }}
+        />
+      )}
+
+      {showGenerateModal && (
+        <GenerateReadingsModal
+          projectId={projectId}
+          selectedMembers={members.filter(m => selectedMembers.has(m.id))}
+          onClose={() => setShowGenerateModal(false)}
+          onGenerated={() => {
+            setShowGenerateModal(false);
+            setSelectedMembers(new Set());
           }}
         />
       )}
@@ -536,6 +559,254 @@ function MemberModal({
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function GenerateReadingsModal({
+  projectId,
+  selectedMembers,
+  onClose,
+  onGenerated,
+}: {
+  projectId: string;
+  selectedMembers: Member[];
+  onClose: () => void;
+  onGenerated: () => void;
+}) {
+  const [lowestValue, setLowestValue] = useState<number>(400);
+  const [highestValue, setHighestValue] = useState<number>(550);
+  const [readingsPerMember, setReadingsPerMember] = useState<number>(100);
+  const [generating, setGenerating] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const validateInputs = (): string[] => {
+    const errs: string[] = [];
+
+    if (isNaN(lowestValue) || lowestValue <= 0) {
+      errs.push('Lowest Value must be a positive number');
+    }
+    if (isNaN(highestValue) || highestValue <= 0) {
+      errs.push('Highest Value must be a positive number');
+    }
+    if (lowestValue >= highestValue) {
+      errs.push('Lowest Value must be less than Highest Value');
+    }
+    if (isNaN(readingsPerMember) || readingsPerMember < 1) {
+      errs.push('Readings per Member must be at least 1');
+    }
+
+    return errs;
+  };
+
+  const handleGenerate = async () => {
+    const validationErrors = validateInputs();
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setErrors([]);
+    setGenerating(true);
+
+    try {
+      for (const member of selectedMembers) {
+        const { data: inspection, error: inspectionError } = await supabase
+          .from('inspections')
+          .insert({
+            project_id: projectId,
+            member_id: member.id,
+            inspection_date_time: new Date().toISOString(),
+            location_label: `${member.member_mark} Test Data`,
+            level: member.level || 'N/A',
+            block: member.block || 'N/A',
+            appearance: 'Simulated',
+            result: 'pass',
+            inspection_status: 'draft',
+            dft_simulation_enabled: true,
+          })
+          .select()
+          .single();
+
+        if (inspectionError) throw inspectionError;
+
+        const config: MemberConfig = {
+          memberName: member.member_mark,
+          requiredThickness: member.required_dft_microns || 425,
+          minValue: lowestValue,
+          maxValue: highestValue,
+          readingsPerMember,
+        };
+
+        const readings = generateSimulatedReadings(config);
+        const summary = calculateSummary(member.member_mark, config, readings);
+
+        const { data: memberSet, error: memberSetError } = await supabase
+          .from('inspection_member_sets')
+          .insert({
+            inspection_id: inspection.id,
+            member_name: member.member_mark,
+            required_thickness_microns: member.required_dft_microns || 425,
+            min_value_microns: lowestValue,
+            max_value_microns: highestValue,
+            readings_per_member: readingsPerMember,
+            is_simulated: true,
+            summary_json: summary,
+          })
+          .select()
+          .single();
+
+        if (memberSetError) throw memberSetError;
+
+        const readingsToInsert = readings.map((r) => ({
+          member_set_id: memberSet.id,
+          reading_no: r.readingNo,
+          dft_microns: r.dftMicrons,
+        }));
+
+        const { error: readingsError } = await supabase
+          .from('inspection_member_readings')
+          .insert(readingsToInsert);
+
+        if (readingsError) throw readingsError;
+      }
+
+      alert(`Successfully generated ${readingsPerMember} readings for ${selectedMembers.length} member(s)`);
+      onGenerated();
+    } catch (error: any) {
+      console.error('Error generating readings:', error);
+      setErrors([`Failed to generate readings: ${error.message}`]);
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-800 rounded-lg max-w-2xl w-full border border-slate-700">
+        <div className="px-6 py-4 border-b border-slate-700">
+          <h2 className="text-2xl font-bold text-white">Generate Test Readings</h2>
+          <p className="text-sm text-slate-400 mt-1">
+            Configure parameters to generate simulated DFT readings for {selectedMembers.length} selected member(s)
+          </p>
+        </div>
+
+        <div className="px-6 py-6">
+          <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <FlaskConical className="w-5 h-5 text-amber-300 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-200">
+                <strong>Simulation Mode for demonstration purposes only.</strong>
+                <br />
+                Generated values are not actual field measurements.
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Lowest Value (µm) *
+                </label>
+                <input
+                  type="number"
+                  value={lowestValue}
+                  onChange={(e) => setLowestValue(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-green-500"
+                  min="0"
+                  step="1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Highest Value (µm) *
+                </label>
+                <input
+                  type="number"
+                  value={highestValue}
+                  onChange={(e) => setHighestValue(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-green-500"
+                  min="0"
+                  step="1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Readings per Member *
+                </label>
+                <input
+                  type="number"
+                  value={readingsPerMember}
+                  onChange={(e) => setReadingsPerMember(Number(e.target.value))}
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-green-500"
+                  min="1"
+                  step="1"
+                />
+              </div>
+            </div>
+
+            <div className="bg-slate-700/50 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-slate-300 mb-2">Selected Members:</h3>
+              <div className="flex flex-wrap gap-2">
+                {selectedMembers.map((member) => (
+                  <span
+                    key={member.id}
+                    className="px-3 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-200 rounded-full text-sm"
+                  >
+                    {member.member_mark}
+                    {member.required_dft_microns && (
+                      <span className="ml-1 text-blue-300">
+                        (Req: {member.required_dft_microns}µm)
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {errors.length > 0 && (
+              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4">
+                <ul className="list-disc list-inside text-sm text-red-200">
+                  {errors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={generating}
+            className="px-4 py-2 text-white hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+          >
+            {generating ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <FlaskConical className="w-4 h-4" />
+                Generate Readings
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
