@@ -170,7 +170,10 @@ export function MembersTab({ projectId }: { projectId: string }) {
               .order('reading_no');
 
             if (readings) {
-              readings.forEach((reading: any) => {
+              // Sort readings by reading_no to ensure sequential order 1-100
+              const sortedReadings = readings.sort((a: any, b: any) => a.reading_no - b.reading_no);
+
+              sortedReadings.forEach((reading: any, index: number) => {
                 allReadingsData.push({
                   'Member Mark': member.member_mark,
                   'Element Type': member.element_type,
@@ -180,7 +183,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
                   'FRR (min)': member.frr_minutes,
                   'Coating System': member.coating_system,
                   'Required DFT (µm)': member.required_dft_microns,
-                  'Reading No': reading.reading_no,
+                  'Reading Number': reading.reading_no, // Use the stored reading number (1-100)
                   'DFT Value (µm)': reading.dft_microns,
                   'Date': new Date(inspection.created_at).toLocaleDateString(),
                 });
@@ -237,10 +240,13 @@ export function MembersTab({ projectId }: { projectId: string }) {
               .order('reading_no');
 
             if (readings) {
+              // Sort readings to ensure sequential order 1-100
+              const sortedReadings = readings.sort((a: any, b: any) => a.reading_no - b.reading_no);
+
               membersWithReadings.push({
                 member,
                 memberSet,
-                readings,
+                readings: sortedReadings,
                 inspectionDate: new Date(inspection.created_at),
               });
             }

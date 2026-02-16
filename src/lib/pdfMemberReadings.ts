@@ -151,9 +151,12 @@ export async function generateMemberReadingsPDF(
     const readingsPerRow = 10;
     const readingsRows: any[] = [];
 
-    for (let j = 0; j < readings.length; j += readingsPerRow) {
-      const row = readings.slice(j, j + readingsPerRow).map(r =>
-        `${r.reading_no}: ${r.dft_microns}`
+    // Sort readings to ensure sequential order 1-100
+    const sortedReadings = [...readings].sort((a, b) => a.reading_no - b.reading_no);
+
+    for (let j = 0; j < sortedReadings.length; j += readingsPerRow) {
+      const row = sortedReadings.slice(j, j + readingsPerRow).map(r =>
+        `${r.reading_no}: ${r.dft_microns}µm`
       );
       readingsRows.push(row);
     }
