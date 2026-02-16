@@ -70,20 +70,30 @@ def extract_member_mark(text: str) -> Optional[str]:
     return None
 
 def extract_coating_product(text: str) -> Optional[str]:
-    """Extract coating product name"""
+    """Extract coating product name - preserves all alphanumeric characters and spaces"""
     coating_patterns = [
-        r"(Nullifire\s+\w+)",
-        r"(Carboline\s+\w+)",
-        r"(Steelguard\s+\w+)",
-        r"(Chartek\s+\w+)",
-        r"(Isolatek\s+\w+)",
-        r"(\w+fire\s+\w+)"
+        r"(Interchar\s+\d+\w*)",           # Interchar 212, Interchar 1120
+        r"(Nullifire\s+\S+)",              # Nullifire SC601, Nullifire S607
+        r"(Carboline\s+\S+)",              # Carboline Pyrocrete, etc.
+        r"(Steelguard\s+\S+)",             # Steelguard products
+        r"(Chartek\s+\S+)",                # Chartek products
+        r"(Isolatek\s+\S+)",               # Isolatek products
+        r"(Jotun\s+\S+)",                  # Jotun products
+        r"(International\s+\S+)",          # International Paints
+        r"(PPG\s+\S+)",                    # PPG products
+        r"(Hempel\s+\S+)",                 # Hempel products
+        r"(Sherwin[\-\s]Williams\s+\S+)",  # Sherwin-Williams products
+        r"(\w+fire\s+\S+)",                # Generic *fire products
+        r"(\w+char\s+\S+)"                 # Generic *char products
     ]
 
     for pattern in coating_patterns:
         match = re.search(pattern, text, re.I)
         if match:
-            return match.group(1)
+            product_name = match.group(1).strip()
+            # Clean up excessive whitespace but preserve the name
+            product_name = re.sub(r"\s+", " ", product_name)
+            return product_name
 
     return None
 
