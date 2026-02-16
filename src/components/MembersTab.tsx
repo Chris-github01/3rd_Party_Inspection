@@ -617,14 +617,9 @@ function GenerateReadingsModal({
           .insert({
             project_id: projectId,
             member_id: member.id,
-            inspection_date_time: new Date().toISOString(),
-            location_label: `${member.member_mark} Test Data`,
-            level: member.level || 'N/A',
-            block: member.block || 'N/A',
-            appearance: 'Simulated',
+            inspection_date: new Date().toISOString().split('T')[0],
             result: 'pass',
-            inspection_status: 'draft',
-            dft_simulation_enabled: true,
+            notes: `Simulated test data generated for ${member.member_mark}`,
           })
           .select()
           .single();
