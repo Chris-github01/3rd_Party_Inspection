@@ -304,29 +304,50 @@ export function MembersTab({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        {selectedMembers.size > 0 && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowGenerateModal(true)}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              <FlaskConical className="w-5 h-5 mr-2" />
-              Generate Test Readings
-            </button>
-            <button
-              onClick={exportReadingsToExcel}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Export to Excel
-            </button>
-            <button
-              onClick={exportReadingsToPDF}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Export to PDF
-            </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (selectedMembers.size === 0) {
+                alert('Please select at least one member by checking the checkbox next to it');
+                return;
+              }
+              setShowGenerateModal(true);
+            }}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            title={selectedMembers.size === 0 ? 'Select members first' : `Generate readings for ${selectedMembers.size} member(s)`}
+          >
+            <FlaskConical className="w-5 h-5 mr-2" />
+            Generate Test Readings
+          </button>
+          <button
+            onClick={() => {
+              if (selectedMembers.size === 0) {
+                alert('Please select at least one member by checking the checkbox next to it');
+                return;
+              }
+              exportReadingsToExcel();
+            }}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            title={selectedMembers.size === 0 ? 'Select members first' : `Export readings for ${selectedMembers.size} member(s)`}
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Export to Excel
+          </button>
+          <button
+            onClick={() => {
+              if (selectedMembers.size === 0) {
+                alert('Please select at least one member by checking the checkbox next to it');
+                return;
+              }
+              exportReadingsToPDF();
+            }}
+            className="flex items-center px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+            title={selectedMembers.size === 0 ? 'Select members first' : `Export readings for ${selectedMembers.size} member(s)`}
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Export to PDF
+          </button>
+          {selectedMembers.size > 0 && (
             <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-200">
               <span className="text-sm font-medium">
                 {selectedMembers.size} member{selectedMembers.size !== 1 ? 's' : ''} selected
@@ -338,8 +359,8 @@ export function MembersTab({ projectId }: { projectId: string }) {
                 Clear
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden">
@@ -804,7 +825,7 @@ function GenerateReadingsModal({
         if (readingsError) throw readingsError;
       }
 
-      alert(`Successfully generated ${readingsPerMember} readings for ${selectedMembers.length} member(s)`);
+      alert(`Successfully generated and saved ${readingsPerMember} readings for ${selectedMembers.length} member(s). You can now export these readings using the Export buttons.`);
       onGenerated();
     } catch (error: any) {
       console.error('Error generating readings:', error);
