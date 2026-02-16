@@ -46,6 +46,8 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
   const [parsing, setParsing] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
 
   useEffect(() => {
     loadImports();
@@ -107,20 +109,29 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    let progressInterval: NodeJS.Timeout | null = null;
+
     try {
       setUploading(true);
+      setProgress(0);
+      setProgressMessage('Preparing upload...');
 
       // Determine source type
       const ext = file.name.split('.').pop()?.toLowerCase();
       const sourceType = ext === 'csv' ? 'csv' : ext === 'xlsx' ? 'xlsx' : ext === 'pdf' ? 'pdf' : 'other';
 
       // Upload to documents storage
+      setProgress(10);
+      setProgressMessage('Uploading file to storage...');
       const filename = `loading-schedule-${Date.now()}-${file.name}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')
         .upload(filename, file);
 
       if (uploadError) throw uploadError;
+
+      setProgress(30);
+      setProgressMessage('File uploaded, creating record...');
 
       // Create document record
       const { data: docData, error: docError } = await supabase
@@ -139,6 +150,9 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
 
       if (docError) throw docError;
 
+      setProgress(40);
+      setProgressMessage('Document record created...');
+
       // Create loading_schedule_imports record
       const { data: importData, error: importError } = await supabase
         .from('loading_schedule_imports')
@@ -155,7 +169,19 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
 
       // Trigger parsing
       setParsing(true);
+      setProgress(50);
+      setProgressMessage(`Parsing ${sourceType.toUpperCase()} file...`);
       console.log('Invoking parse-loading-schedule with importId:', importData.id);
+
+      // Simulate progress during parsing (since it can take time)
+      progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev < 80) {
+            return prev + 2;
+          }
+          return prev;
+        });
+      }, 500);
 
       const { data: parseResult, error: parseError } = await supabase.functions.invoke(
         'parse-loading-schedule',
@@ -164,6 +190,9 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         }
       );
 
+      clearInterval(progressInterval);
+      setProgress(85);
+      setProgressMessage('Parsing complete, saving results...');
       console.log('Parse response:', { data: parseResult, error: parseError });
 
       if (parseError) {
@@ -221,7 +250,13 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
       }
 
       // Reload imports
+      setProgress(95);
+      setProgressMessage('Loading results...');
       await loadImports();
+
+      setProgress(100);
+      setProgressMessage('Complete!');
+
       if (parseError) {
         // If parsing failed, don't auto-select the failed import
         setSelectedImport(null);
@@ -229,11 +264,19 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         setSelectedImport(importData);
       }
     } catch (error: any) {
+      if (progressInterval) clearInterval(progressInterval);
       console.error('Upload error:', error);
       alert('Failed to upload: ' + error.message);
+      setProgress(0);
+      setProgressMessage('');
     } finally {
-      setUploading(false);
-      setParsing(false);
+      if (progressInterval) clearInterval(progressInterval);
+      setTimeout(() => {
+        setUploading(false);
+        setParsing(false);
+        setProgress(0);
+        setProgressMessage('');
+      }, 1000);
       e.target.value = '';
     }
   };
@@ -341,9 +384,33 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
           Upload a fire protection loading schedule (CSV, XLSX, or PDF) to automatically populate the member register.
         </p>
 
-        <label className="flex items-center justify-center px-6 py-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 cursor-pointer transition-colors">
-          <Upload className="w-5 h-5 mr-2" />
-          {uploading ? 'Uploading...' : parsing ? 'Parsing...' : 'Upload Loading Schedule'}
+        {(uploading || parsing) && (
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-blue-200">{progressMessage}</span>
+              <span className="text-white font-medium">{progress}%</span>
+            </div>
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-300 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        <label className="flex items-center justify-center px-6 py-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          {uploading || parsing ? (
+            <>
+              <Loader className="w-5 h-5 mr-2 animate-spin" />
+              {uploading ? 'Uploading...' : 'Parsing...'}
+            </>
+          ) : (
+            <>
+              <Upload className="w-5 h-5 mr-2" />
+              Upload Loading Schedule
+            </>
+          )}
           <input
             type="file"
             accept=".csv,.xlsx,.pdf"
