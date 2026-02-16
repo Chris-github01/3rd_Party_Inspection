@@ -143,6 +143,129 @@ export function MembersTab({ projectId }: { projectId: string }) {
     setSelectedMembers(newSelected);
   };
 
+  const exportReadingsToExcel = async () => {
+    try {
+      const selectedMembersList = members.filter(m => selectedMembers.has(m.id));
+
+      const allReadingsData: any[] = [];
+
+      for (const member of selectedMembersList) {
+        const { data: inspections } = await supabase
+          .from('inspections')
+          .select('*, inspection_member_sets(*)')
+          .eq('project_id', projectId)
+          .eq('member_id', member.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (inspections && inspections.length > 0) {
+          const inspection = inspections[0];
+          const memberSets = inspection.inspection_member_sets || [];
+
+          for (const memberSet of memberSets) {
+            const { data: readings } = await supabase
+              .from('inspection_member_readings')
+              .select('*')
+              .eq('member_set_id', memberSet.id)
+              .order('reading_no');
+
+            if (readings) {
+              readings.forEach((reading: any) => {
+                allReadingsData.push({
+                  'Member Mark': member.member_mark,
+                  'Element Type': member.element_type,
+                  'Section': member.section,
+                  'Level': member.level,
+                  'Block': member.block,
+                  'FRR (min)': member.frr_minutes,
+                  'Coating System': member.coating_system,
+                  'Required DFT (µm)': member.required_dft_microns,
+                  'Reading No': reading.reading_no,
+                  'DFT Value (µm)': reading.dft_microns,
+                  'Date': new Date(inspection.created_at).toLocaleDateString(),
+                });
+              });
+            }
+          }
+        }
+      }
+
+      if (allReadingsData.length === 0) {
+        alert('No readings found for selected members');
+        return;
+      }
+
+      const csv = Papa.unparse(allReadingsData);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `member-readings-${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Error exporting readings:', error);
+      alert('Failed to export readings: ' + error.message);
+    }
+  };
+
+  const exportReadingsToPDF = async () => {
+    try {
+      const { generateMemberReadingsPDF } = await import('../lib/pdfMemberReadings');
+      const selectedMembersList = members.filter(m => selectedMembers.has(m.id));
+
+      const membersWithReadings = [];
+
+      for (const member of selectedMembersList) {
+        const { data: inspections } = await supabase
+          .from('inspections')
+          .select('*, inspection_member_sets(*)')
+          .eq('project_id', projectId)
+          .eq('member_id', member.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (inspections && inspections.length > 0) {
+          const inspection = inspections[0];
+          const memberSets = inspection.inspection_member_sets || [];
+
+          for (const memberSet of memberSets) {
+            const { data: readings } = await supabase
+              .from('inspection_member_readings')
+              .select('*')
+              .eq('member_set_id', memberSet.id)
+              .order('reading_no');
+
+            if (readings) {
+              membersWithReadings.push({
+                member,
+                memberSet,
+                readings,
+                inspectionDate: new Date(inspection.created_at),
+              });
+            }
+          }
+        }
+      }
+
+      if (membersWithReadings.length === 0) {
+        alert('No readings found for selected members');
+        return;
+      }
+
+      const { data: project } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      await generateMemberReadingsPDF(project, membersWithReadings);
+    } catch (error: any) {
+      console.error('Error exporting PDF:', error);
+      alert('Failed to export PDF: ' + error.message);
+    }
+  };
+
   const canEdit = profile?.role === 'admin' || profile?.role === 'inspector';
 
   if (loading) {
@@ -189,6 +312,20 @@ export function MembersTab({ projectId }: { projectId: string }) {
             >
               <FlaskConical className="w-5 h-5 mr-2" />
               Generate Test Readings
+            </button>
+            <button
+              onClick={exportReadingsToExcel}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Download className="w-5 h-5 mr-2" />
+              Export to Excel
+            </button>
+            <button
+              onClick={exportReadingsToPDF}
+              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              <Download className="w-5 h-5 mr-2" />
+              Export to PDF
             </button>
             <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-200">
               <span className="text-sm font-medium">
