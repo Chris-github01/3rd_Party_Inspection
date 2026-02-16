@@ -3,7 +3,8 @@ import re
 from typing import List, Dict, Optional, Any
 
 SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA)\s*\d*)\b", re.I)
-FRR_REGEX = re.compile(r"\b(?:FRR[-:\s]*|R)(\d+)\b", re.I)
+FRR_REGEX = re.compile(r"\bR(\d{2,3})\b", re.I)
+FRR_LEGACY_REGEX = re.compile(r"\bFRR[-:\s]*(\d+)", re.I)
 DFT_REGEX = re.compile(r"\b(\d{2,4})\s*(?:micron|μm|um|mic)?\b", re.I)
 MEMBER_MARK_REGEX = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]?)\b")
 
@@ -15,14 +16,17 @@ def normalize_section(section_raw: str) -> str:
     return normalized
 
 def normalize_frr(text: str) -> Optional[Dict[str, Any]]:
-    """Extract and normalize FRR rating"""
+    """Extract and normalize FRR rating (handles R30, R60, R120 format and FRR: 60 format)"""
     match = FRR_REGEX.search(text)
+    if not match:
+        match = FRR_LEGACY_REGEX.search(text)
+
     if not match:
         return None
 
     minutes = int(match.group(1))
 
-    if minutes < 30 or minutes > 240:
+    if minutes not in [30, 60, 90, 120, 180, 240]:
         return None
 
     return {
