@@ -2,15 +2,16 @@ import pdfplumber
 import re
 from typing import List, Dict, Optional, Any
 
-SECTION_REGEX = re.compile(r"\b(\d+(?:x\d+(?:x\d+)?)?(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB)\d*)\b", re.I)
-FRR_REGEX = re.compile(r"(?:^|\s)R?(\d+)(?:/\d+)?(?:\s|$|min)", re.I)
-DFT_REGEX = re.compile(r"\b(\d{2,4})\s*(?:micron|μm|um)?\b", re.I)
+SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA)\s*\d*)\b", re.I)
+FRR_REGEX = re.compile(r"\b(?:FRR|R)?[-:]?\s*(\d+)\s*(?:min|mins|minutes|/\d+)?(?:\s|$)", re.I)
+DFT_REGEX = re.compile(r"\b(\d{2,4})\s*(?:micron|μm|um|mic)?\b", re.I)
 MEMBER_MARK_REGEX = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]?)\b")
 
 def normalize_section(section_raw: str) -> str:
     """Normalize section size to standard format"""
-    normalized = section_raw.upper().replace(" ", "")
-    normalized = re.sub(r"X", "x", normalized)
+    normalized = section_raw.upper().strip()
+    normalized = re.sub(r"\s+", "", normalized)
+    normalized = re.sub(r"X", "x", normalized, flags=re.I)
     return normalized
 
 def normalize_frr(text: str) -> Optional[Dict[str, Any]]:
@@ -146,6 +147,7 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
     """
     items = []
     errors = []
+    debug_samples = []
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -153,13 +155,83 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
 
             for page_number, page in enumerate(pdf.pages, start=1):
                 try:
+                    tables = page.extract_tables()
+                    table_rows = []
+
+                    if tables:
+                        for table in tables:
+                            for table_row in table:
+                                if table_row:
+                                    row_text = " ".join(str(cell or "") for cell in table_row).strip()
+                                    if row_text:
+                                        table_rows.append({"text": row_text, "idx": len(table_rows)})
+
                     words = page.extract_words(
                         use_text_flow=True,
                         extra_attrs=["fontname", "size"]
                     )
 
-                    if not words:
+                    if not words and not table_rows:
                         errors.append(f"Page {page_number}: No text extracted")
+                        continue
+
+                    if table_rows:
+                        for row_data in table_rows:
+                            row_text = row_data["text"]
+                            row_idx = row_data["idx"]
+
+                            if len(debug_samples) < 10 and len(row_text) > 15:
+                                has_section = bool(SECTION_REGEX.search(row_text))
+                                has_frr = bool(FRR_REGEX.search(row_text))
+                                debug_samples.append({
+                                    "text": row_text[:100],
+                                    "has_section": has_section,
+                                    "has_frr": has_frr,
+                                    "page": page_number,
+                                    "source": "table"
+                                })
+
+                            if not is_valid_structural_row(row_text):
+                                continue
+
+                            frr_data = normalize_frr(row_text)
+                            if not frr_data:
+                                continue
+
+                            section_match = SECTION_REGEX.search(row_text)
+                            if not section_match:
+                                continue
+
+                            section = normalize_section(section_match.group(1))
+
+                            dft_value = extract_dft(row_text)
+                            member_mark = extract_member_mark(row_text)
+                            coating = extract_coating_product(row_text)
+                            element_type = extract_element_type(row_text)
+
+                            needs_review = dft_value is None or member_mark is None
+
+                            confidence = 0.95
+                            if needs_review:
+                                confidence = 0.75
+
+                            item = {
+                                "page": page_number,
+                                "line": row_idx + 1,
+                                "raw_text": row_text.strip(),
+                                "member_mark": member_mark,
+                                "section_size_raw": section_match.group(1),
+                                "section_size_normalized": section,
+                                "frr_minutes": frr_data["frr_minutes"],
+                                "frr_format": frr_data["frr_format"],
+                                "dft_required_microns": dft_value,
+                                "coating_product": coating,
+                                "element_type": element_type,
+                                "confidence": confidence,
+                                "needs_review": needs_review
+                            }
+
+                            items.append(item)
                         continue
 
                     rows = group_rows(words)
@@ -167,6 +239,17 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
 
                     for row_idx, row in enumerate(rows):
                         row_text = " ".join(w["text"] for w in row["words"])
+
+                        if len(debug_samples) < 10 and len(row_text) > 15:
+                            has_section = bool(SECTION_REGEX.search(row_text))
+                            has_frr = bool(FRR_REGEX.search(row_text))
+                            debug_samples.append({
+                                "text": row_text[:100],
+                                "has_section": has_section,
+                                "has_frr": has_frr,
+                                "page": page_number,
+                                "source": "words"
+                            })
 
                         if not is_valid_structural_row(row_text):
                             continue
@@ -214,15 +297,22 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                     errors.append(f"Page {page_number}: {str(page_error)}")
 
             if len(items) == 0:
+                debug_info = "\n\nSample rows found:\n"
+                for sample in debug_samples:
+                    debug_info += f"Page {sample['page']}: {sample['text']}\n"
+                    debug_info += f"  - Has section size: {sample['has_section']}\n"
+                    debug_info += f"  - Has FRR rating: {sample['has_frr']}\n"
+
                 return {
                     "status": "failed",
                     "error_code": "NO_STRUCTURAL_ROWS_DETECTED",
-                    "error_message": "No structural members detected. Check schedule format.",
+                    "error_message": f"No structural members detected. The parser requires rows with both section sizes (e.g., 610UB125) and FRR ratings (e.g., 60, 90, 120).{debug_info}",
                     "items_extracted": 0,
                     "items": [],
                     "metadata": {
                         "total_pages": total_pages,
-                        "errors": errors
+                        "errors": errors,
+                        "debug_samples": debug_samples
                     }
                 }
 

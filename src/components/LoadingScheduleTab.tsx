@@ -191,7 +191,23 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         } else if (parseResult?.errorCode === 'PYTHON_PARSER_UNAVAILABLE') {
           alert('⚠️ Cannot Connect to Python Parser\n\nThe Python parser service is not responding.\n\nThis could mean:\n- Service is not deployed yet\n- Service is cold-starting (first request takes 30-60s)\n- Service URL is incorrect\n- Network connectivity issue\n\nPlease wait a moment and try again, or check PYTHON_PARSER_DEPLOYMENT.md for setup instructions.');
         } else if (parseResult?.errorCode === 'NO_STRUCTURAL_ROWS_DETECTED') {
-          alert('⚠️ No structural members detected.\n\nThe schedule format may be incompatible or the PDF may not contain valid structural steel data.\n\nPlease check:\n- The file is a loading schedule\n- It contains columns for member sections and FRR ratings\n- The format is readable (not scanned/image-based)');
+          let message = '⚠️ No structural members detected.\n\n';
+          message += 'The parser requires rows with BOTH:\n';
+          message += '1. Section sizes (e.g., 610UB125, 310UC97, 200x200SHS)\n';
+          message += '2. FRR ratings (e.g., 60, 90, 120 minutes)\n\n';
+
+          if (parseResult?.error) {
+            message += parseResult.error + '\n\n';
+          }
+
+          message += 'Try using a CSV file instead (sample_loading_schedule.csv), or:\n';
+          message += '1. Update the Python parser service with the latest code\n';
+          message += '2. Ensure the PDF contains readable text (not scanned images)\n';
+          message += '3. Check that section sizes follow standard notation\n\n';
+          message += 'See browser console for sample rows found in your file.';
+
+          console.log('Parse result with debug info:', parseResult);
+          alert(message);
         } else if (parseResult?.error && parseResult.itemsExtracted === 0) {
           alert(`⚠️ Parsing failed: ${parseResult.error}\n\nError Code: ${parseResult.errorCode || 'UNKNOWN'}\n\nCheck the browser console for details.`);
         } else if (parseResult?.itemsExtracted === 0) {
