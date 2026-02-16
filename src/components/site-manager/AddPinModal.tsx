@@ -130,19 +130,21 @@ export function AddPinModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full border border-slate-700">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+    <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] border border-slate-700">
+        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <h2 className="text-xl font-bold text-white">Add Pin</h2>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg"
+            className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Label <span className="text-red-500">*</span>
@@ -299,25 +301,29 @@ export function AddPinModal({
               {error}
             </div>
           )}
+        </div>
+      </div>
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              disabled={creating || !label.trim()}
-              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {creating ? 'Creating...' : 'Create Pin'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={creating}
-              className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+      <div className="flex-shrink-0 px-6 py-4 border-t border-slate-700 bg-slate-800/50">
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={creating || !label.trim()}
+            className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {creating ? 'Creating...' : 'Create Pin'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={creating}
+            className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </form>
       </div>
     </div>
   );

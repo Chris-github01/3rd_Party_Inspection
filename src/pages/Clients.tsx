@@ -246,123 +246,127 @@ function ClientModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-2xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] border border-white/10">
+        <div className="flex-shrink-0 px-6 py-4 border-b border-white/10 flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">
             {client ? 'Edit Client' : 'New Client'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+            <X className="w-5 h-5 text-white" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
-          {error && (
-            <div className="bg-red-500/20 border border-red-500/20 text-red-300 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/20 text-red-300 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-white mb-1">
-                Client Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.client_name}
-                onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-1">
-                Main Contractor
-              </label>
-              <input
-                type="text"
-                value={formData.main_contractor}
-                onChange={(e) => setFormData({ ...formData, main_contractor: e.target.value })}
-                className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <ImageUpload
-              currentImagePath={formData.logo_path}
-              onImageUploaded={(path) => setFormData({ ...formData, logo_path: path })}
-              label="Company Logo"
-              maxSizeMB={5}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-white mb-1">
-                  Contact Name
+                  Client Name *
                 </label>
                 <input
                   type="text"
-                  value={formData.contact_name}
-                  onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                  value={formData.client_name}
+                  onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-white mb-1">
-                  Contact Email
+                  Main Contractor
                 </label>
                 <input
-                  type="email"
-                  value={formData.contact_email}
-                  onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  type="text"
+                  value={formData.main_contractor}
+                  onChange={(e) => setFormData({ ...formData, main_contractor: e.target.value })}
+                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                />
+              </div>
+
+              <ImageUpload
+                currentImagePath={formData.logo_path}
+                onImageUploaded={(path) => setFormData({ ...formData, logo_path: path })}
+                label="Company Logo"
+                maxSizeMB={5}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1">
+                    Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.contact_name}
+                    onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                    className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-1">
+                    Contact Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.contact_email}
+                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                    className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-1">
+                  Contact Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.contact_phone}
+                  onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-1">
+                  Billing Notes
+                </label>
+                <textarea
+                  value={formData.billing_notes}
+                  onChange={(e) => setFormData({ ...formData, billing_notes: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white resize-none"
                 />
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-1">
-                Contact Phone
-              </label>
-              <input
-                type="tel"
-                value={formData.contact_phone}
-                onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-1">
-                Billing Notes
-              </label>
-              <textarea
-                value={formData.billing_notes}
-                onChange={(e) => setFormData({ ...formData, billing_notes: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : client ? 'Update' : 'Create'}
-            </button>
+          <div className="flex-shrink-0 px-6 py-4 border-t border-white/10 bg-white/5">
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {loading ? 'Saving...' : client ? 'Update' : 'Create'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

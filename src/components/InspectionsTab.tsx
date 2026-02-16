@@ -424,11 +424,14 @@ function CreateInspectionModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-4xl w-full my-8">
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-white mb-6">Create Inspection</h2>
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] border border-white/10">
+        <div className="flex-shrink-0 px-6 py-4 border-b border-white/10">
+          <h2 className="text-2xl font-bold text-white">Create Inspection</h2>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-white mb-1">
                 Select Member *
@@ -448,7 +451,7 @@ function CreateInspectionModal({
               </select>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-white mb-1">
                   Location No.
@@ -483,7 +486,7 @@ function CreateInspectionModal({
 
             <div className="border-t border-white/10 pt-4">
               <h3 className="font-semibold text-white mb-3">Environmental Conditions</h3>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-white mb-1">
                     Ambient Temp (°C)
@@ -666,25 +669,28 @@ function CreateInspectionModal({
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-white hover:bg-white/10 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Creating...' : 'Create Inspection'}
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
+
+        <div className="flex-shrink-0 px-6 py-4 border-t border-white/10 bg-white/5">
+          <div className="flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Creating...' : 'Create Inspection'}
+            </button>
+          </div>
+        </div>
+      </form>
       </div>
     </div>
   );

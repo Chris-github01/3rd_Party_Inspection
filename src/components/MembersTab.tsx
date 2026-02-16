@@ -330,153 +330,159 @@ function MemberModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700">
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-white mb-6">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-slate-800 rounded-lg max-w-2xl w-full my-8 border border-slate-700 flex flex-col max-h-[calc(100vh-4rem)]">
+        <div className="flex-shrink-0 px-6 py-4 border-b border-slate-700">
+          <h2 className="text-2xl font-bold text-white">
             {member ? 'Edit Member' : 'Add Member'}
           </h2>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Member Mark *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.member_mark}
-                  onChange={(e) => setFormData({ ...formData, member_mark: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
-                  placeholder="B734"
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Member Mark *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.member_mark}
+                    onChange={(e) => setFormData({ ...formData, member_mark: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
+                    placeholder="B734"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Element Type *
-                </label>
-                <select
-                  value={formData.element_type}
-                  onChange={(e) => setFormData({ ...formData, element_type: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
-                >
-                  {ELEMENT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Element Type *
+                  </label>
+                  <select
+                    value={formData.element_type}
+                    onChange={(e) => setFormData({ ...formData, element_type: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                  >
+                    {ELEMENT_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Section</label>
-                <input
-                  type="text"
-                  value={formData.section}
-                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
-                  placeholder="610UB125"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Section</label>
+                  <input
+                    type="text"
+                    value={formData.section}
+                    onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
+                    placeholder="610UB125"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Level</label>
-                <input
-                  type="text"
-                  value={formData.level}
-                  onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
-                  placeholder="L2"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Level</label>
+                  <input
+                    type="text"
+                    value={formData.level}
+                    onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
+                    placeholder="L2"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Block</label>
-                <input
-                  type="text"
-                  value={formData.block}
-                  onChange={(e) => setFormData({ ...formData, block: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
-                  placeholder="B"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Block</label>
+                  <input
+                    type="text"
+                    value={formData.block}
+                    onChange={(e) => setFormData({ ...formData, block: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
+                    placeholder="B"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  FRR (minutes)
-                </label>
-                <input
-                  type="number"
-                  value={formData.frr_minutes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, frr_minutes: parseInt(e.target.value) || 0 })
-                  }
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    FRR (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.frr_minutes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, frr_minutes: parseInt(e.target.value) || 0 })
+                    }
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Coating System
-                </label>
-                <select
-                  value={formData.coating_system}
-                  onChange={(e) => setFormData({ ...formData, coating_system: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
-                >
-                  {COATING_SYSTEMS.map((system) => (
-                    <option key={system} value={system}>
-                      {system}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Coating System
+                  </label>
+                  <select
+                    value={formData.coating_system}
+                    onChange={(e) => setFormData({ ...formData, coating_system: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                  >
+                    {COATING_SYSTEMS.map((system) => (
+                      <option key={system} value={system}>
+                        {system}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Required DFT (µm)
-                </label>
-                <input
-                  type="number"
-                  value={formData.required_dft_microns}
-                  onChange={(e) =>
-                    setFormData({ ...formData, required_dft_microns: parseInt(e.target.value) || 0 })
-                  }
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Required DFT (µm)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.required_dft_microns}
+                    onChange={(e) =>
+                      setFormData({ ...formData, required_dft_microns: parseInt(e.target.value) || 0 })
+                    }
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
 
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-300 mb-1">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={3}
-                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400"
-                />
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Notes</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 placeholder-slate-400 resize-none"
+                  />
+                </div>
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex-shrink-0 px-6 py-4 border-t border-slate-700 bg-slate-800/50">
+            <div className="flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-white hover:bg-slate-700 rounded-lg"
+                className="px-4 py-2 text-white hover:bg-slate-700 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 {loading ? 'Saving...' : member ? 'Update' : 'Create'}
               </button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );
