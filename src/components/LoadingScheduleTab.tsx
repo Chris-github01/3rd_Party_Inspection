@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader, Edit2, Save, X } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Loader, Edit2, Save, X, Trash2 } from 'lucide-react';
 
 interface LoadingScheduleTabProps {
   projectId: string;
@@ -293,7 +293,16 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         }
       );
 
-      if (error) throw error;
+      console.log('Sync response:', { data, error });
+
+      if (error) {
+        console.error('Sync error details:', error);
+        throw new Error(error.message || 'Edge function returned an error');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       alert(`Sync complete! Created ${data.stats.membersCreated} members, linked ${data.stats.membersLinked} existing members.`);
 
@@ -306,9 +315,43 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
       await loadImports();
     } catch (error: any) {
       console.error('Sync error:', error);
-      alert('Failed to sync: ' + error.message);
+      const errorMsg = error.message || 'Unknown error occurred';
+      alert(`Failed to sync: ${errorMsg}\n\nCheck browser console for details.`);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleDeleteImport = async (importId: string) => {
+    if (!confirm('Delete this import and all its items? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete items first (cascade should handle this, but being explicit)
+      await supabase
+        .from('loading_schedule_items')
+        .delete()
+        .eq('import_id', importId);
+
+      // Delete import
+      const { error } = await supabase
+        .from('loading_schedule_imports')
+        .delete()
+        .eq('id', importId);
+
+      if (error) throw error;
+
+      // Clear selection if deleted
+      if (selectedImport?.id === importId) {
+        setSelectedImport(null);
+        setItems([]);
+      }
+
+      await loadImports();
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      alert('Failed to delete: ' + error.message);
     }
   };
 
@@ -427,28 +470,42 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
           <h3 className="text-lg font-semibold text-white mb-4">Import History</h3>
           <div className="space-y-2">
             {imports.map((imp) => (
-              <button
+              <div
                 key={imp.id}
-                onClick={() => setSelectedImport(imp)}
-                className={`w-full text-left p-4 rounded-lg border transition-colors ${
+                className={`relative p-4 rounded-lg border transition-colors ${
                   selectedImport?.id === imp.id
                     ? 'bg-primary-600/20 border-primary-500'
                     : 'bg-white/5 border-white/10 hover:bg-white/10'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-blue-300" />
-                    <div>
-                      <p className="text-white font-medium">{imp.document?.original_name}</p>
-                      <p className="text-xs text-blue-200">
-                        {new Date(imp.created_at).toLocaleString()}
-                      </p>
+                <button
+                  onClick={() => setSelectedImport(imp)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-center justify-between pr-8">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-blue-300" />
+                      <div>
+                        <p className="text-white font-medium">{imp.document?.original_name}</p>
+                        <p className="text-xs text-blue-200">
+                          {new Date(imp.created_at).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
+                    {getStatusBadge(imp.status)}
                   </div>
-                  {getStatusBadge(imp.status)}
-                </div>
-              </button>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteImport(imp.id);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                  title="Delete import"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             ))}
           </div>
         </div>

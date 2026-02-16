@@ -29,7 +29,18 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    const { importId, mode = "create_missing_only" }: SyncRequest = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      console.error("Failed to parse request body:", e);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { importId, mode = "create_missing_only" }: SyncRequest = body;
 
     if (!importId) {
       return new Response(
