@@ -5,7 +5,7 @@ import { WizardData } from '../ProjectWizard';
 
 interface Client {
   id: string;
-  client_name: string;
+  name: string;
   main_contractor: string;
   contact_name: string;
   contact_email: string;
@@ -22,7 +22,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newClient, setNewClient] = useState({
-    client_name: '',
+    name: '',
     main_contractor: '',
     contact_name: '',
     contact_email: '',
@@ -37,7 +37,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
     const { data: clientsData, error } = await supabase
       .from('clients')
       .select('*')
-      .order('client_name');
+      .order('name');
 
     if (error) {
       console.error('Error loading clients:', error);
@@ -48,7 +48,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
   };
 
   const handleCreateClient = async () => {
-    if (!newClient.client_name.trim()) {
+    if (!newClient.name.trim()) {
       alert('Client name is required');
       return;
     }
@@ -66,11 +66,11 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
       await loadClients();
       updateData({
         clientId: createdClient.id,
-        clientName: createdClient.client_name,
+        clientName: createdClient.name,
       });
       setShowCreate(false);
       setNewClient({
-        client_name: '',
+        name: '',
         main_contractor: '',
         contact_name: '',
         contact_email: '',
@@ -85,7 +85,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
   };
 
   const filteredClients = clients.filter((client) =>
-    client.client_name.toLowerCase().includes(searchTerm.toLowerCase())
+    client.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -137,7 +137,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                   onClick={() =>
                     updateData({
                       clientId: client.id,
-                      clientName: client.client_name,
+                      clientName: client.name,
                     })
                   }
                   className={`p-4 cursor-pointer hover:bg-slate-700 transition-colors ${
@@ -150,7 +150,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h5 className="font-semibold text-white">
-                        {client.client_name}
+                        {client.name}
                       </h5>
                       {client.main_contractor && (
                         <p className="text-sm text-slate-300 mt-1">
@@ -199,9 +199,9 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
             </label>
             <input
               type="text"
-              value={newClient.client_name}
+              value={newClient.name}
               onChange={(e) =>
-                setNewClient({ ...newClient, client_name: e.target.value })
+                setNewClient({ ...newClient, name: e.target.value })
               }
               placeholder="e.g., Auckland City Council"
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
@@ -271,7 +271,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleCreateClient}
-              disabled={creating || !newClient.client_name.trim()}
+              disabled={creating || !newClient.name.trim()}
               className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {creating ? 'Creating...' : 'Create Client'}

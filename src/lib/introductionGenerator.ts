@@ -17,7 +17,7 @@ interface IntroductionData {
     client_id: string;
   };
   client: {
-    client_name: string;
+    name: string;
     contact_name?: string;
   };
   scope: {
@@ -92,7 +92,7 @@ function generateFullIntroduction(data: IntroductionData, dateRange: string): st
   const companyName = data.company.company_name || 'P&R Consulting Limited';
   const projectName = data.project.project_name;
   const siteAddress = data.project.site_address || 'the project site';
-  const clientName = data.client.client_name;
+  const clientName = data.client.name;
 
   let systemType = 'passive fire protection systems';
   const systemTypes: string[] = [];
@@ -188,7 +188,7 @@ This audit supports the client's quality assurance requirements and provides ind
 function generateShortIntroduction(data: IntroductionData, dateRange: string): string {
   const companyName = data.company.company_name || 'P&R Consulting Limited';
   const projectName = data.project.project_name;
-  const clientName = data.client.client_name;
+  const clientName = data.client.name;
 
   return `1. Introduction
 

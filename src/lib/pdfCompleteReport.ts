@@ -74,7 +74,7 @@ function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any) {
 
   const companyName = introduction?.data.company.company_name || 'P&R Consulting Limited';
   const projectName = executiveSummary.data.project.project_name;
-  const clientName = executiveSummary.data.client.client_name;
+  const clientName = executiveSummary.data.client.name;
 
   doc.setFillColor(59, 130, 246);
   doc.rect(0, 0, pageWidth, 80, 'F');

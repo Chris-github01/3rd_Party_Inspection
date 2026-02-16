@@ -10,7 +10,7 @@ interface CreateClientModalProps {
 
 export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientModalProps) {
   const [formData, setFormData] = useState({
-    client_name: '',
+    name: '',
     main_contractor: '',
     contact_name: '',
     contact_email: '',
@@ -35,7 +35,7 @@ export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientMo
       onSuccess();
       onClose();
       setFormData({
-        client_name: '',
+        name: '',
         main_contractor: '',
         contact_name: '',
         contact_email: '',
@@ -81,8 +81,8 @@ export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientMo
                   <input
                     type="text"
                     required
-                    value={formData.client_name}
-                    onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Client Company Limited"
                   />

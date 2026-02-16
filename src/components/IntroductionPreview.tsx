@@ -193,8 +193,8 @@ export function IntroductionPreview({ projectId }: IntroductionPreviewProps) {
 
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
           <div className="text-sm font-medium text-slate-600 mb-1">Client</div>
-          <div className="text-lg font-bold text-slate-900 truncate" title={introduction.data.client.client_name}>
-            {introduction.data.client.client_name}
+          <div className="text-lg font-bold text-slate-900 truncate" title={introduction.data.client.name}>
+            {introduction.data.client.name}
           </div>
           {introduction.data.client.contact_name && (
             <div className="text-xs text-slate-600 mt-1">

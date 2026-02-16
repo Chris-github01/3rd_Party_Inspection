@@ -9,7 +9,7 @@ interface ExecutiveSummaryData {
     client_id: string;
   };
   client: {
-    client_name: string;
+    name: string;
     contact_name?: string;
   };
   blocks_levels: {
@@ -102,7 +102,7 @@ function generateShortSummary(data: ExecutiveSummaryData): string {
 
   return `Inspection Summary
 
-Client: ${data.client.client_name}
+Client: ${data.client.name}
 Project: ${data.project.project_name}
 Location: ${location}
 Materials: ${materialCount} system${materialCount !== 1 ? 's' : ''} inspected
@@ -152,7 +152,7 @@ function generateFullLegalSummary(data: ExecutiveSummaryData): string {
 
   return `Executive Summary
 
-This independent third-party coating inspection was conducted for ${data.client.client_name} in relation to the ${data.project.project_name} located at ${data.project.site_address || 'the project site'}.
+This independent third-party coating inspection was conducted for ${data.client.name} in relation to the ${data.project.project_name} located at ${data.project.site_address || 'the project site'}.
 
 The scope of inspection covered structural steel elements located within ${locationPhrase} as defined under the approved project inspection packages.
 

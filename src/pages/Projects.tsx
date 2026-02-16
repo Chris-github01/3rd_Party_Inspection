@@ -15,7 +15,7 @@ interface Project {
   start_date: string;
   created_at: string;
   clients?: {
-    client_name: string;
+    name: string;
   };
 }
 
@@ -38,7 +38,7 @@ export function Projects() {
     try {
       const { data, error } = await supabase
         .from('projects')
-        .select('*, clients(client_name)')
+        .select('*, clients(name)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -96,7 +96,7 @@ export function Projects() {
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-white mb-1">{project.name}</h3>
                       <p className="text-sm text-blue-100">
-                        {project.clients?.client_name || project.client_name}
+                        {project.clients?.name || project.client_name}
                       </p>
                     </div>
                     <FolderOpen className="w-6 h-6 text-primary-600" />

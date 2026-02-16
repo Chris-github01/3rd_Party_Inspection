@@ -7,13 +7,13 @@ import { ImageUpload } from '../components/ImageUpload';
 
 interface Client {
   id: string;
-  client_name: string;
-  main_contractor: string;
-  contact_name: string;
-  contact_email: string;
-  contact_phone: string;
-  billing_notes: string;
-  logo_path: string | null;
+  name: string;
+  company: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  contact_person: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -39,7 +39,7 @@ export function Clients() {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
-        .order('client_name');
+        .order('name');
 
       if (error) throw error;
       setClients(data || []);
@@ -123,10 +123,10 @@ export function Clients() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-white mb-1">
-                        {client.client_name}
+                        {client.name}
                       </h3>
-                      {client.main_contractor && (
-                        <p className="text-sm text-blue-100">Contractor: {client.main_contractor}</p>
+                      {client.company && (
+                        <p className="text-sm text-blue-100">{client.company}</p>
                       )}
                     </div>
                     {canEdit && (
@@ -151,22 +151,27 @@ export function Clients() {
                   </div>
 
                   <div className="space-y-2">
-                    {client.contact_name && (
+                    {client.contact_person && (
                       <p className="text-sm text-white">
-                        <span className="font-medium">Contact:</span> {client.contact_name}
+                        <span className="font-medium">Contact:</span> {client.contact_person}
                       </p>
                     )}
-                    {client.contact_email && (
+                    {client.email && (
                       <div className="flex items-center text-sm text-blue-100">
                         <Mail className="w-4 h-4 mr-2" />
-                        {client.contact_email}
+                        {client.email}
                       </div>
                     )}
-                    {client.contact_phone && (
+                    {client.phone && (
                       <div className="flex items-center text-sm text-blue-100">
                         <Phone className="w-4 h-4 mr-2" />
-                        {client.contact_phone}
+                        {client.phone}
                       </div>
+                    )}
+                    {client.address && (
+                      <p className="text-sm text-blue-100">
+                        {client.address}
+                      </p>
                     )}
                   </div>
 
@@ -211,13 +216,12 @@ function ClientModal({
   onSaved: () => void;
 }) {
   const [formData, setFormData] = useState({
-    client_name: client?.client_name || '',
-    main_contractor: client?.main_contractor || '',
-    contact_name: client?.contact_name || '',
-    contact_email: client?.contact_email || '',
-    contact_phone: client?.contact_phone || '',
-    billing_notes: client?.billing_notes || '',
-    logo_path: client?.logo_path || '',
+    name: client?.name || '',
+    company: client?.company || '',
+    contact_person: client?.contact_person || '',
+    email: client?.email || '',
+    phone: client?.phone || '',
+    address: client?.address || '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -273,52 +277,58 @@ function ClientModal({
                 <input
                   type="text"
                   required
-                  value={formData.client_name}
-                  onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-white mb-1">
-                  Main Contractor
+                  Company *
                 </label>
                 <input
                   type="text"
-                  value={formData.main_contractor}
-                  onChange={(e) => setFormData({ ...formData, main_contractor: e.target.value })}
+                  required
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                   className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
                 />
               </div>
 
-              <ImageUpload
-                currentImagePath={formData.logo_path}
-                onImageUploaded={(path) => setFormData({ ...formData, logo_path: path })}
-                label="Company Logo"
-                maxSizeMB={5}
-              />
+              <div>
+                <label className="block text-sm font-medium text-white mb-1">
+                  Contact Person
+                </label>
+                <input
+                  type="text"
+                  value={formData.contact_person}
+                  onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                />
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-white mb-1">
-                    Contact Name
+                    Email
                   </label>
                   <input
-                    type="text"
-                    value={formData.contact_name}
-                    onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-white mb-1">
-                    Contact Email
+                    Phone
                   </label>
                   <input
-                    type="email"
-                    value={formData.contact_email}
-                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
                   />
                 </div>
@@ -326,23 +336,11 @@ function ClientModal({
 
               <div>
                 <label className="block text-sm font-medium text-white mb-1">
-                  Contact Phone
-                </label>
-                <input
-                  type="tel"
-                  value={formData.contact_phone}
-                  onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                  className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white mb-1">
-                  Billing Notes
+                  Address
                 </label>
                 <textarea
-                  value={formData.billing_notes}
-                  onChange={(e) => setFormData({ ...formData, billing_notes: e.target.value })}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   rows={3}
                   className="w-full px-4 py-2 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white resize-none"
                 />
