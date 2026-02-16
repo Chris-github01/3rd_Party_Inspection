@@ -5,6 +5,7 @@ from typing import List, Dict, Optional, Any
 SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA)\s*\d*)\b", re.I)
 FRR_REGEX = re.compile(r"\bR(\d{2,3})\b", re.I)
 FRR_LEGACY_REGEX = re.compile(r"\bFRR[-:\s]*(\d+)", re.I)
+HAZARD_RATING_REGEX = re.compile(r"\bR(\d{2,3})\s*Hazard\s*Rating", re.I)
 DFT_REGEX = re.compile(r"\b(\d{2,4})\s*(?:micron|μm|um|mic)?\b", re.I)
 MEMBER_MARK_REGEX = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]?)\b")
 
@@ -14,6 +15,22 @@ def normalize_section(section_raw: str) -> str:
     normalized = re.sub(r"\s+", "", normalized)
     normalized = re.sub(r"X", "x", normalized, flags=re.I)
     return normalized
+
+def extract_hazard_rating_from_header(text: str) -> Optional[Dict[str, Any]]:
+    """Extract hazard rating from column header (e.g., 'R60 Hazard Rating (Mins)')"""
+    match = HAZARD_RATING_REGEX.search(text)
+    if not match:
+        return None
+
+    minutes = int(match.group(1))
+
+    if minutes not in [30, 60, 90, 120, 180, 240]:
+        return None
+
+    return {
+        "frr_minutes": minutes,
+        "frr_format": f"{minutes}/-/-"
+    }
 
 def normalize_frr(text: str) -> Optional[Dict[str, Any]]:
     """Extract and normalize FRR rating (handles R30, R60, R120 format and FRR: 60 format)"""
@@ -129,12 +146,12 @@ def stitch_rows(rows: List[Dict]) -> List[Dict]:
 
     return stitched
 
-def is_valid_structural_row(text: str) -> bool:
+def is_valid_structural_row(text: str, require_frr: bool = True) -> bool:
     """Check if row contains valid structural member data"""
     if not SECTION_REGEX.search(text):
         return False
 
-    if not FRR_REGEX.search(text):
+    if require_frr and not FRR_REGEX.search(text):
         return False
 
     if len(text) < 10:
@@ -152,10 +169,26 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
     items = []
     errors = []
     debug_samples = []
+    header_frr = None  # FRR extracted from column header
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
             total_pages = len(pdf.pages)
+
+            # First pass: scan first few pages for hazard rating in headers
+            for page_number in range(1, min(3, total_pages + 1)):
+                page = pdf.pages[page_number - 1]
+                try:
+                    # Extract text and look for hazard rating header
+                    page_text = page.extract_text()
+                    if page_text:
+                        hazard_data = extract_hazard_rating_from_header(page_text)
+                        if hazard_data:
+                            header_frr = hazard_data
+                            print(f"Found hazard rating in header on page {page_number}: {hazard_data['frr_format']}")
+                            break
+                except Exception as e:
+                    print(f"Error scanning page {page_number} for header: {e}")
 
             for page_number, page in enumerate(pdf.pages, start=1):
                 try:
@@ -195,12 +228,18 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                                     "source": "table"
                                 })
 
-                            if not is_valid_structural_row(row_text):
+                            # If we have header FRR, don't require FRR in row
+                            require_frr_in_row = header_frr is None
+                            if not is_valid_structural_row(row_text, require_frr=require_frr_in_row):
                                 continue
 
-                            frr_data = normalize_frr(row_text)
-                            if not frr_data:
-                                continue
+                            # Use header FRR if available, otherwise extract from row
+                            if header_frr:
+                                frr_data = header_frr
+                            else:
+                                frr_data = normalize_frr(row_text)
+                                if not frr_data:
+                                    continue
 
                             section_match = SECTION_REGEX.search(row_text)
                             if not section_match:
@@ -255,12 +294,18 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                                 "source": "words"
                             })
 
-                        if not is_valid_structural_row(row_text):
+                        # If we have header FRR, don't require FRR in row
+                        require_frr_in_row = header_frr is None
+                        if not is_valid_structural_row(row_text, require_frr=require_frr_in_row):
                             continue
 
-                        frr_data = normalize_frr(row_text)
-                        if not frr_data:
-                            continue
+                        # Use header FRR if available, otherwise extract from row
+                        if header_frr:
+                            frr_data = header_frr
+                        else:
+                            frr_data = normalize_frr(row_text)
+                            if not frr_data:
+                                continue
 
                         section_match = SECTION_REGEX.search(row_text)
                         if not section_match:
