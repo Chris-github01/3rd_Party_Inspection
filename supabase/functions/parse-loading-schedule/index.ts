@@ -247,7 +247,26 @@ Deno.serve(async (req: Request) => {
               const items = parseResult.items || [];
               console.log(`Python parser extracted ${items.length} items`);
 
+              // Helper function to extract FRR from member mark (e.g., R60 -> 60)
+              const extractFRRFromMemberMark = (memberMark: string | null): number | null => {
+                if (!memberMark) return null;
+                const match = memberMark.match(/R(\d{2,3})/i);
+                if (match) {
+                  const frr = parseInt(match[1]);
+                  // Validate it's a standard FRR rating
+                  if ([30, 45, 60, 90, 120, 180, 240].includes(frr)) {
+                    return frr;
+                  }
+                }
+                return null;
+              };
+
               for (const item of items) {
+                // Extract FRR from member mark if available (e.g., R60 -> 60)
+                const frrFromMemberMark = extractFRRFromMemberMark(item.member_mark);
+                const finalFRR = frrFromMemberMark || item.frr_minutes;
+                const finalFRRFormat = frrFromMemberMark ? `${frrFromMemberMark}/-/-` : item.frr_format;
+
                 extractedItems.push({
                   import_id: importId,
                   project_id: importRecord.project_id,
@@ -256,8 +275,8 @@ Deno.serve(async (req: Request) => {
                   element_type: item.element_type,
                   section_size_raw: item.section_size_raw,
                   section_size_normalized: item.section_size_normalized,
-                  frr_minutes: item.frr_minutes,
-                  frr_format: item.frr_format,
+                  frr_minutes: finalFRR,
+                  frr_format: finalFRRFormat,
                   coating_product: item.coating_product,
                   dft_required_microns: item.dft_required_microns,
                   needs_review: item.needs_review,

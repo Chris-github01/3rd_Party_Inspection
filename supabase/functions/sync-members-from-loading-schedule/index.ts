@@ -99,6 +99,21 @@ Deno.serve(async (req: Request) => {
       errors: [] as string[],
     };
 
+    // Helper function to extract FRR from member mark (e.g., R60 -> 60)
+    const extractFRRFromMemberMark = (memberMark: string | null): number | null => {
+      if (!memberMark) return null;
+
+      const match = memberMark.match(/R(\d{2,3})/i);
+      if (match) {
+        const frr = parseInt(match[1]);
+        // Validate it's a standard FRR rating
+        if ([30, 45, 60, 90, 120, 180, 240].includes(frr)) {
+          return frr;
+        }
+      }
+      return null;
+    };
+
     for (const item of items) {
       stats.itemsProcessed++;
 
@@ -119,6 +134,11 @@ Deno.serve(async (req: Request) => {
               m.loading_schedule_item_id
           );
         }
+
+        // Extract FRR from member mark if available, otherwise use parsed value
+        const frrFromMemberMark = extractFRRFromMemberMark(item.member_mark);
+        const finalFRR = frrFromMemberMark || item.frr_minutes || null;
+        const finalFRRFormat = frrFromMemberMark ? `${frrFromMemberMark}/-/-` : item.frr_format || null;
 
         if (existingMember) {
           // Link existing member to schedule item if not already linked
@@ -145,8 +165,8 @@ Deno.serve(async (req: Request) => {
             element_type: item.element_type || "other",
             section: item.section_size_normalized || "UNKNOWN",
             section_size: item.section_size_normalized || "UNKNOWN",
-            frr_minutes: item.frr_minutes || null,
-            frr_format: item.frr_format || null,
+            frr_minutes: finalFRR,
+            frr_format: finalFRRFormat,
             coating_system: item.coating_product || null,
             required_dft_microns: item.dft_required_microns || null,
             source: "schedule",
