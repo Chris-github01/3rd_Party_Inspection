@@ -121,11 +121,16 @@ Deno.serve(async (req: Request) => {
       if (existingMember) {
         // Link existing member to schedule item if not already linked
         if (!existingMember.loading_schedule_item_id) {
-          await supabaseClient
+          const { error: linkError } = await supabaseClient
             .from("members")
             .update({ loading_schedule_item_id: item.id })
             .eq("id", existingMember.id);
-          stats.membersLinked++;
+
+          if (linkError) {
+            console.error("Error linking member:", linkError);
+          } else {
+            stats.membersLinked++;
+          }
         } else {
           stats.membersSkipped++;
         }
@@ -133,7 +138,7 @@ Deno.serve(async (req: Request) => {
         // Create new member
         const newMember = {
           project_id: projectId,
-          member_mark: item.member_mark,
+          member_mark: item.member_mark || `UNKNOWN-${stats.itemsProcessed}`,
           element_type: item.element_type || "other",
           section: item.section_size_normalized,
           section_size: item.section_size_normalized,
@@ -149,13 +154,18 @@ Deno.serve(async (req: Request) => {
             : "From loading schedule",
         };
 
-        const { error: createError } = await supabaseClient
+        console.log("Creating member:", newMember);
+
+        const { data: createdMember, error: createError } = await supabaseClient
           .from("members")
-          .insert(newMember);
+          .insert(newMember)
+          .select();
 
         if (createError) {
           console.error("Error creating member:", createError);
+          console.error("Failed member data:", newMember);
         } else {
+          console.log("Successfully created member:", createdMember);
           stats.membersCreated++;
         }
       }

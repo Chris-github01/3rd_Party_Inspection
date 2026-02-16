@@ -3,7 +3,7 @@ import re
 from typing import List, Dict, Optional, Any
 
 SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA)\s*\d*)\b", re.I)
-FRR_REGEX = re.compile(r"\b(?:FRR|R)?[-:]?\s*(\d+)\s*(?:min|mins|minutes|/\d+)?(?:\s|$)", re.I)
+FRR_REGEX = re.compile(r"\b(?:FRR[-:\s]*|R)(\d+)\b", re.I)
 DFT_REGEX = re.compile(r"\b(\d{2,4})\s*(?:micron|μm|um|mic)?\b", re.I)
 MEMBER_MARK_REGEX = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]?)\b")
 
