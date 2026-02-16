@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { FileText, FolderOpen, Package } from 'lucide-react';
+import { FileText, FolderOpen, Package, Plus } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function Templates() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const canManageTemplates = profile?.role === 'admin' || profile?.role === 'inspector';
 
   const sections = [
     {
@@ -12,6 +15,8 @@ export function Templates() {
       path: '/settings/templates/forms',
       color: 'bg-blue-50 text-blue-600',
       hoverColor: 'hover:bg-blue-100',
+      buttonColor: 'bg-blue-600 hover:bg-blue-700',
+      hasQuickCreate: true,
     },
     {
       icon: FolderOpen,
@@ -20,6 +25,8 @@ export function Templates() {
       path: '/settings/templates/projects',
       color: 'bg-green-50 text-green-600',
       hoverColor: 'hover:bg-green-100',
+      buttonColor: 'bg-green-600 hover:bg-green-700',
+      hasQuickCreate: true,
     },
     {
       icon: Package,
@@ -28,6 +35,8 @@ export function Templates() {
       path: '/settings/materials',
       color: 'bg-orange-50 text-orange-600',
       hoverColor: 'hover:bg-orange-100',
+      buttonColor: 'bg-orange-600 hover:bg-orange-700',
+      hasQuickCreate: false,
     },
   ];
 
@@ -47,21 +56,44 @@ export function Templates() {
             {sections.map((section) => {
               const Icon = section.icon;
               return (
-                <button
+                <div
                   key={section.title}
-                  onClick={() => navigate(section.path)}
-                  className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 text-left hover:shadow-lg transition-all duration-200 hover:border-white/10"
+                  className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:shadow-lg transition-all duration-200 hover:border-white/20 flex flex-col"
                 >
-                <div className={`w-12 h-12 rounded-lg ${section.color} flex items-center justify-center mb-4 transition-colors ${section.hoverColor}`}>
-                  <Icon className="w-6 h-6" />
+                  <button
+                    onClick={() => navigate(section.path)}
+                    className="text-left flex-1"
+                  >
+                    <div className={`w-12 h-12 rounded-lg ${section.color} flex items-center justify-center mb-4 transition-colors ${section.hoverColor}`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white mb-2">
+                      {section.title}
+                    </h3>
+                    <p className="text-sm text-blue-100 leading-relaxed mb-4">
+                      {section.description}
+                    </p>
+                  </button>
+
+                  {section.hasQuickCreate && canManageTemplates && (
+                    <button
+                      onClick={() => navigate(section.path)}
+                      className={`flex items-center justify-center px-4 py-2 ${section.buttonColor} text-white rounded-lg transition-all duration-200 font-medium text-sm shadow-md hover:shadow-lg mt-4`}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Quick Create
+                    </button>
+                  )}
+
+                  {!canManageTemplates && (
+                    <button
+                      onClick={() => navigate(section.path)}
+                      className="flex items-center justify-center px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all duration-200 font-medium text-sm mt-4"
+                    >
+                      View {section.title}
+                    </button>
+                  )}
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  {section.title}
-                </h3>
-                <p className="text-sm text-blue-100 leading-relaxed">
-                  {section.description}
-                </p>
-              </button>
               );
             })}
           </div>

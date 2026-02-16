@@ -62,7 +62,7 @@ export function FormTemplates() {
     }
   };
 
-  const isAdmin = profile?.role === 'admin';
+  const canManageTemplates = profile?.role === 'admin' || profile?.role === 'inspector';
 
   if (loading) {
     return (
@@ -87,13 +87,13 @@ export function FormTemplates() {
               <h1 className="text-3xl font-bold text-white">Form Templates</h1>
               <p className="text-blue-100 mt-1">Create and manage custom form templates for inspections</p>
             </div>
-          {isAdmin && (
+          {canManageTemplates && (
             <button
               onClick={() => {
                 setEditingTemplate(null);
                 setShowModal(true);
               }}
-              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
             >
               <Plus className="w-5 h-5 mr-2" />
               New Template
@@ -106,16 +106,16 @@ export function FormTemplates() {
             <FileText className="w-16 h-16 text-blue-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">No form templates yet</h3>
             <p className="text-blue-100 mb-6">Create your first form template</p>
-            {isAdmin && (
+            {canManageTemplates && (
               <button
                 onClick={() => {
                   setEditingTemplate(null);
                   setShowModal(true);
                 }}
-                className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                className="inline-flex items-center px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold text-lg"
               >
-                <Plus className="w-5 h-5 mr-2" />
-                Create Template
+                <Plus className="w-6 h-6 mr-2" />
+                Create Your First Template
               </button>
             )}
             </div>
@@ -136,7 +136,7 @@ export function FormTemplates() {
                       {template.applies_to}
                     </span>
                   </div>
-                  {isAdmin && (
+                  {canManageTemplates && (
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => {

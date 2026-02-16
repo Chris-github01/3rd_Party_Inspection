@@ -67,7 +67,7 @@ export function ProjectTemplates() {
     }
   };
 
-  const isAdmin = profile?.role === 'admin';
+  const canManageTemplates = profile?.role === 'admin' || profile?.role === 'inspector';
 
   if (loading) {
     return (
@@ -92,13 +92,13 @@ export function ProjectTemplates() {
               <h1 className="text-3xl font-bold text-white">Project Templates</h1>
               <p className="text-blue-100 mt-1">Manage member templates for streamlined project setup</p>
             </div>
-          {isAdmin && (
+          {canManageTemplates && (
             <button
               onClick={() => {
                 setEditingTemplate(null);
                 setShowModal(true);
               }}
-              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
             >
               <Plus className="w-5 h-5 mr-2" />
               New Template
@@ -111,16 +111,16 @@ export function ProjectTemplates() {
             <FolderOpen className="w-16 h-16 text-blue-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">No project templates yet</h3>
             <p className="text-blue-100 mb-6">Create your first project template</p>
-            {isAdmin && (
+            {canManageTemplates && (
               <button
                 onClick={() => {
                   setEditingTemplate(null);
                   setShowModal(true);
                 }}
-                className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                className="inline-flex items-center px-8 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold text-lg"
               >
-                <Plus className="w-5 h-5 mr-2" />
-                Create Template
+                <Plus className="w-6 h-6 mr-2" />
+                Create Your First Template
               </button>
             )}
             </div>
@@ -139,7 +139,7 @@ export function ProjectTemplates() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">
                       Measurement Method
                     </th>
-                    {isAdmin && (
+                    {canManageTemplates && (
                       <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase">
                         Actions
                       </th>
@@ -174,7 +174,7 @@ export function ProjectTemplates() {
                           <span className="text-blue-300 text-sm">-</span>
                         )}
                       </td>
-                      {isAdmin && (
+                      {canManageTemplates && (
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                             <button

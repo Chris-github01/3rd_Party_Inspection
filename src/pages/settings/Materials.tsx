@@ -98,7 +98,7 @@ export function Materials() {
     }
   };
 
-  const isAdmin = profile?.role === 'admin';
+  const canManageTemplates = profile?.role === 'admin' || profile?.role === 'inspector';
 
   const getFilteredMaterials = () => {
     let filtered = materials;
@@ -164,11 +164,11 @@ export function Materials() {
               <h1 className="text-3xl font-bold text-white">Fire Protection Material Registry</h1>
               <p className="text-blue-100 mt-1">Master library of fire protection coating materials and systems</p>
             </div>
-          {isAdmin && (
+          {canManageTemplates && (
             <div className="flex gap-3">
               <button
                 onClick={() => setShowImportModal(true)}
-                className="flex items-center px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+                className="flex items-center px-5 py-2.5 bg-slate-600 text-white rounded-lg hover:bg-slate-700 shadow-md hover:shadow-lg transition-all duration-200 font-medium"
               >
                 <Upload className="w-5 h-5 mr-2" />
                 Import CSV
@@ -178,7 +178,7 @@ export function Materials() {
                   setEditingMaterial(null);
                   setShowModal(true);
                 }}
-                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                className="flex items-center px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
               >
                 <Plus className="w-5 h-5 mr-2" />
                 Add Material
@@ -293,7 +293,7 @@ export function Materials() {
             <p className="text-blue-100 mb-6">
               {materials.length === 0 ? 'Add materials to your library or import from CSV' : 'Try adjusting your filters'}
             </p>
-            {isAdmin && materials.length === 0 && (
+            {canManageTemplates && materials.length === 0 && (
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setShowImportModal(true)}
@@ -328,7 +328,7 @@ export function Materials() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Fire Scenario</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Thickness Unit</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Temp Range</th>
-                    {isAdmin && (
+                    {canManageTemplates && (
                       <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase">Actions</th>
                     )}
                   </tr>
@@ -362,7 +362,7 @@ export function Materials() {
                       <td className="px-6 py-4 text-sm text-blue-100">
                         {material.min_temp_c}°C - {material.max_temp_c}°C
                       </td>
-                      {isAdmin && (
+                      {canManageTemplates && (
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <button
