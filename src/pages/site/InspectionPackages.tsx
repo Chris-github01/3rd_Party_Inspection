@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Plus, Edit2, Trash2, Star, Package, X } from 'lucide-react';
+import { normalizeFRRValue } from '../../lib/frrUtils';
 
 interface InspectionPackage {
   id: string;
@@ -293,7 +294,7 @@ export function InspectionPackages() {
                 </div>
                 <div>
                   <span className="text-blue-200">FRR:</span>
-                  <p className="font-medium text-white">{pkg.frr_minutes} min</p>
+                  <p className="font-medium text-white">{normalizeFRRValue(pkg.frr_minutes)} min</p>
                 </div>
                 <div>
                   <span className="text-blue-200">Required:</span>

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { ZoomIn, ZoomOut, Maximize, MapPin, X } from 'lucide-react';
 import { SteelMemberSelect } from '../../components/SteelMemberSelect';
+import { normalizeFRRValue } from '../../lib/frrUtils';
 
 interface Drawing {
   id: string;
@@ -462,7 +463,7 @@ export function DrawingsView() {
                 >
                   {packages.map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
-                      {pkg.name} - {pkg.frr_minutes}min - {pkg.required_thickness_value}
+                      {pkg.name} - {normalizeFRRValue(pkg.frr_minutes)}min - {pkg.required_thickness_value}
                       {pkg.required_thickness_unit}
                     </option>
                   ))}

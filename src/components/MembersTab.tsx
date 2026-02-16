@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Upload, Edit, Trash2, Download } from 'lucide-react';
 import Papa from 'papaparse';
+import { normalizeFRRValue } from '../lib/frrUtils';
 
 interface Member {
   id: string;
@@ -217,7 +218,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
                       <td className="px-4 py-3 text-sm text-blue-100">{member.level}</td>
                       <td className="px-4 py-3 text-sm text-blue-100">{member.block}</td>
                       <td className="px-4 py-3 text-sm text-blue-100">
-                        {member.frr_minutes} min
+                        {normalizeFRRValue(member.frr_minutes)} min
                       </td>
                       <td className="px-4 py-3 text-sm text-blue-100">{member.coating_system}</td>
                       <td className="px-4 py-3 text-sm text-blue-100">

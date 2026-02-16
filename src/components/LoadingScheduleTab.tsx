@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader, Edit2, Save, X, Trash2 } from 'lucide-react';
+import { displayFRR } from '../lib/frrUtils';
 
 interface LoadingScheduleTabProps {
   projectId: string;
@@ -562,7 +563,7 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
                     </td>
                     <td className="px-4 py-3 text-sm text-white">{item.member_mark || '-'}</td>
                     <td className="px-4 py-3 text-sm text-blue-100">{item.section_size_normalized}</td>
-                    <td className="px-4 py-3 text-sm text-blue-100">{item.frr_format || item.frr_minutes || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-blue-100">{displayFRR(item.frr_format, item.frr_minutes)}</td>
                     <td className="px-4 py-3 text-sm text-blue-100">{item.coating_product || '-'}</td>
                     <td className="px-4 py-3 text-sm text-blue-100">{item.dft_required_microns || '-'}</td>
                     <td className="px-4 py-3 text-sm">

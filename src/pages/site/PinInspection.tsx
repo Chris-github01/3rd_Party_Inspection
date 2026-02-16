@@ -12,6 +12,7 @@ import {
   XCircle,
   AlertCircle,
 } from 'lucide-react';
+import { normalizeFRRValue } from '../../lib/frrUtils';
 
 interface PinInspection {
   id: string;
@@ -417,7 +418,7 @@ export function PinInspection() {
           </div>
           <div>
             <span className="text-blue-200 block text-xs">FRR</span>
-            <p className="font-medium text-white">{pkg?.frr_minutes} min</p>
+            <p className="font-medium text-white">{pkg?.frr_minutes ? normalizeFRRValue(pkg.frr_minutes) : 0} min</p>
           </div>
           <div>
             <span className="text-blue-200 block text-xs">Required</span>

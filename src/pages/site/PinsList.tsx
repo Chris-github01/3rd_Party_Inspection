@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { MapPin, Search, Filter } from 'lucide-react';
+import { normalizeFRRValue } from '../../lib/frrUtils';
 
 interface Pin {
   id: string;
@@ -219,7 +220,7 @@ export function PinsList() {
                   </h3>
                   {pin.inspection_packages && (
                     <p className="text-sm text-blue-100">
-                      {pin.inspection_packages.name} ({pin.inspection_packages.frr_minutes} min)
+                      {pin.inspection_packages.name} ({normalizeFRRValue(pin.inspection_packages.frr_minutes)} min)
                     </p>
                   )}
                 </div>
