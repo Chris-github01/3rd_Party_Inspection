@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { Plus, Edit, Trash2, FolderOpen, X, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,6 +31,7 @@ const MEASUREMENT_METHODS = [
 export function ProjectTemplates() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [templates, setTemplates] = useState<MemberTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -61,9 +63,10 @@ export function ProjectTemplates() {
     try {
       const { error } = await supabase.from('member_templates').delete().eq('id', id);
       if (error) throw error;
+      toast.success('Template deleted successfully');
       await loadTemplates();
     } catch (error: any) {
-      alert('Error deleting template: ' + error.message);
+      toast.error('Error deleting template: ' + error.message);
     }
   };
 
@@ -212,9 +215,10 @@ export function ProjectTemplates() {
             setShowModal(false);
             setEditingTemplate(null);
           }}
-          onSaved={() => {
+          onSaved={(isNew: boolean) => {
             setShowModal(false);
             setEditingTemplate(null);
+            toast.success(isNew ? 'Template created successfully' : 'Template updated successfully');
             loadTemplates();
           }}
         />
@@ -230,7 +234,7 @@ function TemplateModal({
 }: {
   template: MemberTemplate | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (isNew: boolean) => void;
 }) {
   const [formData, setFormData] = useState({
     name: template?.name || '',
@@ -255,6 +259,7 @@ function TemplateModal({
         notes: formData.notes,
       };
 
+      const isNew = !template;
       if (template) {
         const { error } = await supabase
           .from('member_templates')
@@ -265,7 +270,7 @@ function TemplateModal({
         const { error } = await supabase.from('member_templates').insert(data);
         if (error) throw error;
       }
-      onSaved();
+      onSaved(isNew);
     } catch (err: any) {
       setError(err.message);
       setLoading(false);

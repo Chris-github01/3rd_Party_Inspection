@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { Plus, Edit, Trash2, FileText, X, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -25,6 +26,7 @@ const APPLIES_TO_OPTIONS = [
 export function FormTemplates() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -56,9 +58,10 @@ export function FormTemplates() {
     try {
       const { error } = await supabase.from('form_templates').delete().eq('id', id);
       if (error) throw error;
+      toast.success('Template deleted successfully');
       await loadTemplates();
     } catch (error: any) {
-      alert('Error deleting template: ' + error.message);
+      toast.error('Error deleting template: ' + error.message);
     }
   };
 
@@ -174,9 +177,10 @@ export function FormTemplates() {
             setShowModal(false);
             setEditingTemplate(null);
           }}
-          onSaved={() => {
+          onSaved={(isNew: boolean) => {
             setShowModal(false);
             setEditingTemplate(null);
+            toast.success(isNew ? 'Template created successfully' : 'Template updated successfully');
             loadTemplates();
           }}
         />
@@ -192,7 +196,7 @@ function TemplateModal({
 }: {
   template: FormTemplate | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (isNew: boolean) => void;
 }) {
   const [formData, setFormData] = useState({
     template_name: template?.template_name || '',
@@ -213,6 +217,7 @@ function TemplateModal({
         template_json: template?.template_json || { sections: [] },
       };
 
+      const isNew = !template;
       if (template) {
         const { error } = await supabase
           .from('form_templates')
@@ -223,7 +228,7 @@ function TemplateModal({
         const { error } = await supabase.from('form_templates').insert(data);
         if (error) throw error;
       }
-      onSaved();
+      onSaved(isNew);
     } catch (err: any) {
       setError(err.message);
       setLoading(false);

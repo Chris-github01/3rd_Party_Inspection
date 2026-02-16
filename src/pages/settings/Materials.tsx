@@ -294,10 +294,10 @@ export function Materials() {
               {materials.length === 0 ? 'Add materials to your library or import from CSV' : 'Try adjusting your filters'}
             </p>
             {canManageTemplates && materials.length === 0 && (
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-4 justify-center">
                 <button
                   onClick={() => setShowImportModal(true)}
-                  className="inline-flex items-center px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+                  className="inline-flex items-center px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 shadow-md hover:shadow-lg transition-all duration-200 font-medium"
                 >
                   <Upload className="w-5 h-5 mr-2" />
                   Import CSV
@@ -307,10 +307,10 @@ export function Materials() {
                     setEditingMaterial(null);
                     setShowModal(true);
                   }}
-                  className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  className="inline-flex items-center px-8 py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold text-lg"
                 >
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add Material
+                  <Plus className="w-6 h-6 mr-2" />
+                  Add Your First Material
                 </button>
               </div>
             )}
