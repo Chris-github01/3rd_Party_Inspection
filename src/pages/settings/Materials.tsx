@@ -178,10 +178,10 @@ export function Materials() {
                   setEditingMaterial(null);
                   setShowModal(true);
                 }}
-                className="flex items-center px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
+                className="flex items-center px-8 py-4 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl hover:from-orange-700 hover:to-orange-800 shadow-xl hover:shadow-2xl transition-all duration-200 font-bold text-lg border-2 border-orange-400/30"
               >
-                <Plus className="w-5 h-5 mr-2" />
-                Add Material
+                <Plus className="w-6 h-6 mr-2" />
+                Create Material
               </button>
             </div>
           )}
@@ -307,10 +307,10 @@ export function Materials() {
                     setEditingMaterial(null);
                     setShowModal(true);
                   }}
-                  className="inline-flex items-center px-8 py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold text-lg"
+                  className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl hover:from-orange-700 hover:to-orange-800 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold text-lg border-2 border-orange-400/30"
                 >
                   <Plus className="w-6 h-6 mr-2" />
-                  Add Your First Material
+                  Create Your First Material
                 </button>
               </div>
             )}
