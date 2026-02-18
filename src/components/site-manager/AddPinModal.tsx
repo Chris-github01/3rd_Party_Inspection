@@ -34,12 +34,13 @@ export function AddPinModal({
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedInspectionId, setSelectedInspectionId] = useState('');
   const [blockId, setBlockId] = useState('');
+  const [documentId, setDocumentId] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     loadData();
-  }, [projectId, levelId]);
+  }, [projectId, levelId, drawingId]);
 
   useEffect(() => {
     if (selectedMemberId && members.length > 0) {
@@ -52,17 +53,17 @@ export function AddPinModal({
 
   const loadData = async () => {
     try {
-      const { data: levelData } = await supabase
-        .from('levels')
-        .select('block_id')
-        .eq('id', levelId)
-        .single();
-
-      if (levelData) {
-        setBlockId(levelData.block_id);
-      }
-
-      const [membersResult, inspectionsResult] = await Promise.all([
+      const [levelData, drawingData, membersResult, inspectionsResult] = await Promise.all([
+        supabase
+          .from('levels')
+          .select('block_id')
+          .eq('id', levelId)
+          .single(),
+        supabase
+          .from('drawings')
+          .select('document_id')
+          .eq('id', drawingId)
+          .single(),
         supabase.rpc('get_project_members_for_dropdown', { p_project_id: projectId }),
         supabase
           .from('inspections')
@@ -70,6 +71,14 @@ export function AddPinModal({
           .eq('project_id', projectId)
           .order('created_at', { ascending: false }),
       ]);
+
+      if (levelData.data) {
+        setBlockId(levelData.data.block_id);
+      }
+
+      if (drawingData.data) {
+        setDocumentId(drawingData.data.document_id);
+      }
 
       if (membersResult.data) setMembers(membersResult.data);
       if (inspectionsResult.data) setInspections(inspectionsResult.data);
@@ -95,12 +104,18 @@ export function AddPinModal({
       return;
     }
 
+    if (!documentId) {
+      setError('Document ID not found');
+      return;
+    }
+
     setCreating(true);
     setError('');
 
     try {
       const { error: insertError } = await supabase.from('drawing_pins').insert([
         {
+          document_id: documentId,
           drawing_id: drawingId,
           project_id: projectId,
           block_id: blockId,
