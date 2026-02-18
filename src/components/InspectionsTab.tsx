@@ -26,10 +26,22 @@ interface Inspection {
   };
 }
 
+interface PendingPin {
+  id: string;
+  label: string;
+  pin_number: string | null;
+  pin_type: string;
+  status: string;
+  block_name: string | null;
+  level_name: string | null;
+  member_mark: string | null;
+}
+
 export function InspectionsTab({ projectId }: { projectId: string }) {
   const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [pendingPins, setPendingPins] = useState<PendingPin[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
@@ -37,6 +49,7 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     loadInspections();
+    loadPendingPins();
   }, [projectId]);
 
   useEffect(() => {
@@ -70,6 +83,45 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
     }
   };
 
+  const loadPendingPins = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('drawing_pins')
+        .select(`
+          id,
+          label,
+          pin_number,
+          pin_type,
+          status,
+          blocks(name),
+          levels(name),
+          members(member_mark)
+        `)
+        .eq('project_id', projectId)
+        .is('inspection_id', null)
+        .in('pin_type', ['inspection', 'member']);
+
+      if (error) throw error;
+
+      const formatted = (data || []).map(pin => ({
+        id: pin.id,
+        label: pin.label,
+        pin_number: pin.pin_number,
+        pin_type: pin.pin_type,
+        status: pin.status,
+        block_name: pin.blocks?.name || null,
+        level_name: pin.levels?.name || null,
+        member_mark: pin.members?.member_mark || null,
+      }));
+
+      setPendingPins(formatted);
+    } catch (error) {
+      console.error('Error loading pending pins:', error);
+    }
+  };
+
+  const canEdit = profile?.role === 'admin' || profile?.role === 'inspector';
+
   const getResultColor = (result: string) => {
     switch (result) {
       case 'pass':
@@ -83,11 +135,24 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
     }
   };
 
-  const canEdit = profile?.role === 'admin' || profile?.role === 'inspector';
-
   if (loading) {
     return <div className="text-center py-8">Loading inspections...</div>;
   }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pass':
+        return 'text-green-400 bg-green-500/20';
+      case 'repair_required':
+        return 'text-red-400 bg-red-500/20';
+      case 'in_progress':
+        return 'text-orange-400 bg-orange-500/20';
+      case 'not_started':
+        return 'text-blue-400 bg-blue-500/20';
+      default:
+        return 'text-slate-400 bg-slate-500/20';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -101,9 +166,63 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
         </button>
       )}
 
+      {pendingPins.length > 0 && (
+        <div className="bg-orange-500/10 backdrop-blur-sm rounded-lg border border-orange-500/30">
+          <div className="px-6 py-4 border-b border-orange-500/30">
+            <h3 className="text-lg font-semibold text-orange-200 flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5" />
+              Pending Inspection Pins ({pendingPins.length})
+            </h3>
+            <p className="text-sm text-orange-300 mt-1">
+              These pins in Site Manager need inspections created
+            </p>
+          </div>
+          <div className="divide-y divide-orange-500/20">
+            {pendingPins.map((pin) => (
+              <div key={pin.id} className="px-6 py-4 hover:bg-orange-500/5">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <h4 className="font-medium text-white">
+                        {pin.pin_number ? `Pin ${pin.pin_number}` : pin.label}
+                      </h4>
+                      {pin.member_mark && (
+                        <span className="text-sm text-blue-300">
+                          {pin.member_mark}
+                        </span>
+                      )}
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded ${getStatusColor(pin.status)}`}>
+                        {pin.status.replace('_', ' ')}
+                      </span>
+                      <span className="px-2 py-0.5 text-xs bg-slate-700 text-slate-300 rounded uppercase">
+                        {pin.pin_type}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-blue-100 mt-1">
+                      {pin.block_name && <span>Block: {pin.block_name}</span>}
+                      {pin.level_name && <span>Level: {pin.level_name}</span>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPinId(pin.id);
+                      setShowCreateModal(true);
+                    }}
+                    className="ml-4 flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Inspection
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
         <div className="px-6 py-4 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">Inspections</h3>
+          <h3 className="text-lg font-semibold text-white">Completed Inspections</h3>
         </div>
 
         {inspections.length === 0 ? (
@@ -175,6 +294,7 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
             setShowCreateModal(false);
             setPinId(null);
             loadInspections();
+            loadPendingPins();
           }}
         />
       )}
