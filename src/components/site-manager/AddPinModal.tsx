@@ -13,6 +13,22 @@ interface AddPinModalProps {
   onSuccess: () => void;
 }
 
+const STEEL_TYPES = [
+  'Beam',
+  'Column',
+  'Plate',
+  'Angle',
+  'Channel',
+  'Tube',
+  'Hollow Section (RHS/SHS/CHS)',
+  'Truss',
+  'Purlin',
+  'Girt',
+  'Brace',
+  'Connection',
+  'Other',
+];
+
 export function AddPinModal({
   isOpen,
   drawingId,
@@ -24,6 +40,8 @@ export function AddPinModal({
   onSuccess,
 }: AddPinModalProps) {
   const [label, setLabel] = useState('');
+  const [pinNumber, setPinNumber] = useState('');
+  const [steelType, setSteelType] = useState('');
   const [pinType, setPinType] = useState<'inspection' | 'member' | 'ncr' | 'note'>('inspection');
   const [status, setStatus] = useState<'not_started' | 'in_progress' | 'pass' | 'repair_required'>(
     'not_started'
@@ -40,7 +58,16 @@ export function AddPinModal({
 
   useEffect(() => {
     loadData();
+    loadNextPinNumber();
   }, [projectId, levelId, drawingId]);
+
+  useEffect(() => {
+    if (pinNumber && steelType) {
+      setLabel(`${pinNumber} ${steelType}`);
+    } else if (pinNumber) {
+      setLabel(pinNumber);
+    }
+  }, [pinNumber, steelType]);
 
   useEffect(() => {
     if (selectedMemberId && members.length > 0) {
@@ -50,6 +77,22 @@ export function AddPinModal({
       setSelectedMember(null);
     }
   }, [selectedMemberId, members]);
+
+  const loadNextPinNumber = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_next_pin_number', {
+        p_project_id: projectId,
+      });
+
+      if (error) throw error;
+      if (data) {
+        setPinNumber(data);
+      }
+    } catch (error) {
+      console.error('Error loading next pin number:', error);
+      setPinNumber('1001-1');
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -89,6 +132,17 @@ export function AddPinModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!pinNumber.trim()) {
+      setError('Pin number is required');
+      return;
+    }
+
+    if (pinType === 'inspection' && !steelType) {
+      setError('Steel type is required for inspection pins');
+      return;
+    }
+
     if (!label.trim()) {
       setError('Label is required');
       return;
@@ -122,6 +176,8 @@ export function AddPinModal({
           level_id: levelId,
           x: position.x,
           y: position.y,
+          pin_number: pinNumber.trim(),
+          steel_type: steelType || null,
           label: label.trim(),
           pin_type: pinType,
           status,
@@ -160,18 +216,71 @@ export function AddPinModal({
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className="space-y-4">
+          <div className="bg-primary-900/30 border border-primary-700/50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-primary-300">
+                Auto-Generated Pin Number
+              </label>
+              <span className="text-xs text-slate-400">Read-only</span>
+            </div>
+            <div className="text-2xl font-bold text-white mb-1">{pinNumber || 'Loading...'}</div>
+            <p className="text-xs text-slate-400">
+              Sequential pin numbers automatically generated for this project
+            </p>
+          </div>
+
+          {pinType === 'inspection' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Steel Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={steelType}
+                onChange={(e) => setSteelType(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                disabled={creating}
+                required={pinType === 'inspection'}
+              >
+                <option value="">-- Select Steel Type --</option>
+                {STEEL_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400 mt-1">
+                Select the type of steel element being inspected
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Label <span className="text-red-500">*</span>
+              Combined Label <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g., Door Frame A1, Wall Penetration"
-              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
-              disabled={creating}
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder={steelType ? `${pinNumber} ${steelType}` : 'Will auto-generate when steel type is selected'}
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
+                disabled={creating}
+                readOnly={pinType === 'inspection' && steelType !== ''}
+              />
+              {pinType === 'inspection' && steelType && (
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                  <span className="text-xs text-green-400 bg-green-500/20 px-2 py-1 rounded">
+                    Auto-generated
+                  </span>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              {pinType === 'inspection' && steelType
+                ? 'Automatically combined from pin number and steel type'
+                : 'Manual entry for non-inspection pins'}
+            </p>
           </div>
 
           <div>

@@ -14,6 +14,8 @@ interface Pin {
   x: number;
   y: number;
   label: string;
+  pin_number?: string;
+  steel_type?: string;
   pin_type: 'inspection' | 'member' | 'ncr' | 'note';
   status: 'not_started' | 'in_progress' | 'pass' | 'repair_required';
   created_at: string;
@@ -113,6 +115,18 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
 
         <div className="p-6 space-y-4">
           <div>
+            {pin.pin_number && (
+              <div className="mb-2">
+                <span className="text-xs text-slate-400 uppercase tracking-wide">Pin Number</span>
+                <p className="text-xl font-bold text-primary-400">{pin.pin_number}</p>
+              </div>
+            )}
+            {pin.steel_type && (
+              <div className="mb-2">
+                <span className="text-xs text-slate-400 uppercase tracking-wide">Steel Type</span>
+                <p className="text-md font-semibold text-white">{pin.steel_type}</p>
+              </div>
+            )}
             <h3 className="text-lg font-semibold text-white">{pin.label}</h3>
             <div className="flex items-center gap-2 mt-2">
               <span className="text-xs px-2 py-1 bg-slate-700 text-slate-300 rounded font-medium uppercase">
