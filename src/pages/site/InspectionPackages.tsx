@@ -15,7 +15,7 @@ interface InspectionPackage {
   section_factor_required: boolean;
   notes: string;
   is_default: boolean;
-  materials?: {
+  fire_protection_materials?: {
     manufacturer: string;
     product_name: string;
   };
@@ -58,7 +58,7 @@ export function InspectionPackages() {
 
     const { data, error } = await supabase
       .from('inspection_packages')
-      .select('*, materials(manufacturer, product_name)')
+      .select('*, fire_protection_materials(manufacturer, product_name)')
       .eq('project_id', projectId)
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: false });
@@ -74,7 +74,7 @@ export function InspectionPackages() {
 
   const loadMaterials = async () => {
     const { data, error } = await supabase
-      .from('materials')
+      .from('fire_protection_materials')
       .select('id, manufacturer, product_name, thickness_unit')
       .eq('active', true)
       .order('manufacturer');
@@ -254,9 +254,9 @@ export function InspectionPackages() {
                       </span>
                     )}
                   </div>
-                  {pkg.materials && (
+                  {pkg.fire_protection_materials && (
                     <p className="text-sm text-blue-100">
-                      {pkg.materials.manufacturer} {pkg.materials.product_name}
+                      {pkg.fire_protection_materials.manufacturer} {pkg.fire_protection_materials.product_name}
                     </p>
                   )}
                 </div>
