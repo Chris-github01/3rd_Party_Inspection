@@ -613,15 +613,19 @@ function CreateInspectionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] border border-white/10">
-        <div className="flex-shrink-0 px-6 py-4 border-b border-white/10">
-          <h2 className="text-2xl font-bold text-white">Create Inspection</h2>
-          {pinData && (
-            <p className="text-sm text-blue-300 mt-1">
-              Creating inspection from pin: {pinData.label}
-            </p>
-          )}
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-slate-800/95 backdrop-blur-md rounded-lg max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] border border-slate-700/50 shadow-2xl">
+        <div className="flex-shrink-0 px-6 py-4 border-b border-slate-700/50 bg-gradient-to-r from-slate-800 to-slate-900">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Create Inspection</h2>
+              {pinData && (
+                <p className="text-sm text-slate-400 mt-1">
+                  Creating inspection from pin: <span className="text-blue-400">{pinData.label}</span>
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
@@ -635,11 +639,11 @@ function CreateInspectionModal({
                 required
                 value={selectedMember}
                 onChange={(e) => setSelectedMember(e.target.value)}
-                className="w-full px-4 py-2 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white/5 text-white"
+                className="w-full px-4 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-700 text-white"
               >
-                <option value="">Choose a member...</option>
+                <option value="" className="bg-slate-800">Choose a member...</option>
                 {members.map((m) => (
-                  <option key={m.id} value={m.id}>
+                  <option key={m.id} value={m.id} className="bg-slate-800">
                     {m.member_mark} - {m.coating_system} ({m.required_dft_microns}µm required)
                   </option>
                 ))}
@@ -655,8 +659,8 @@ function CreateInspectionModal({
                   type="text"
                   value={formData.location_label}
                   onChange={(e) => setFormData({ ...formData, location_label: e.target.value })}
-                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white placeholder-blue-200"
-                  placeholder="Location No. 4"
+                  className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400"
+                  placeholder="Beam"
                 />
               </div>
               <div>
@@ -665,7 +669,7 @@ function CreateInspectionModal({
                   type="text"
                   value={formData.block}
                   onChange={(e) => setFormData({ ...formData, block: e.target.value })}
-                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                  className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                 />
               </div>
               <div>
@@ -674,12 +678,12 @@ function CreateInspectionModal({
                   type="text"
                   value={formData.level}
                   onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                  className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                 />
               </div>
             </div>
 
-            <div className="border-t border-white/10 pt-4">
+            <div className="border-t border-slate-700/50 pt-4">
               <h3 className="font-semibold text-white mb-3">Environmental Conditions</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
@@ -691,7 +695,7 @@ function CreateInspectionModal({
                     step="0.1"
                     value={formData.ambient_temp_c}
                     onChange={(e) => setFormData({ ...formData, ambient_temp_c: e.target.value })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                    className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                   />
                 </div>
                 <div>
@@ -703,7 +707,7 @@ function CreateInspectionModal({
                     step="0.1"
                     value={formData.steel_temp_c}
                     onChange={(e) => setFormData({ ...formData, steel_temp_c: e.target.value })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                    className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                   />
                 </div>
                 <div>
@@ -715,7 +719,7 @@ function CreateInspectionModal({
                     onChange={(e) =>
                       setFormData({ ...formData, relative_humidity_pct: e.target.value })
                     }
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                    className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                   />
                 </div>
                 <div>
@@ -727,7 +731,7 @@ function CreateInspectionModal({
                     step="0.1"
                     value={formData.dew_point_c}
                     onChange={(e) => setFormData({ ...formData, dew_point_c: e.target.value })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                    className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                   />
                 </div>
               </div>
@@ -743,7 +747,7 @@ function CreateInspectionModal({
               </div>
             </div>
 
-            <div className="border-t border-white/10 pt-4">
+            <div className="border-t border-slate-700/50 pt-4">
               <h3 className="font-semibold text-white mb-3">DFT Readings</h3>
               <div className="grid grid-cols-2 gap-4 mb-3">
                 <div>
@@ -768,7 +772,7 @@ function CreateInspectionModal({
                     type="text"
                     value={formData.gauge_serial}
                     onChange={(e) => setFormData({ ...formData, gauge_serial: e.target.value })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                    className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                   />
                 </div>
               </div>
@@ -784,7 +788,7 @@ function CreateInspectionModal({
                         newReadings[idx].value = e.target.value;
                         setDftReadings(newReadings);
                       }}
-                      className="flex-1 px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white placeholder-blue-200"
+                      className="flex-1 px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white placeholder-slate-400"
                     />
                     <select
                       value={reading.face}
@@ -793,12 +797,12 @@ function CreateInspectionModal({
                         newReadings[idx].face = e.target.value;
                         setDftReadings(newReadings);
                       }}
-                      className="px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                      className="px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                     >
-                      <option value="web">Web</option>
-                      <option value="flange1">Flange 1</option>
-                      <option value="flange2">Flange 2</option>
-                      <option value="other">Other</option>
+                      <option value="web" className="bg-slate-800">Web</option>
+                      <option value="flange1" className="bg-slate-800">Flange 1</option>
+                      <option value="flange2" className="bg-slate-800">Flange 2</option>
+                      <option value="other" className="bg-slate-800">Other</option>
                     </select>
                   </div>
                 ))}
@@ -811,7 +815,7 @@ function CreateInspectionModal({
                 </button>
               </div>
               {calculateDFTStats() && (
-                <div className="mt-3 p-3 bg-white/10 backdrop-blur-sm rounded">
+                <div className="mt-3 p-3 bg-slate-700/80 rounded border border-slate-600">
                   <div className="grid grid-cols-4 gap-2 text-sm">
                     <div>
                       <span className="text-blue-100">Min:</span>{' '}
@@ -834,7 +838,7 @@ function CreateInspectionModal({
               )}
             </div>
 
-            <div className="border-t border-white/10 pt-4">
+            <div className="border-t border-slate-700/50 pt-4">
               <h3 className="font-semibold text-white mb-3">Result</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -844,10 +848,10 @@ function CreateInspectionModal({
                   <select
                     value={formData.appearance}
                     onChange={(e) => setFormData({ ...formData, appearance: e.target.value })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                    className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                   >
-                    <option value="conform">Conform</option>
-                    <option value="nonconform">Non-Conform</option>
+                    <option value="conform" className="bg-slate-800">Conform</option>
+                    <option value="nonconform" className="bg-slate-800">Non-Conform</option>
                   </select>
                 </div>
                 <div>
@@ -855,11 +859,11 @@ function CreateInspectionModal({
                   <select
                     value={formData.result}
                     onChange={(e) => setFormData({ ...formData, result: e.target.value })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/5 text-white"
+                    className="w-full px-4 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white"
                   >
-                    <option value="pass">Pass</option>
-                    <option value="fail">Fail</option>
-                    <option value="repair">Repair Required</option>
+                    <option value="pass" className="bg-slate-800">Pass</option>
+                    <option value="fail" className="bg-slate-800">Fail</option>
+                    <option value="repair" className="bg-slate-800">Repair Required</option>
                   </select>
                 </div>
               </div>
@@ -867,12 +871,12 @@ function CreateInspectionModal({
           </div>
         </div>
 
-        <div className="flex-shrink-0 px-6 py-4 border-t border-white/10 bg-white/5">
+        <div className="flex-shrink-0 px-6 py-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800 to-slate-900">
           <div className="flex justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+              className="px-4 py-2 text-white hover:bg-slate-700 rounded-lg transition-colors border border-slate-600"
             >
               Cancel
             </button>
