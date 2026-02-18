@@ -33,8 +33,13 @@ export function InspectionPackages() {
   const [packages, setPackages] = useState<InspectionPackage[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<InspectionPackage | null>(null);
+  const [isManualEntry, setIsManualEntry] = useState(false);
+  const [manualMaterialName, setManualMaterialName] = useState('');
+  const [materialsError, setMaterialsError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -73,22 +78,41 @@ export function InspectionPackages() {
   };
 
   const loadMaterials = async () => {
-    const { data, error } = await supabase
-      .from('fire_protection_materials')
-      .select('id, manufacturer, product_name, thickness_unit')
-      .eq('active', true)
-      .order('manufacturer');
+    setLoadingMaterials(true);
+    try {
+      const { data, error } = await supabase
+        .from('fire_protection_materials')
+        .select('id, manufacturer, product_name, thickness_unit')
+        .eq('active', true)
+        .order('manufacturer');
 
-    if (error) {
-      console.error('Error loading materials:', error);
-      return;
+      if (error) {
+        console.error('Error loading materials:', error);
+        setMaterialsError('Failed to load materials from database. You can still use manual entry.');
+        setMaterials([]);
+        return;
+      }
+
+      setMaterials(data || []);
+      setMaterialsError(null);
+
+      // Show info message if no materials found
+      if (!data || data.length === 0) {
+        setMaterialsError('No materials found in database. Use manual entry to add materials.');
+      }
+    } catch (err) {
+      console.error('Exception loading materials:', err);
+      setMaterialsError('Failed to load materials. You can use manual entry option.');
+      setMaterials([]);
+    } finally {
+      setLoadingMaterials(false);
     }
-
-    setMaterials(data || []);
   };
 
   const handleCreate = () => {
     setEditingPackage(null);
+    setIsManualEntry(false);
+    setManualMaterialName('');
     setFormData({
       name: '',
       material_id: '',
@@ -120,46 +144,96 @@ export function InspectionPackages() {
   };
 
   const handleMaterialChange = (materialId: string) => {
-    const material = materials.find((m) => m.id === materialId);
-    if (material) {
+    if (materialId === 'manual') {
+      setIsManualEntry(true);
       setFormData({
         ...formData,
-        material_id: materialId,
-        required_thickness_unit: material.thickness_unit,
+        material_id: '',
       });
+    } else {
+      setIsManualEntry(false);
+      setManualMaterialName('');
+      const material = materials.find((m) => m.id === materialId);
+      if (material) {
+        setFormData({
+          ...formData,
+          material_id: materialId,
+          required_thickness_unit: material.thickness_unit,
+        });
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!projectId) return;
-
-    if (editingPackage) {
-      const { error } = await supabase
-        .from('inspection_packages')
-        .update({ ...formData, updated_at: new Date().toISOString() })
-        .eq('id', editingPackage.id);
-
-      if (error) {
-        console.error('Error updating package:', error);
-        alert('Failed to update package');
-        return;
-      }
-    } else {
-      const { error } = await supabase
-        .from('inspection_packages')
-        .insert({ ...formData, project_id: projectId });
-
-      if (error) {
-        console.error('Error creating package:', error);
-        alert('Failed to create package');
-        return;
-      }
+    if (!projectId) {
+      alert('Project ID is missing. Please try again.');
+      return;
     }
 
-    setShowModal(false);
-    loadPackages();
+    // Validate manual entry
+    if (isManualEntry) {
+      if (!manualMaterialName.trim()) {
+        alert('Please enter a material name for manual entry.');
+        return;
+      }
+      if (manualMaterialName.trim().length < 3) {
+        alert('Material name must be at least 3 characters long.');
+        return;
+      }
+    } else if (!formData.material_id) {
+      alert('Please select a material or choose manual entry.');
+      return;
+    }
+
+    // Prepare data for submission
+    const packageData = {
+      ...formData,
+      project_id: projectId,
+      // Store manual material name in notes if using manual entry
+      notes: isManualEntry
+        ? `Manual Material: ${manualMaterialName}${formData.notes ? '\n\n' + formData.notes : ''}`
+        : formData.notes,
+      // Set material_id to null for manual entries
+      material_id: isManualEntry ? null : formData.material_id,
+    };
+
+    setSubmitting(true);
+    try {
+      if (editingPackage) {
+        const { error } = await supabase
+          .from('inspection_packages')
+          .update({ ...packageData, updated_at: new Date().toISOString() })
+          .eq('id', editingPackage.id);
+
+        if (error) {
+          console.error('Error updating package:', error);
+          alert(`Failed to update package: ${error.message || 'Unknown error'}`);
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from('inspection_packages')
+          .insert(packageData);
+
+        if (error) {
+          console.error('Error creating package:', error);
+          alert(`Failed to create package: ${error.message || 'Unknown error'}\n\nPlease check all required fields.`);
+          return;
+        }
+      }
+
+      setShowModal(false);
+      setIsManualEntry(false);
+      setManualMaterialName('');
+      loadPackages();
+    } catch (err: any) {
+      console.error('Exception during package submission:', err);
+      alert(`An error occurred: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -254,11 +328,15 @@ export function InspectionPackages() {
                       </span>
                     )}
                   </div>
-                  {pkg.fire_protection_materials && (
+                  {pkg.fire_protection_materials ? (
                     <p className="text-sm text-blue-100">
                       {pkg.fire_protection_materials.manufacturer} {pkg.fire_protection_materials.product_name}
                     </p>
-                  )}
+                  ) : pkg.notes?.startsWith('Manual Material:') ? (
+                    <p className="text-sm text-blue-100 italic">
+                      {pkg.notes.split('\n')[0].replace('Manual Material: ', '')} (Manual Entry)
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex items-center space-x-1">
                   {!pkg.is_default && (
@@ -356,19 +434,54 @@ export function InspectionPackages() {
                 <label className="block text-sm font-medium text-white mb-2">
                   Material *
                 </label>
-                <select
-                  required
-                  value={formData.material_id}
-                  onChange={(e) => handleMaterialChange(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white"
-                >
-                  <option value="" className="bg-slate-800">Select material...</option>
-                  {materials.map((mat) => (
-                    <option key={mat.id} value={mat.id} className="bg-slate-800">
-                      {mat.manufacturer} - {mat.product_name}
+                {materialsError && (
+                  <div className="mb-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-sm text-yellow-300">
+                    {materialsError}
+                  </div>
+                )}
+                {loadingMaterials ? (
+                  <div className="w-full px-4 py-2.5 border border-slate-600 rounded-lg bg-slate-700 text-slate-400 flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+                    Loading materials...
+                  </div>
+                ) : (
+                  <select
+                    required={!isManualEntry}
+                    value={isManualEntry ? 'manual' : formData.material_id}
+                    onChange={(e) => handleMaterialChange(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white"
+                  >
+                    <option value="" className="bg-slate-800">Select material...</option>
+                    {materials.length > 0 && materials.map((mat) => (
+                      <option key={mat.id} value={mat.id} className="bg-slate-800">
+                        {mat.manufacturer} - {mat.product_name}
+                      </option>
+                    ))}
+                    <option value="manual" className="bg-slate-800 font-semibold">
+                      ➕ Manual Entry (Custom Material)
                     </option>
-                  ))}
-                </select>
+                  </select>
+                )}
+
+                {isManualEntry && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Custom Material Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      minLength={3}
+                      value={manualMaterialName}
+                      onChange={(e) => setManualMaterialName(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
+                      placeholder="e.g., Nullifire SC902, Custom Intumescent Paint"
+                    />
+                    <p className="mt-1 text-xs text-slate-400">
+                      Enter the material name manually (minimum 3 characters)
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -498,9 +611,17 @@ export function InspectionPackages() {
                   type="submit"
                   form="package-form"
                   onClick={handleSubmit}
-                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                  {editingPackage ? 'Update' : 'Create'} Package
+                  {submitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {editingPackage ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    <>{editingPackage ? 'Update' : 'Create'} Package</>
+                  )}
                 </button>
               </div>
             </div>
