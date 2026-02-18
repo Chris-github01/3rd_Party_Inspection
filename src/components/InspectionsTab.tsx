@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, ClipboardCheck, Calendar, Eye } from 'lucide-react';
@@ -27,14 +28,26 @@ interface Inspection {
 
 export function InspectionsTab({ projectId }: { projectId: string }) {
   const { profile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
+  const [pinId, setPinId] = useState<string | null>(null);
 
   useEffect(() => {
     loadInspections();
   }, [projectId]);
+
+  useEffect(() => {
+    const createFromPin = searchParams.get('createFromPin');
+    if (createFromPin) {
+      setPinId(createFromPin);
+      setShowCreateModal(true);
+      searchParams.delete('createFromPin');
+      setSearchParams(searchParams);
+    }
+  }, [searchParams]);
 
   const loadInspections = async () => {
     try {
@@ -153,9 +166,14 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
       {showCreateModal && (
         <CreateInspectionModal
           projectId={projectId}
-          onClose={() => setShowCreateModal(false)}
+          pinId={pinId}
+          onClose={() => {
+            setShowCreateModal(false);
+            setPinId(null);
+          }}
           onCreated={() => {
             setShowCreateModal(false);
+            setPinId(null);
             loadInspections();
           }}
         />
@@ -246,16 +264,19 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
 
 function CreateInspectionModal({
   projectId,
+  pinId,
   onClose,
   onCreated,
 }: {
   projectId: string;
+  pinId?: string | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const { user } = useAuth();
   const [members, setMembers] = useState<any[]>([]);
   const [selectedMember, setSelectedMember] = useState('');
+  const [pinData, setPinData] = useState<any>(null);
   const [formData, setFormData] = useState({
     location_label: '',
     level: '',
@@ -286,7 +307,46 @@ function CreateInspectionModal({
 
   useEffect(() => {
     loadMembers();
-  }, []);
+    if (pinId) {
+      loadPinData();
+    }
+  }, [pinId]);
+
+  const loadPinData = async () => {
+    if (!pinId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('drawing_pins')
+        .select(`
+          *,
+          blocks(name),
+          levels(name)
+        `)
+        .eq('id', pinId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setPinData(data);
+
+        if (data.member_id) {
+          setSelectedMember(data.member_id);
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          location_label: data.label || '',
+          block: data.blocks?.name || '',
+          level: data.levels?.name || '',
+          result: data.status === 'pass' ? 'pass' : data.status === 'repair_required' ? 'repair' : 'pass',
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading pin data:', error);
+    }
+  };
 
   const loadMembers = async () => {
     const { data } = await supabase
@@ -415,6 +475,16 @@ function CreateInspectionModal({
         await supabase.from('members').update({ status: newStatus }).eq('id', selectedMember);
       }
 
+      if (pinId && inspection) {
+        await supabase
+          .from('drawing_pins')
+          .update({
+            inspection_id: inspection.id,
+            status: formData.result === 'pass' ? 'pass' : formData.result === 'fail' ? 'repair_required' : 'repair_required'
+          })
+          .eq('id', pinId);
+      }
+
       onCreated();
     } catch (error: any) {
       alert('Error creating inspection: ' + error.message);
@@ -427,6 +497,11 @@ function CreateInspectionModal({
       <div className="bg-white/5 backdrop-blur-sm rounded-lg max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] border border-white/10">
         <div className="flex-shrink-0 px-6 py-4 border-b border-white/10">
           <h2 className="text-2xl font-bold text-white">Create Inspection</h2>
+          {pinData && (
+            <p className="text-sm text-blue-300 mt-1">
+              Creating inspection from pin: {pinData.label}
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
