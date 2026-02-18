@@ -33,7 +33,7 @@ export function Layout({ children }: LayoutProps) {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
 
   const navItems: NavItem[] = [
@@ -90,36 +90,38 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex">
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={`${
-          sidebarOpen ? 'w-64' : 'w-20'
-        } bg-primary-900/50 backdrop-blur-sm border-r border-primary-700/50 transition-all duration-300 flex flex-col`}
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } fixed lg:static inset-y-0 left-0 z-50 w-64 lg:translate-x-0 bg-primary-900/95 lg:bg-primary-900/50 backdrop-blur-sm border-r border-primary-700/50 transition-transform duration-300 flex flex-col`}
       >
         {/* Logo */}
         <div className="h-16 border-b border-primary-700/50 flex items-center justify-between px-4">
-          {sidebarOpen ? (
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold">
-                P&R
-              </div>
-              <span className="ml-3 font-semibold text-white">P&R Consulting</span>
-            </div>
-          ) : (
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold mx-auto">
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold">
               P&R
             </div>
-          )}
+            <span className="ml-3 font-semibold text-white">P&R Consulting</span>
+          </div>
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1 hover:bg-primary-700/50 rounded text-white"
+            onClick={() => setSidebarOpen(false)}
+            className="p-1 hover:bg-primary-700/50 rounded text-white lg:hidden"
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
 
             const Icon = item.icon;
@@ -128,7 +130,12 @@ export function Layout({ children }: LayoutProps) {
             return (
               <div key={item.label}>
                 <button
-                  onClick={() => handleNavClick(item)}
+                  onClick={() => {
+                    handleNavClick(item);
+                    if (item.path && !item.children) {
+                      setSidebarOpen(false);
+                    }
+                  }}
                   className={`w-full flex items-center px-3 py-2 rounded-lg transition-colors ${
                     active
                       ? 'bg-primary-600 text-white'
@@ -136,24 +143,20 @@ export function Layout({ children }: LayoutProps) {
                   }`}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
-                  {sidebarOpen && (
-                    <>
-                      <span className="ml-3 flex-1 text-left">{item.label}</span>
-                      {item.children && (
-                        <span className="ml-auto">
-                          {settingsExpanded ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
-                          )}
-                        </span>
+                  <span className="ml-3 flex-1 text-left">{item.label}</span>
+                  {item.children && (
+                    <span className="ml-auto">
+                      {settingsExpanded ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
                       )}
-                    </>
+                    </span>
                   )}
                 </button>
 
                 {/* Sub-items */}
-                {item.children && settingsExpanded && sidebarOpen && (
+                {item.children && settingsExpanded && (
                   <div className="ml-4 mt-1 space-y-1">
                     {item.children.map((child) => {
                       const ChildIcon = child.icon;
@@ -161,7 +164,10 @@ export function Layout({ children }: LayoutProps) {
                       return (
                         <button
                           key={child.label}
-                          onClick={() => navigate(child.path!)}
+                          onClick={() => {
+                            navigate(child.path!);
+                            setSidebarOpen(false);
+                          }}
                           className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                             childActive
                               ? 'bg-primary-600 text-white'
@@ -182,39 +188,47 @@ export function Layout({ children }: LayoutProps) {
 
         {/* User Section */}
         <div className="border-t border-primary-700/50 p-4">
-          {sidebarOpen ? (
-            <>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{profile?.name}</p>
-                  <p className="text-xs text-blue-200 capitalize">{profile?.role}</p>
-                </div>
-                <button
-                  onClick={handleSignOut}
-                  className="p-2 text-blue-100 hover:bg-primary-700/50 rounded-lg"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="pt-3 border-t border-primary-700/50">
-                <p className="text-xs text-blue-200 text-center">
-                  Prepared by <span className="font-semibold text-accent-400">P&R Consulting Limited</span>
-                </p>
-              </div>
-            </>
-          ) : (
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{profile?.name}</p>
+              <p className="text-xs text-blue-200 capitalize">{profile?.role}</p>
+            </div>
             <button
               onClick={handleSignOut}
-              className="w-full p-2 text-blue-100 hover:bg-primary-700/50 rounded-lg flex justify-center"
+              className="p-2 text-blue-100 hover:bg-primary-700/50 rounded-lg"
             >
               <LogOut className="w-5 h-5" />
             </button>
-          )}
+          </div>
+          <div className="pt-3 border-t border-primary-700/50">
+            <p className="text-xs text-blue-200 text-center">
+              Prepared by <span className="font-semibold text-accent-400">P&R Consulting Limited</span>
+            </p>
+          </div>
         </div>
       </aside>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile Header */}
+        <header className="lg:hidden sticky top-0 z-30 bg-primary-900/95 backdrop-blur-sm border-b border-primary-700/50">
+          <div className="flex items-center justify-between px-4 h-16">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 text-white hover:bg-primary-700/50 rounded-lg"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="flex items-center">
+              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold">
+                P&R
+              </div>
+              <span className="ml-2 font-semibold text-white">P&R Consulting</span>
+            </div>
+            <div className="w-10"></div>
+          </div>
+        </header>
+
         {children}
       </div>
     </div>
