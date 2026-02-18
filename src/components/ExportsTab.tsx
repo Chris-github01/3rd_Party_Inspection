@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Download, FileText, Layers, AlertCircle } from 'lucide-react';
+import { Download, FileText, Layers, AlertCircle, Camera } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { PDFDocument } from 'pdf-lib';
 import { createDividerPage } from '../lib/pdfUtils';
+import { InspectedMemberSelector } from './InspectedMemberSelector';
+import { generateInspectionReportWithPhotos } from '../lib/pdfInspectionWithPhotos';
 
 interface Project {
   id: string;
@@ -28,6 +30,7 @@ function blobToDataURL(blob: Blob): Promise<string> {
 export function ExportsTab({ project }: { project: Project }) {
   const [generating, setGenerating] = useState(false);
   const [generatingMerged, setGeneratingMerged] = useState(false);
+  const [generatingPhotoReport, setGeneratingPhotoReport] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
 
@@ -538,6 +541,33 @@ export function ExportsTab({ project }: { project: Project }) {
     }
   };
 
+  const handleGeneratePhotoReport = async (selectedPinIds: string[]) => {
+    if (selectedPinIds.length === 0) {
+      alert('Please select at least one inspected member');
+      return;
+    }
+
+    setGeneratingPhotoReport(true);
+    try {
+      const doc = await generateInspectionReportWithPhotos(
+        project.id,
+        project.name,
+        selectedPinIds
+      );
+      doc.save(
+        `Inspection_Report_Photos_${project.name.replace(/\s+/g, '_')}_${format(
+          new Date(),
+          'yyyyMMdd'
+        )}.pdf`
+      );
+    } catch (error: any) {
+      console.error('Error generating photo report:', error);
+      alert('Error generating photo report: ' + error.message);
+    } finally {
+      setGeneratingPhotoReport(false);
+    }
+  };
+
   const handleGenerateMergedPack = async () => {
     setGeneratingMerged(true);
     try {
@@ -729,11 +759,41 @@ export function ExportsTab({ project }: { project: Project }) {
         </div>
       </div>
 
+      <div className="bg-white rounded-lg border border-slate-200 p-6">
+        <div className="flex items-start">
+          <Camera className="w-12 h-12 text-green-600 mr-4 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">
+              Inspection Report with Photos
+            </h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Generate a detailed inspection report including all photos attached to selected pins.
+              Select which inspected members to include in the report.
+            </p>
+
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <InspectedMemberSelector
+                projectId={project.id}
+                onGenerateReport={handleGeneratePhotoReport}
+              />
+            </div>
+
+            {generatingPhotoReport && (
+              <div className="mt-4 flex items-center gap-2 text-green-600">
+                <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">Generating report with photos...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
         <h4 className="font-medium text-primary-900 mb-2">Export File Naming</h4>
         <p className="text-sm text-primary-800">
           <strong>Base Report:</strong> PRC_InspectionReport_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
-          <strong>Merged Pack:</strong> PRC_AuditPack_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf
+          <strong>Merged Pack:</strong> PRC_AuditPack_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
+          <strong>Photo Report:</strong> Inspection_Report_Photos_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf
         </p>
       </div>
     </div>

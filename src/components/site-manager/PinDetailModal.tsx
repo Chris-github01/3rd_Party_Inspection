@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, ExternalLink, FileText, User, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { PhotoUpload } from '../PhotoUpload';
 
 interface Pin {
   id: string;
@@ -214,6 +215,11 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
                 <ExternalLink className="w-4 h-4" />
               </button>
             </div>
+          </div>
+
+          <div className="border-t border-slate-700 pt-4">
+            <h4 className="text-sm font-medium text-slate-300 mb-3">Photos</h4>
+            <PhotoUpload pinId={pin.id} projectId={projectId} onPhotoAdded={onUpdate} />
           </div>
 
           <div className="border-t border-slate-700 pt-4">
