@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, FileText, Users, ClipboardCheck, AlertTriangle, Download, Paperclip, Map, Smartphone, FileCheck, BookOpen, ListChecks } from 'lucide-react';
+import { ArrowLeft, FileText, Users, ClipboardCheck, AlertTriangle, Download, Paperclip, Map, Smartphone, FileCheck, BookOpen, ListChecks, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 import { DocumentsTab } from '../components/DocumentsTab';
 import { LoadingScheduleTab } from '../components/LoadingScheduleTab';
 import { MembersTab } from '../components/MembersTab';
@@ -12,6 +12,7 @@ import { ExportAttachmentsTab } from '../components/ExportAttachmentsTab';
 import { SiteManagerTab } from '../components/SiteManagerTab';
 import { ExecutiveSummaryPreview } from '../components/ExecutiveSummaryPreview';
 import { IntroductionPreview } from '../components/IntroductionPreview';
+import { SoftLockPanel } from '../components/SoftLockPanel';
 
 interface Project {
   id: string;
@@ -24,6 +25,31 @@ interface Project {
   notes: string;
 }
 
+interface WorkflowState {
+  documents_ready: boolean;
+  drawings_ready: boolean;
+  locations_ready: boolean;
+  members_ready: boolean;
+  workflow_ready: boolean;
+  counts: {
+    documents: number;
+    drawings: number;
+    pins: number;
+    zones: number;
+    members_with_locations: number;
+  };
+}
+
+interface BlockingInfo {
+  is_blocked: boolean;
+  reasons: Array<{
+    type: string;
+    message: string;
+    action: string;
+  }>;
+  state: WorkflowState;
+}
+
 type TabType = 'documents' | 'loading-schedule' | 'members' | 'inspections' | 'ncrs' | 'attachments' | 'exports' | 'site-manager' | 'executive-summary' | 'introduction';
 
 export function ProjectDetail() {
@@ -32,10 +58,14 @@ export function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('documents');
+  const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
+  const [blockingInfo, setBlockingInfo] = useState<Record<string, BlockingInfo>>({});
+  const [showStatusPanel, setShowStatusPanel] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadProject();
+      loadWorkflowState();
     }
   }, [id]);
 
@@ -53,6 +83,56 @@ export function ProjectDetail() {
       console.error('Error loading project:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadWorkflowState = async () => {
+    if (!id) return;
+
+    try {
+      // Calculate and get current workflow state
+      const { data: stateData, error: stateError } = await supabase
+        .rpc('calculate_project_workflow_state', { p_project_id: id });
+
+      if (stateError) throw stateError;
+      setWorkflowState(stateData);
+
+      // Get blocking reasons for each tab
+      const tabsToCheck = ['loading_schedule', 'site_manager', 'members', 'inspections', 'ncrs'];
+      const blockingPromises = tabsToCheck.map(async (tabName) => {
+        const { data, error } = await supabase
+          .rpc('get_workflow_blocking_reasons', {
+            p_project_id: id,
+            p_tab_name: tabName
+          });
+
+        if (error) throw error;
+        return { tabName, data };
+      });
+
+      const results = await Promise.all(blockingPromises);
+      const blockingMap: Record<string, BlockingInfo> = {};
+      results.forEach(({ tabName, data }) => {
+        blockingMap[tabName] = data;
+      });
+      setBlockingInfo(blockingMap);
+    } catch (error) {
+      console.error('Error loading workflow state:', error);
+    }
+  };
+
+  const handleTabAction = (action: string) => {
+    // Map actions to tabs
+    const actionToTab: Record<string, TabType> = {
+      'Go to Documents': 'documents',
+      'Upload Drawings': 'documents',
+      'Go to Site Manager': 'site-manager',
+      'Go to Member Register': 'members'
+    };
+
+    const targetTab = actionToTab[action];
+    if (targetTab) {
+      setActiveTab(targetTab);
     }
   };
 
@@ -108,19 +188,100 @@ export function ProjectDetail() {
           <div className="mb-6">
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-white">{project.name}</h1>
-              <button
-                onClick={() => navigate(`/projects/${project.id}/site`)}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-              >
-                <Smartphone className="w-5 h-5" />
-                <span className="font-medium">Site Mode</span>
-              </button>
+              <div className="flex items-center gap-3">
+                {workflowState && (
+                  <button
+                    onClick={() => setShowStatusPanel(!showStatusPanel)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/20"
+                  >
+                    {workflowState.workflow_ready ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-400" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-amber-400" />
+                    )}
+                    <span className="text-sm font-medium">
+                      {workflowState.workflow_ready ? 'Workflow Active' : 'Workflow Incomplete'}
+                    </span>
+                  </button>
+                )}
+                <button
+                  onClick={() => navigate(`/projects/${project.id}/site`)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  <Smartphone className="w-5 h-5" />
+                  <span className="font-medium">Site Mode</span>
+                </button>
+              </div>
             </div>
             <div className="mt-2 flex flex-wrap gap-4 text-sm text-blue-100">
               <span>Client: {project.client_name}</span>
               {project.main_contractor && <span>Contractor: {project.main_contractor}</span>}
               {project.project_ref && <span>Ref: {project.project_ref}</span>}
             </div>
+
+            {/* Workflow Status Panel */}
+            {showStatusPanel && workflowState && (
+              <div className="mt-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-white mb-3">Project Workflow Status</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="flex items-center gap-2">
+                    {workflowState.documents_ready ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    )}
+                    <div>
+                      <div className="text-xs text-blue-100">Documents</div>
+                      <div className="text-xs text-slate-300">
+                        {workflowState.counts.documents} files
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {workflowState.drawings_ready ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    )}
+                    <div>
+                      <div className="text-xs text-blue-100">Drawings</div>
+                      <div className="text-xs text-slate-300">
+                        {workflowState.counts.drawings} uploaded
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {workflowState.locations_ready ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    )}
+                    <div>
+                      <div className="text-xs text-blue-100">Locations</div>
+                      <div className="text-xs text-slate-300">
+                        {workflowState.counts.pins + workflowState.counts.zones} configured
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {workflowState.members_ready ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    )}
+                    <div>
+                      <div className="text-xs text-blue-100">Members</div>
+                      <div className="text-xs text-slate-300">
+                        {workflowState.counts.members_with_locations} assigned
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex space-x-1 border-b border-white/10 overflow-x-auto">
@@ -147,17 +308,76 @@ export function ProjectDetail() {
 
       {activeTab === 'site-manager' ? (
         <div className="flex-1 overflow-hidden">
-          <SiteManagerTab projectId={project.id} />
+          {blockingInfo['site_manager']?.is_blocked ? (
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
+                  <SoftLockPanel
+                    title="Spatial Mapping Unavailable"
+                    reasons={blockingInfo['site_manager'].reasons}
+                    onActionClick={handleTabAction}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <SiteManagerTab projectId={project.id} />
+          )}
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
               {activeTab === 'documents' && <DocumentsTab projectId={project.id} />}
-              {activeTab === 'loading-schedule' && <LoadingScheduleTab projectId={project.id} />}
-              {activeTab === 'members' && <MembersTab projectId={project.id} />}
-              {activeTab === 'inspections' && <InspectionsTab projectId={project.id} />}
-              {activeTab === 'ncrs' && <NCRsTab projectId={project.id} />}
+
+              {activeTab === 'loading-schedule' && (
+                blockingInfo['loading_schedule']?.is_blocked ? (
+                  <SoftLockPanel
+                    title="Engineering Data Unavailable"
+                    reasons={blockingInfo['loading_schedule'].reasons}
+                    onActionClick={handleTabAction}
+                  />
+                ) : (
+                  <LoadingScheduleTab projectId={project.id} />
+                )
+              )}
+
+              {activeTab === 'members' && (
+                blockingInfo['members']?.is_blocked ? (
+                  <SoftLockPanel
+                    title="Member Assignment Limited"
+                    reasons={blockingInfo['members'].reasons}
+                    onActionClick={handleTabAction}
+                  />
+                ) : (
+                  <MembersTab projectId={project.id} />
+                )
+              )}
+
+              {activeTab === 'inspections' && (
+                blockingInfo['inspections']?.is_blocked ? (
+                  <SoftLockPanel
+                    title="Inspection Module Unavailable"
+                    reasons={blockingInfo['inspections'].reasons}
+                    onActionClick={handleTabAction}
+                  />
+                ) : (
+                  <InspectionsTab projectId={project.id} />
+                )
+              )}
+
+              {activeTab === 'ncrs' && (
+                blockingInfo['ncrs']?.is_blocked ? (
+                  <SoftLockPanel
+                    title="NCR Module Unavailable"
+                    reasons={blockingInfo['ncrs'].reasons}
+                    onActionClick={handleTabAction}
+                  />
+                ) : (
+                  <NCRsTab projectId={project.id} />
+                )
+              )}
+
               {activeTab === 'attachments' && <ExportAttachmentsTab projectId={project.id} />}
               {activeTab === 'introduction' && <IntroductionPreview projectId={project.id} />}
               {activeTab === 'executive-summary' && <ExecutiveSummaryPreview projectId={project.id} />}
