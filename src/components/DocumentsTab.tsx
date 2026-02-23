@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Upload, File, Trash2, Eye } from 'lucide-react';
+import { Upload, File, Trash2, Eye, Grid, ChevronRight, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
+import { CreateBlockLevelModal } from './CreateBlockLevelModal';
 
 interface Document {
   id: string;
@@ -13,6 +14,21 @@ interface Document {
   size_bytes: number;
   storage_path: string;
   uploaded_at: string;
+}
+
+interface Block {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  levels: Level[];
+}
+
+interface Level {
+  id: string;
+  name: string;
+  description: string;
+  order_index: number;
 }
 
 const DOCUMENT_TYPES = [
@@ -27,12 +43,16 @@ const DOCUMENT_TYPES = [
 export function DocumentsTab({ projectId }: { projectId: string }) {
   const { profile } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedType, setSelectedType] = useState('drawing');
+  const [showCreateBlockModal, setShowCreateBlockModal] = useState(false);
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadDocuments();
+    loadBlocks();
   }, [projectId]);
 
   const loadDocuments = async () => {
@@ -50,6 +70,53 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadBlocks = async () => {
+    try {
+      const { data: blocksData, error: blocksError } = await supabase
+        .from('blocks')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true });
+
+      if (blocksError) throw blocksError;
+
+      if (blocksData && blocksData.length > 0) {
+        const { data: levelsData, error: levelsError } = await supabase
+          .from('levels')
+          .select('*')
+          .in('block_id', blocksData.map(b => b.id))
+          .order('order_index', { ascending: true });
+
+        if (levelsError) throw levelsError;
+
+        const blocksWithLevels = blocksData.map(block => ({
+          ...block,
+          levels: (levelsData || []).filter(l => l.block_id === block.id)
+        }));
+
+        setBlocks(blocksWithLevels);
+      } else {
+        setBlocks([]);
+      }
+    } catch (error) {
+      console.error('Error loading blocks:', error);
+    }
+  };
+
+  const toggleBlockExpand = (blockId: string) => {
+    const newExpanded = new Set(expandedBlocks);
+    if (newExpanded.has(blockId)) {
+      newExpanded.delete(blockId);
+    } else {
+      newExpanded.add(blockId);
+    }
+    setExpandedBlocks(newExpanded);
+  };
+
+  const handleBlockCreated = () => {
+    loadBlocks();
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,44 +200,134 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-6">
       {canEdit && (
-        <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Upload Document</h3>
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-300 mb-1">
-                Document Type
-              </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {DOCUMENT_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-slate-300 mb-1">
-                Select File
-              </label>
-              <label className="flex items-center justify-center px-4 py-2 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-slate-700 transition-colors">
-                <Upload className="w-5 h-5 mr-2 text-slate-400" />
-                <span className="text-sm text-slate-300">
-                  {uploading ? 'Uploading...' : 'Choose file'}
-                </span>
-                <input
-                  type="file"
-                  onChange={handleFileUpload}
-                  disabled={uploading}
-                  className="hidden"
-                />
-              </label>
+        <>
+          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Upload Document</h3>
+            <div className="flex items-end gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Document Type
+                </label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {DOCUMENT_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Select File
+                </label>
+                <label className="flex items-center justify-center px-4 py-2 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-slate-700 transition-colors">
+                  <Upload className="w-5 h-5 mr-2 text-slate-400" />
+                  <span className="text-sm text-slate-300">
+                    {uploading ? 'Uploading...' : 'Choose file'}
+                  </span>
+                  <input
+                    type="file"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </div>
           </div>
-        </div>
+
+          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Project Structure</h3>
+                <p className="text-sm text-slate-400 mt-1">
+                  Define blocks and levels for spatial organization
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreateBlockModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                <Grid className="w-4 h-4" />
+                Create Block & Levels
+              </button>
+            </div>
+
+            {blocks.length === 0 ? (
+              <div className="text-center py-8 border-2 border-dashed border-slate-600 rounded-lg">
+                <Grid className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400 text-sm">
+                  No blocks created yet. Click the button above to create your first block.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {blocks.map((block) => (
+                  <div
+                    key={block.id}
+                    className="bg-slate-700/50 border border-slate-600 rounded-lg overflow-hidden"
+                  >
+                    <button
+                      onClick={() => toggleBlockExpand(block.id)}
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Grid className="w-5 h-5 text-green-400" />
+                        <div className="text-left">
+                          <div className="font-medium text-white">{block.name}</div>
+                          {block.description && (
+                            <div className="text-sm text-slate-400 mt-0.5">
+                              {block.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-slate-400">
+                          {block.levels.length} level{block.levels.length !== 1 ? 's' : ''}
+                        </span>
+                        {expandedBlocks.has(block.id) ? (
+                          <ChevronDown className="w-5 h-5 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-slate-400" />
+                        )}
+                      </div>
+                    </button>
+
+                    {expandedBlocks.has(block.id) && (
+                      <div className="px-4 pb-3 space-y-2">
+                        {block.levels.map((level, index) => (
+                          <div
+                            key={level.id}
+                            className="flex items-center gap-3 px-4 py-2 bg-slate-800 rounded border border-slate-600"
+                          >
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-white">
+                                {level.name}
+                              </div>
+                              {level.description && (
+                                <div className="text-xs text-slate-400 mt-0.5">
+                                  {level.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
@@ -229,6 +386,14 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
           </div>
         )}
       </div>
+
+      {showCreateBlockModal && (
+        <CreateBlockLevelModal
+          projectId={projectId}
+          onClose={() => setShowCreateBlockModal(false)}
+          onSuccess={handleBlockCreated}
+        />
+      )}
     </div>
   );
 }
