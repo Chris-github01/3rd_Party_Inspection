@@ -8,6 +8,10 @@ import { PDFDocument } from 'pdf-lib';
 import { createDividerPage } from '../lib/pdfUtils';
 import { InspectedMemberSelector } from './InspectedMemberSelector';
 import { generateInspectionReportWithPhotos } from '../lib/pdfInspectionWithPhotos';
+import { generateIntroduction } from '../lib/introductionGenerator';
+import { generateExecutiveSummary } from '../lib/executiveSummaryGenerator';
+import { addIntroductionToPDF } from '../lib/pdfIntroduction';
+import { addExecutiveSummaryToPDF } from '../lib/pdfExecutiveSummary';
 
 interface Project {
   id: string;
@@ -61,6 +65,18 @@ export function ExportsTab({ project }: { project: Project }) {
   };
 
   const generateAuditReport = async (): Promise<jsPDF> => {
+    // Generate Introduction and Executive Summary using dedicated generators
+    const [introductionData, executiveSummaryData] = await Promise.all([
+      generateIntroduction(project.id).catch(err => {
+        console.error('Error generating introduction:', err);
+        return null;
+      }),
+      generateExecutiveSummary(project.id).catch(err => {
+        console.error('Error generating executive summary:', err);
+        return null;
+      })
+    ]);
+
     const [
       membersRes,
       inspectionsRes,
@@ -73,7 +89,7 @@ export function ExportsTab({ project }: { project: Project }) {
       supabase.from('members').select('*').eq('project_id', project.id).order('member_mark'),
       supabase
         .from('inspections')
-        .select('*, members(member_mark), env_readings(*), dft_batches(*), dft_simulation_enabled')
+        .select('*, members(member_mark), env_readings(*), dft_batches(*, dft_readings(*)), dft_simulation_enabled')
         .eq('project_id', project.id)
         .order('inspection_date_time'),
       supabase.from('ncrs').select('*, members(member_mark)').eq('project_id', project.id),
@@ -101,6 +117,32 @@ export function ExportsTab({ project }: { project: Project }) {
     const simulatedMemberSets = simulatedMemberSetsRes.data || [];
     const orgSettings = orgSettingsRes.data;
     const projectDetails = projectDetailsRes.data;
+
+    // Data validation logging
+    console.log('📊 Report Data Summary:');
+    console.log(`  - Members: ${members.length}`);
+    console.log(`  - Inspections: ${inspections.length}`);
+    console.log(`  - NCRs: ${ncrs.length}`);
+    console.log(`  - DFT Batches: ${dftBatches.length}`);
+    console.log(`  - Simulated Sets: ${simulatedMemberSets.length}`);
+    console.log(`  - Introduction: ${introductionData ? 'Generated' : 'Not available'}`);
+    console.log(`  - Executive Summary: ${executiveSummaryData ? 'Generated' : 'Not available'}`);
+
+    // Count total batches in inspections
+    const totalBatchesInInspections = inspections.reduce((sum, i) => sum + (i.dft_batches?.length || 0), 0);
+    console.log(`  - Total DFT Batches in Inspections: ${totalBatchesInInspections}`);
+
+    // Validate data integrity
+    if (members.length === 0) {
+      console.warn('⚠️ No members found for this project');
+    }
+    if (inspections.length === 0) {
+      console.warn('⚠️ No inspections found for this project');
+    }
+    if (executiveSummaryData) {
+      console.log(`  - Materials in Summary: ${executiveSummaryData.materials_list.length}`);
+      console.log(`  - FRR Ratings in Summary: ${executiveSummaryData.frr_list.length}`);
+    }
 
     const doc = new jsPDF();
     let yPos = 20;
@@ -169,38 +211,107 @@ export function ExportsTab({ project }: { project: Project }) {
     doc.text(`Report Date: ${format(new Date(), 'MMM d, yyyy')}`, 20, yPos);
     yPos += 15;
 
+    // Add Introduction section if available
+    if (introductionData) {
+      doc.addPage();
+      yPos = 20;
+
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('1. Introduction', 20, yPos);
+      yPos += 10;
+
+      doc.setDrawColor(0, 40, 80);
+      doc.setLineWidth(0.5);
+      doc.line(20, yPos, 190, yPos);
+      yPos += 10;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+      const introParagraphs = introductionData.full_introduction_text
+        .split('\n\n')
+        .filter((p: string) => !p.startsWith('1. Introduction'));
+
+      for (const paragraph of introParagraphs) {
+        if (paragraph.trim() === '') continue;
+
+        const lines = doc.splitTextToSize(paragraph, 170);
+        for (const line of lines) {
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        }
+        yPos += 5;
+      }
+    }
+
+    // Add Executive Summary section
     doc.addPage();
     yPos = 20;
 
-    doc.setFontSize(16);
+    doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('Executive Summary', 20, yPos);
+    doc.text('2. Executive Summary', 20, yPos);
     yPos += 10;
 
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
+    doc.setDrawColor(0, 40, 80);
+    doc.setLineWidth(0.5);
+    doc.line(20, yPos, 190, yPos);
+    yPos += 10;
 
-    const totalMembers = members.length;
-    const inspectedMembers = members.filter((m) => m.status !== 'not_started').length;
-    const passedMembers = members.filter((m) => m.status === 'pass').length;
-    const repairRequired = members.filter((m) => m.status === 'repair_required').length;
-    const openNCRs = ncrs.filter((n) => n.status !== 'closed').length;
+    if (executiveSummaryData) {
+      // Use generated executive summary
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
 
-    doc.text(`Total Members: ${totalMembers}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Inspected: ${inspectedMembers} (${((inspectedMembers / totalMembers) * 100).toFixed(1)}%)`, 20, yPos);
-    yPos += 7;
-    doc.text(`Passed: ${passedMembers}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Repair Required: ${repairRequired}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Open NCRs: ${openNCRs}`, 20, yPos);
-    yPos += 15;
+      const summaryParagraphs = executiveSummaryData.full_summary_text.split('\n\n');
+      for (const paragraph of summaryParagraphs) {
+        if (paragraph.trim() === '') continue;
+        if (paragraph.startsWith('Executive Summary')) continue;
+
+        const lines = doc.splitTextToSize(paragraph, 170);
+        for (const line of lines) {
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        }
+        yPos += 5;
+      }
+    } else {
+      // Fallback to manual statistics if generator failed
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+
+      const totalMembers = members.length;
+      const inspectedMembers = members.filter((m) => m.status !== 'not_started').length;
+      const passedMembers = members.filter((m) => m.status === 'pass').length;
+      const repairRequired = members.filter((m) => m.status === 'repair_required').length;
+      const openNCRs = ncrs.filter((n) => n.status !== 'closed').length;
+
+      doc.text(`Total Members: ${totalMembers}`, 20, yPos);
+      yPos += 7;
+      doc.text(`Inspected: ${inspectedMembers} (${((inspectedMembers / totalMembers) * 100).toFixed(1)}%)`, 20, yPos);
+      yPos += 7;
+      doc.text(`Passed: ${passedMembers}`, 20, yPos);
+      yPos += 7;
+      doc.text(`Repair Required: ${repairRequired}`, 20, yPos);
+      yPos += 7;
+      doc.text(`Open NCRs: ${openNCRs}`, 20, yPos);
+      yPos += 15;
+    }
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Report Inspection Standards and Reference Documents', 20, yPos);
+    doc.text('3. Report Inspection Standards and Reference Documents', 20, yPos);
     yPos += 10;
 
     doc.setFontSize(10);
@@ -237,27 +348,36 @@ export function ExportsTab({ project }: { project: Project }) {
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('DFT Summary by Member', 20, yPos);
+    doc.text('4. DFT Summary by Member', 20, yPos);
     yPos += 10;
 
-    const dftData = inspections
+    // Build DFT data including ALL batches (not just first one)
+    const dftData: any[] = [];
+    inspections
       .filter((i) => i.dft_batches && i.dft_batches.length > 0)
-      .map((i) => {
-        const batch = i.dft_batches[0];
+      .forEach((i) => {
         const member = members.find((m) => m.id === i.member_id);
-        return [
-          i.members?.member_mark || 'N/A',
-          member?.required_dft_microns ? `${member.required_dft_microns}` : 'N/A',
-          batch.dft_avg_microns ? batch.dft_avg_microns.toFixed(1) : 'N/A',
-          batch.dft_min_microns || 'N/A',
-          batch.dft_max_microns || 'N/A',
-          batch.readings_count || 'N/A',
-          member?.required_dft_microns && batch.dft_avg_microns
-            ? batch.dft_avg_microns >= member.required_dft_microns
-              ? 'PASS'
-              : 'FAIL'
-            : 'N/A',
-        ];
+        const memberMark = i.members?.member_mark || 'N/A';
+        const requiredDft = member?.required_dft_microns;
+
+        // Add a row for EACH batch
+        i.dft_batches.forEach((batch: any, batchIndex: number) => {
+          const batchLabel = i.dft_batches.length > 1 ? ` (Batch ${batchIndex + 1})` : '';
+
+          dftData.push([
+            memberMark + batchLabel,
+            requiredDft ? `${requiredDft}` : 'N/A',
+            batch.dft_avg_microns ? batch.dft_avg_microns.toFixed(1) : 'N/A',
+            batch.dft_min_microns || 'N/A',
+            batch.dft_max_microns || 'N/A',
+            batch.readings_count || 'N/A',
+            requiredDft && batch.dft_avg_microns
+              ? batch.dft_avg_microns >= requiredDft
+                ? 'PASS'
+                : 'FAIL'
+              : 'N/A',
+          ]);
+        });
       });
 
     autoTable(doc, {
@@ -418,7 +538,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('Non-Conformance Reports', 20, yPos);
+      doc.text('5. Non-Conformance Reports', 20, yPos);
       yPos += 10;
 
       const ncrData = ncrs.map((ncr) => [
@@ -444,7 +564,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Inspection Details', 20, yPos);
+    doc.text(ncrs.length > 0 ? '6. Inspection Details' : '5. Inspection Details', 20, yPos);
     yPos += 10;
 
     inspections.forEach((inspection, idx) => {
@@ -487,24 +607,40 @@ export function ExportsTab({ project }: { project: Project }) {
 
       yPos += 6;
 
+      // Show ALL environmental readings (not just first)
       if (inspection.env_readings && inspection.env_readings.length > 0) {
-        const env = inspection.env_readings[0];
-        doc.text(
-          `Environmental: Ambient ${env.ambient_temp_c}°C, Steel ${env.steel_temp_c}°C, RH ${env.relative_humidity_pct}%, Dew Pt Spread ${env.dew_point_spread_c?.toFixed(1)}°C`,
-          25,
-          yPos
-        );
-        yPos += 6;
+        inspection.env_readings.forEach((env: any, envIndex: number) => {
+          const envLabel = inspection.env_readings.length > 1 ? `Environmental Reading ${envIndex + 1}: ` : 'Environmental: ';
+          doc.text(
+            `${envLabel}Ambient ${env.ambient_temp_c}°C, Steel ${env.steel_temp_c}°C, RH ${env.relative_humidity_pct}%, Dew Pt Spread ${env.dew_point_spread_c?.toFixed(1)}°C`,
+            25,
+            yPos
+          );
+          yPos += 6;
+
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
+        });
       }
 
+      // Show ALL DFT batches (not just first)
       if (inspection.dft_batches && inspection.dft_batches.length > 0) {
-        const batch = inspection.dft_batches[0];
-        doc.text(
-          `DFT: Min ${batch.dft_min_microns}µm, Max ${batch.dft_max_microns}µm, Avg ${batch.dft_avg_microns?.toFixed(1)}µm, Readings ${batch.readings_count}`,
-          25,
-          yPos
-        );
-        yPos += 6;
+        inspection.dft_batches.forEach((batch: any, batchIndex: number) => {
+          const batchLabel = inspection.dft_batches.length > 1 ? `DFT Batch ${batchIndex + 1}: ` : 'DFT: ';
+          doc.text(
+            `${batchLabel}Min ${batch.dft_min_microns}µm, Max ${batch.dft_max_microns}µm, Avg ${batch.dft_avg_microns?.toFixed(1)}µm, Readings ${batch.readings_count}`,
+            25,
+            yPos
+          );
+          yPos += 6;
+
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
+        });
       }
 
       yPos += 5;
@@ -670,11 +806,12 @@ export function ExportsTab({ project }: { project: Project }) {
               </p>
               <ul className="text-sm text-slate-600 space-y-1 mb-4">
                 <li>• Cover page with project details and P&R Consulting branding</li>
-                <li>• Executive summary with statistics</li>
-                <li>• Standards and references section</li>
-                <li>• DFT summary table by member</li>
-                <li>• Non-conformance reports</li>
-                <li>• Detailed inspection records</li>
+                <li>• Section 1: Introduction (scope, materials, inspection methodology)</li>
+                <li>• Section 2: Executive summary with compliance assessment</li>
+                <li>• Section 3: Standards and references section</li>
+                <li>• Section 4: DFT summary table by member (all batches included)</li>
+                <li>• Section 5: Non-conformance reports (if any)</li>
+                <li>• Section 6: Detailed inspection records (all readings and batches)</li>
               </ul>
               <button
                 onClick={handleDownloadBaseReport}
