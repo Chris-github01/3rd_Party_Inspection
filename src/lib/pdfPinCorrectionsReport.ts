@@ -56,7 +56,7 @@ async function fetchCorrectionsData(projectId: string, batchId?: string): Promis
       drawings!inner(
         id,
         page_number,
-        documents!inner(file_path, file_name),
+        documents!inner(storage_path, file_name),
         levels!inner(name, blocks!inner(name))
       )
     `)
@@ -123,7 +123,7 @@ async function fetchCorrectionsData(projectId: string, batchId?: string): Promis
       drawingsMap.set(drawingId, {
         drawing_id: drawingId,
         drawing_name: `${c.drawings?.levels?.blocks?.name} - ${c.drawings?.levels?.name}`,
-        file_path: c.drawings?.documents?.file_path || '',
+        file_path: c.drawings?.documents?.storage_path || '',
         page_number: c.drawings?.page_number || 1,
         block_name: c.drawings?.levels?.blocks?.name || '',
         level_name: c.drawings?.levels?.name || '',
@@ -159,6 +159,12 @@ async function fetchCorrectionsData(projectId: string, batchId?: string): Promis
 
 async function getDrawingImageData(filePath: string, pageNumber: number): Promise<string | null> {
   try {
+    // Validate file path
+    if (!filePath || filePath.trim() === '') {
+      console.warn('getDrawingImageData: filePath is empty or null');
+      return null;
+    }
+
     const isPdf = filePath.toLowerCase().endsWith('.pdf');
 
     if (isPdf) {

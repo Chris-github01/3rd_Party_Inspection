@@ -38,7 +38,7 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
       id,
       document_id,
       page_number,
-      documents!inner(file_path, file_name),
+      documents!inner(storage_path, file_name),
       levels!inner(name, blocks!inner(name, project_id))
     `)
     .eq('levels.blocks.project_id', projectId)
@@ -78,7 +78,7 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
     id: d.id,
     document_id: d.document_id,
     page_number: d.page_number,
-    file_path: d.documents.file_path,
+    file_path: d.documents.storage_path,
     file_name: d.documents.file_name,
     level_name: d.levels.name,
     block_name: d.levels.blocks.name,
@@ -102,6 +102,12 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
 
 async function getDrawingImageData(filePath: string, pageNumber: number): Promise<string | null> {
   try {
+    // Validate file path
+    if (!filePath || filePath.trim() === '') {
+      console.warn('getDrawingImageData: filePath is empty or null');
+      return null;
+    }
+
     // Check if it's a PDF
     const isPdf = filePath.toLowerCase().endsWith('.pdf');
 
