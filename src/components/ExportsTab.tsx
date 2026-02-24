@@ -12,6 +12,7 @@ import { generateIntroduction } from '../lib/introductionGenerator';
 import { generateExecutiveSummary } from '../lib/executiveSummaryGenerator';
 import { addIntroductionToPDF } from '../lib/pdfIntroduction';
 import { addExecutiveSummaryToPDF } from '../lib/pdfExecutiveSummary';
+import { addMarkupDrawingsSection } from '../lib/pdfMarkupDrawings';
 
 interface Project {
   id: string;
@@ -550,22 +551,34 @@ export function ExportsTab({ project }: { project: Project }) {
     // Add Drawings and Pin Locations section if available
     if (executiveSummaryData?.data?.drawings_pins &&
         executiveSummaryData.data.drawings_pins.total_pins > 0) {
+
+      const sectionNumber = ncrs.length > 0 ? '6' : '5';
+      const drawingsPinsData = executiveSummaryData.data.drawings_pins;
+
+      // SECTION A: Add visual markup drawings with pin annotations
+      console.log('📍 Adding markup drawings section...');
+      try {
+        await addMarkupDrawingsSection(doc, project.id, `${sectionNumber}.1`);
+        console.log('✅ Markup drawings added successfully');
+      } catch (error) {
+        console.error('❌ Error adding markup drawings:', error);
+        // Continue with the report even if markup drawings fail
+      }
+
+      // SECTION B: Add detailed pin locations table
       doc.addPage();
       yPos = 20;
 
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
-      const sectionNumber = ncrs.length > 0 ? '6' : '5';
-      doc.text(`${sectionNumber}. Drawing References and Pin Locations`, 20, yPos);
+      doc.text(`${sectionNumber}.2. Pin Locations Reference Table`, 20, yPos);
       yPos += 10;
 
       doc.setDrawColor(0, 40, 80);
       doc.setLineWidth(0.5);
       doc.line(20, yPos, 190, yPos);
       yPos += 10;
-
-      const drawingsPinsData = executiveSummaryData.data.drawings_pins;
 
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
