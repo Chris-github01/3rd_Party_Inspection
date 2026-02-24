@@ -239,7 +239,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
         const lines = doc.splitTextToSize(paragraph, 170);
         for (const line of lines) {
-          if (yPos > 270) {
+          if (yPos > 257) {
             doc.addPage();
             yPos = 20;
           }
@@ -277,7 +277,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
         const lines = doc.splitTextToSize(paragraph, 170);
         for (const line of lines) {
-          if (yPos > 270) {
+          if (yPos > 257) {
             doc.addPage();
             yPos = 20;
           }
@@ -387,6 +387,7 @@ export function ExportsTab({ project }: { project: Project }) {
       theme: 'grid',
       headStyles: { fillColor: [0, 40, 80], textColor: 255 },
       styles: { fontSize: 9 },
+      margin: { bottom: 30 },
       columnStyles: {
         6: {
           cellWidth: 20,
@@ -441,6 +442,7 @@ export function ExportsTab({ project }: { project: Project }) {
         theme: 'grid',
         headStyles: { fillColor: [41, 128, 185], textColor: 255 },
         styles: { fontSize: 9 },
+        margin: { bottom: 30 },
         columnStyles: {
           6: {
             cellWidth: 25,
@@ -496,6 +498,13 @@ export function ExportsTab({ project }: { project: Project }) {
           theme: 'grid',
           headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', halign: 'center' },
           styles: { fontSize: 7, cellPadding: 2, halign: 'center' },
+          margin: { left: 20, right: 20, bottom: 30 },
+          didDrawPage: (data: any) => {
+            const pageHeight = doc.internal.pageSize.height;
+            if (data.cursor.y > pageHeight - 30) {
+              data.cursor.y = 20;
+            }
+          },
         });
 
         yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -526,6 +535,7 @@ export function ExportsTab({ project }: { project: Project }) {
         theme: 'grid',
         headStyles: { fillColor: [220, 38, 38], textColor: 255 },
         styles: { fontSize: 9 },
+        margin: { bottom: 30 },
       });
     }
 
@@ -538,7 +548,7 @@ export function ExportsTab({ project }: { project: Project }) {
     yPos += 10;
 
     inspections.forEach((inspection, idx) => {
-      if (yPos > 250) {
+      if (yPos > 257) {
         doc.addPage();
         yPos = 20;
       }
@@ -588,7 +598,7 @@ export function ExportsTab({ project }: { project: Project }) {
           );
           yPos += 6;
 
-          if (yPos > 270) {
+          if (yPos > 257) {
             doc.addPage();
             yPos = 20;
           }
@@ -606,7 +616,7 @@ export function ExportsTab({ project }: { project: Project }) {
           );
           yPos += 6;
 
-          if (yPos > 270) {
+          if (yPos > 257) {
             doc.addPage();
             yPos = 20;
           }
