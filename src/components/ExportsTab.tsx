@@ -412,19 +412,7 @@ export function ExportsTab({ project }: { project: Project }) {
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
-      doc.text('Testing Data - Simulated Datasets', 20, yPos);
-      yPos += 10;
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(200, 0, 0);
-      doc.text('⚠ SIMULATED DATA - FOR DEMONSTRATION PURPOSES ONLY', 20, yPos);
-      yPos += 7;
-
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 100, 100);
-      doc.text('Generated using range parameters (min/max). Not actual field measurements.', 20, yPos);
+      doc.text('Testing Data - Datasets', 20, yPos);
       yPos += 10;
 
       doc.setFontSize(11);
@@ -502,10 +490,12 @@ export function ExportsTab({ project }: { project: Project }) {
         }
 
         autoTable(doc, {
+          head: [['Reading 1-20', 'Reading 21-40', 'Reading 41-60', 'Reading 61-80', 'Reading 81-100']],
           body: readingsData,
           startY: yPos,
-          theme: 'plain',
-          styles: { fontSize: 7, cellPadding: 1 },
+          theme: 'grid',
+          headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', halign: 'center' },
+          styles: { fontSize: 7, cellPadding: 2, halign: 'center' },
         });
 
         yPos = (doc as any).lastAutoTable.finalY + 10;
