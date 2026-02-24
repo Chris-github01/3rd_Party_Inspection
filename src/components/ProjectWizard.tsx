@@ -7,7 +7,6 @@ import { WizardStep2 } from './wizard/WizardStep2';
 import { WizardStep3 } from './wizard/WizardStep3';
 import { WizardStep4 } from './wizard/WizardStep4';
 import { WizardStep5 } from './wizard/WizardStep5';
-import { WizardStep6 } from './wizard/WizardStep6';
 import { WizardStep7 } from './wizard/WizardStep7';
 
 export interface WizardData {
@@ -111,8 +110,6 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
       case 5:
         return wizardData.addressLine !== '' && wizardData.city !== '';
       case 6:
-        return wizardData.latitude !== null && wizardData.longitude !== null;
-      case 7:
         return true;
       default:
         return false;
@@ -120,7 +117,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
   };
 
   const handleNext = () => {
-    if (canProceed() && currentStep < 7) {
+    if (canProceed() && currentStep < 6) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -155,8 +152,6 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
       case 5:
         return <WizardStep5 data={wizardData} updateData={updateData} />;
       case 6:
-        return <WizardStep6 data={wizardData} updateData={updateData} />;
-      case 7:
         return <WizardStep7 data={wizardData} onComplete={handleComplete} />;
       default:
         return null;
@@ -172,7 +167,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
               New Single Site Project
             </h2>
             <p className="text-sm text-slate-600 mt-1">
-              Step {currentStep} of 7
+              Step {currentStep} of 6
             </p>
           </div>
           <button
@@ -185,7 +180,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
 
         <div className="px-6 py-2 border-b border-slate-200">
           <div className="flex items-center gap-2">
-            {[1, 2, 3, 4, 5, 6, 7].map((step) => (
+            {[1, 2, 3, 4, 5, 6].map((step) => (
               <div
                 key={step}
                 className={`flex-1 h-2 rounded-full ${
