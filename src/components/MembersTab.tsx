@@ -5,6 +5,7 @@ import { Plus, Upload, Edit, Trash2, Download, FlaskConical } from 'lucide-react
 import Papa from 'papaparse';
 import { normalizeFRRValue } from '../lib/frrUtils';
 import { generateSimulatedReadings, calculateSummary, type MemberConfig } from '../lib/simulationUtils';
+import { exportReadingsToFormattedExcel } from '../lib/excelExport';
 
 interface Member {
   id: string;
@@ -198,14 +199,8 @@ export function MembersTab({ projectId }: { projectId: string }) {
         return;
       }
 
-      const csv = Papa.unparse(allReadingsData);
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `member-readings-${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const filename = `Member_DFT_Readings_${new Date().toISOString().split('T')[0]}.xlsx`;
+      exportReadingsToFormattedExcel(allReadingsData, filename);
     } catch (error: any) {
       console.error('Error exporting readings:', error);
       alert('Failed to export readings: ' + error.message);
@@ -334,10 +329,10 @@ export function MembersTab({ projectId }: { projectId: string }) {
               exportReadingsToExcel();
             }}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            title={selectedMembers.size === 0 ? 'Select members first' : `Export readings for ${selectedMembers.size} member(s)`}
+            title={selectedMembers.size === 0 ? 'Select members first' : `Export formatted Excel with 100 readings for ${selectedMembers.size} member(s)`}
           >
             <Download className="w-5 h-5 mr-2" />
-            Export to Excel
+            Export Formatted Excel
           </button>
           <button
             onClick={() => {

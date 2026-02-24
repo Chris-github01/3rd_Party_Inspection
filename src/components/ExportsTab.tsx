@@ -471,16 +471,6 @@ export function ExportsTab({ project }: { project: Project }) {
         },
       });
 
-      doc.setTextColor(150, 150, 150);
-      doc.setFontSize(40);
-      doc.setFont('helvetica', 'bold');
-      const watermarkText = 'SIMULATED DATA';
-      const textWidth = doc.getTextWidth(watermarkText);
-      doc.text(watermarkText, (doc.internal.pageSize.width - textWidth) / 2, doc.internal.pageSize.height / 2, {
-        angle: 45,
-      });
-      doc.setTextColor(0, 0, 0);
-
       for (const set of simulatedMemberSets) {
         if ((doc as any).lastAutoTable.finalY > 220) {
           doc.addPage();
@@ -517,16 +507,6 @@ export function ExportsTab({ project }: { project: Project }) {
           theme: 'plain',
           styles: { fontSize: 7, cellPadding: 1 },
         });
-
-        doc.setTextColor(150, 150, 150);
-        doc.setFontSize(30);
-        doc.setFont('helvetica', 'bold');
-        const pageWatermarkText = 'SIMULATED';
-        const pageTextWidth = doc.getTextWidth(pageWatermarkText);
-        doc.text(pageWatermarkText, (doc.internal.pageSize.width - pageTextWidth) / 2, doc.internal.pageSize.height / 2, {
-          angle: 45,
-        });
-        doc.setTextColor(0, 0, 0);
 
         yPos = (doc as any).lastAutoTable.finalY + 10;
       }
