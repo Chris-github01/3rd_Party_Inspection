@@ -1,7 +1,11 @@
 import { useState } from 'react';
-import { X, Upload, FileImage } from 'lucide-react';
+import { X, Upload, FileImage, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { createParsingJob, triggerParsing } from '../../lib/parsingUtils';
+import {
+  generateAndUploadDrawingPreviews,
+  PreviewGenerationProgress,
+} from '../../lib/drawingPreviewGenerator';
 
 interface UploadDrawingModalProps {
   isOpen: boolean;
@@ -23,6 +27,7 @@ export function UploadDrawingModal({
   const [scaleFactor, setScaleFactor] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [previewProgress, setPreviewProgress] = useState<PreviewGenerationProgress | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -91,6 +96,18 @@ export function UploadDrawingModal({
 
       if (file.type === 'application/pdf') {
         try {
+          const previewResult = await generateAndUploadDrawingPreviews(
+            file,
+            projectId,
+            drawing.id,
+            setPreviewProgress
+          );
+
+          if (!previewResult.success) {
+            console.error('Failed to generate previews:', previewResult.error);
+            setError(`Drawing uploaded, but preview generation failed: ${previewResult.error}`);
+          }
+
           const jobId = await createParsingJob(
             document.id,
             'documents',
@@ -109,6 +126,7 @@ export function UploadDrawingModal({
       setFile(null);
       setPageNumber('1');
       setScaleFactor('');
+      setPreviewProgress(null);
       onSuccess();
     } catch (err: any) {
       console.error('Error uploading drawing:', err);
@@ -211,6 +229,25 @@ export function UploadDrawingModal({
             </p>
           </div>
 
+          {previewProgress && (
+            <div className="bg-blue-900/30 border border-blue-700 text-blue-300 px-4 py-3 rounded-lg text-sm">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{previewProgress.message}</span>
+              </div>
+              {previewProgress.totalPages > 0 && (
+                <div className="mt-2 bg-blue-950/50 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-blue-500 h-full transition-all duration-300"
+                    style={{
+                      width: `${(previewProgress.currentPage / previewProgress.totalPages) * 100}%`,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
               {error}
@@ -221,8 +258,9 @@ export function UploadDrawingModal({
             <button
               type="submit"
               disabled={uploading || !file}
-              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
+              {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
               {uploading ? 'Uploading...' : 'Upload Drawing'}
             </button>
             <button

@@ -1,6 +1,8 @@
 import jsPDF from 'jspdf';
 import { supabase } from './supabase';
 import { pdfjsLib } from './pdfjs';
+import { downloadPreviewAsDataURL } from './drawingPreviewGenerator';
+import { denormalizeCoordinates } from './pinCoordinateUtils';
 
 interface Pin {
   id: string;
@@ -8,6 +10,8 @@ interface Pin {
   label: string;
   x: number;
   y: number;
+  x_normalized: number | null;
+  y_normalized: number | null;
   status: string;
   pin_type: string;
   steel_type: string | null;
@@ -23,6 +27,9 @@ interface Drawing {
   file_name: string;
   level_name: string;
   block_name: string;
+  preview_paths: string[] | null;
+  preview_width: number | null;
+  preview_height: number | null;
 }
 
 interface MarkupDrawingData {
@@ -38,6 +45,9 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
       id,
       document_id,
       page_number,
+      preview_paths,
+      preview_width,
+      preview_height,
       documents!inner(storage_path, file_name),
       levels!inner(name, blocks!inner(name, project_id))
     `)
@@ -58,6 +68,8 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
       label,
       x,
       y,
+      x_normalized,
+      y_normalized,
       status,
       pin_type,
       steel_type,
@@ -82,6 +94,9 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
     file_name: d.documents.file_name,
     level_name: d.levels.name,
     block_name: d.levels.blocks.name,
+    preview_paths: d.preview_paths,
+    preview_width: d.preview_width,
+    preview_height: d.preview_height,
   }));
 
   const pins: Pin[] = (pinsData || []).map((p: any) => ({
@@ -90,6 +105,8 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
     label: p.label,
     x: p.x,
     y: p.y,
+    x_normalized: p.x_normalized,
+    y_normalized: p.y_normalized,
     status: p.status,
     pin_type: p.pin_type,
     steel_type: p.steel_type,
@@ -100,71 +117,96 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
   return { drawings, pins };
 }
 
-async function getDrawingImageData(filePath: string, pageNumber: number): Promise<string | null> {
+async function getDrawingImageData(
+  drawing: Drawing,
+  pageNumber: number
+): Promise<{ imageData: string | null; width: number; height: number }> {
   try {
-    // Validate file path
-    if (!filePath || filePath.trim() === '') {
-      console.warn('getDrawingImageData: filePath is empty or null');
-      return null;
+    if (drawing.preview_paths && drawing.preview_paths.length > 0) {
+      const previewIndex = pageNumber - 1;
+      if (previewIndex >= 0 && previewIndex < drawing.preview_paths.length) {
+        const previewPath = drawing.preview_paths[previewIndex];
+        const dataURL = await downloadPreviewAsDataURL(previewPath);
+
+        if (dataURL) {
+          return {
+            imageData: dataURL,
+            width: drawing.preview_width || 1600,
+            height: drawing.preview_height || 1200,
+          };
+        }
+      }
     }
 
-    // Check if it's a PDF
+    const filePath = drawing.file_path;
+
+    if (!filePath || filePath.trim() === '') {
+      console.warn('getDrawingImageData: filePath is empty or null');
+      return { imageData: null, width: 0, height: 0 };
+    }
+
     const isPdf = filePath.toLowerCase().endsWith('.pdf');
 
     if (isPdf) {
-      // Get the PDF file
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('documents')
         .download(filePath);
 
       if (downloadError || !fileData) {
         console.error('Error downloading PDF:', downloadError);
-        return null;
+        return { imageData: null, width: 0, height: 0 };
       }
 
-      // Convert to ArrayBuffer
       const arrayBuffer = await fileData.arrayBuffer();
-
-      // Load PDF
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const page = await pdf.getPage(pageNumber);
 
-      // Set scale for high quality
       const viewport = page.getViewport({ scale: 2 });
 
-      // Create canvas
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      if (!context) return null;
+      if (!context) return { imageData: null, width: 0, height: 0 };
 
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      // Render PDF page to canvas
       await page.render({
         canvasContext: context,
         viewport: viewport,
       }).promise;
 
-      // Convert to data URL
-      return canvas.toDataURL('image/jpeg', 0.95);
+      return {
+        imageData: canvas.toDataURL('image/jpeg', 0.95),
+        width: canvas.width,
+        height: canvas.height,
+      };
     } else {
-      // It's an image file
       const { data } = supabase.storage.from('documents').getPublicUrl(filePath);
 
-      // Download and convert to data URL
       const response = await fetch(data.publicUrl);
       const blob = await response.blob();
 
-      return new Promise((resolve) => {
+      const dataURL = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(blob);
       });
+
+      const img = new Image();
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.src = dataURL;
+      });
+
+      return {
+        imageData: dataURL,
+        width: img.width,
+        height: img.height,
+      };
     }
   } catch (error) {
     console.error('Error loading drawing image:', error);
-    return null;
+    return { imageData: null, width: 0, height: 0 };
   }
 }
 
@@ -307,16 +349,18 @@ export async function addMarkupDrawingsSection(
       yPos += 10;
 
       // Load and add the drawing image
-      const imageData = await getDrawingImageData(drawing.file_path, drawing.page_number);
+      const { imageData, width: imgWidth, height: imgHeight } = await getDrawingImageData(
+        drawing,
+        drawing.page_number
+      );
 
       if (imageData) {
-        // Calculate dimensions to fit on page (landscape orientation might be better)
+        // Calculate dimensions to fit on page
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const maxWidth = pageWidth - 40;
-        const maxHeight = pageHeight - yPos - 60; // Leave space for pin list below
+        const maxHeight = pageHeight - yPos - 60;
 
-        // Add image (jsPDF will automatically scale to fit)
         try {
           const imgProps = doc.getImageProperties(imageData);
           const imgAspectRatio = imgProps.width / imgProps.height;
@@ -331,13 +375,21 @@ export async function addMarkupDrawingsSection(
 
           const xOffset = (pageWidth - drawWidth) / 2;
 
-          doc.addImage(imageData, 'JPEG', xOffset, yPos, drawWidth, drawHeight);
+          doc.addImage(imageData, 'PNG', xOffset, yPos, drawWidth, drawHeight);
 
-          // Draw pins on the image
+          // Draw pins on the image using normalized coordinates
           drawingPins.forEach((pin) => {
-            // Scale pin coordinates to match rendered image
-            const pinX = xOffset + (pin.x * drawWidth);
-            const pinY = yPos + (pin.y * drawHeight);
+            let pinX, pinY;
+
+            if (pin.x_normalized != null && pin.y_normalized != null) {
+              // Use normalized coordinates for consistent positioning
+              pinX = xOffset + pin.x_normalized * drawWidth;
+              pinY = yPos + pin.y_normalized * drawHeight;
+            } else {
+              // Fallback to pixel coordinates (legacy)
+              pinX = xOffset + pin.x * drawWidth;
+              pinY = yPos + pin.y * drawHeight;
+            }
 
             // Draw pin marker
             const color = getStatusColor(pin.status);
@@ -347,7 +399,7 @@ export async function addMarkupDrawingsSection(
             doc.circle(pinX, pinY, 3, 'FD');
 
             // Draw pin label
-            const pinLabel = pin.pin_number || pin.label || '?';
+            const pinLabel = pin.member_mark || pin.pin_number || pin.label || '?';
             doc.setFontSize(8);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(255, 255, 255);

@@ -157,8 +157,22 @@ async function fetchCorrectionsData(projectId: string, batchId?: string): Promis
   };
 }
 
-async function getDrawingImageData(filePath: string, pageNumber: number): Promise<string | null> {
+async function getDrawingImageData(
+  filePath: string,
+  pageNumber: number,
+  previewPaths?: string[]
+): Promise<string | null> {
   try {
+    // Try to use pre-generated preview first
+    if (previewPaths && previewPaths.length > 0) {
+      const previewIndex = pageNumber - 1;
+      if (previewIndex >= 0 && previewIndex < previewPaths.length) {
+        const { downloadPreviewAsDataURL } = await import('./drawingPreviewGenerator');
+        const dataURL = await downloadPreviewAsDataURL(previewPaths[previewIndex]);
+        if (dataURL) return dataURL;
+      }
+    }
+
     // Validate file path
     if (!filePath || filePath.trim() === '') {
       console.warn('getDrawingImageData: filePath is empty or null');
@@ -399,10 +413,11 @@ export async function generatePinCorrectionsReport(
     doc.text(`Corrections on this drawing: ${drawing.corrections.length}`, 20, yPos);
     yPos += 10;
 
-    const imageData = await getDrawingImageData(drawing.file_path, drawing.page_number);
+    const previewPaths = (drawing as any).preview_paths;
+    const imageData = await getDrawingImageData(drawing.file_path, drawing.page_number, previewPaths);
 
     if (imageData) {
-      try {
+      try{
         const imgProps = doc.getImageProperties(imageData);
         const imgAspectRatio = imgProps.width / imgProps.height;
 
@@ -419,7 +434,7 @@ export async function generatePinCorrectionsReport(
 
         const xOffset = (pageWidth - drawWidth) / 2;
 
-        doc.addImage(imageData, 'JPEG', xOffset, yPos, drawWidth, drawHeight);
+        doc.addImage(imageData, 'PNG', xOffset, yPos, drawWidth, drawHeight);
 
         drawing.corrections.forEach((correction) => {
           if (correction.original_x !== null && correction.original_y !== null) {
