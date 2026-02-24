@@ -36,6 +36,23 @@ interface ExecutiveSummaryData {
     min_date: string | null;
     max_date: string | null;
   };
+  drawings_pins?: {
+    total_drawings: number;
+    total_pins: number;
+    pins_summary: Array<{
+      pin_id: string;
+      pin_number: string;
+      label: string;
+      steel_type: string;
+      pin_type: string;
+      status: string;
+      block_name: string;
+      level_name: string;
+      drawing_page: number;
+      member_mark: string;
+      has_photos: boolean;
+    }>;
+  };
 }
 
 interface ExecutiveSummaryResult {

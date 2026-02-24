@@ -544,12 +544,108 @@ export function ExportsTab({ project }: { project: Project }) {
       });
     }
 
+    // Add Drawings and Pin Locations section if available
+    if (executiveSummaryData?.data?.drawings_pins &&
+        executiveSummaryData.data.drawings_pins.total_pins > 0) {
+      doc.addPage();
+      yPos = 20;
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      const sectionNumber = ncrs.length > 0 ? '6' : '5';
+      doc.text(`${sectionNumber}. Drawing References and Pin Locations`, 20, yPos);
+      yPos += 10;
+
+      doc.setDrawColor(0, 40, 80);
+      doc.setLineWidth(0.5);
+      doc.line(20, yPos, 190, yPos);
+      yPos += 10;
+
+      const drawingsPinsData = executiveSummaryData.data.drawings_pins;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Total Drawings: ${drawingsPinsData.total_drawings}`, 20, yPos);
+      yPos += 6;
+      doc.text(`Total Pin Locations: ${drawingsPinsData.total_pins}`, 20, yPos);
+      yPos += 12;
+
+      // Create table of pin locations
+      if (drawingsPinsData.pins_summary && drawingsPinsData.pins_summary.length > 0) {
+        const pinsData = drawingsPinsData.pins_summary.map((pin: any) => [
+          pin.pin_number || 'N/A',
+          pin.steel_type || 'N/A',
+          pin.member_mark || 'N/A',
+          `${pin.block_name || 'N/A'} / ${pin.level_name || 'N/A'}`,
+          pin.drawing_page || 'N/A',
+          pin.status ? pin.status.replace('_', ' ').toUpperCase() : 'N/A',
+          pin.has_photos ? 'Yes' : 'No',
+        ]);
+
+        autoTable(doc, {
+          head: [['Pin #', 'Type', 'Member', 'Location', 'Dwg Page', 'Status', 'Photos']],
+          body: pinsData,
+          startY: yPos,
+          theme: 'grid',
+          headStyles: { fillColor: [0, 102, 204], textColor: 255 },
+          styles: { fontSize: 8, cellPadding: 2 },
+          margin: { bottom: 30 },
+          columnStyles: {
+            0: { cellWidth: 20 },
+            1: { cellWidth: 22 },
+            2: { cellWidth: 22 },
+            3: { cellWidth: 40 },
+            4: { cellWidth: 20 },
+            5: { cellWidth: 25, halign: 'center' },
+            6: { cellWidth: 20, halign: 'center' },
+          },
+          didParseCell: function (data) {
+            if (data.section === 'body' && data.column.index === 5) {
+              const status = data.cell.text[0];
+              if (status === 'PASS') {
+                data.cell.styles.textColor = [0, 128, 0];
+                data.cell.styles.fontStyle = 'bold';
+              } else if (status === 'REPAIR REQUIRED' || status.includes('FAIL')) {
+                data.cell.styles.textColor = [255, 0, 0];
+                data.cell.styles.fontStyle = 'bold';
+              }
+            }
+          },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+
+        // Add summary note
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(80, 80, 80);
+        const noteText = 'Note: Pin locations are marked on project drawings and correspond to inspected structural members. Drawing references and coordinates are maintained in the project site manager system.';
+        const noteLines = doc.splitTextToSize(noteText, 170);
+        noteLines.forEach((line: string) => {
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        });
+      }
+    }
+
     doc.addPage();
     yPos = 20;
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text(ncrs.length > 0 ? '6. Inspection Details' : '5. Inspection Details', 20, yPos);
+    // Dynamic section numbering based on which sections are included
+    let inspectionSectionNumber = '5';
+    if (ncrs.length > 0) inspectionSectionNumber = '6';
+    if (executiveSummaryData?.data?.drawings_pins?.total_pins > 0) {
+      inspectionSectionNumber = ncrs.length > 0 ? '7' : '6';
+    }
+    doc.text(`${inspectionSectionNumber}. Inspection Details`, 20, yPos);
     yPos += 10;
 
     inspections.forEach((inspection, idx) => {

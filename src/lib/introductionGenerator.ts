@@ -37,6 +37,20 @@ interface IntroductionData {
     blocks: Array<{ id: string; name: string }>;
     levels: Array<{ id: string; name: string }>;
   };
+  drawings_pins?: {
+    total_drawings: number;
+    total_pins: number;
+    pins_by_status: Record<string, number>;
+    pins_by_type: Record<string, number>;
+    drawings_list: Array<{
+      drawing_id: string;
+      document_id: string;
+      level_name: string;
+      block_name: string;
+      file_name: string;
+      page_number: number;
+    }>;
+  };
 }
 
 interface IntroductionResult {
