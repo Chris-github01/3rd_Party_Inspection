@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FileText, Copy, Blend, Search, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { WizardData } from '../ProjectWizard';
 import { format } from 'date-fns';
@@ -45,6 +46,7 @@ const IMPORT_OPTIONS = [
 ];
 
 export function WizardStep3({ data, updateData }: WizardStep3Props) {
+  const navigate = useNavigate();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -154,40 +156,59 @@ export function WizardStep3({ data, updateData }: WizardStep3Props) {
             <h4 className="text-sm font-medium text-slate-300">
               All Templates ({templates.length})
             </h4>
-            <button className="text-sm text-primary-400 hover:underline flex items-center gap-1">
+            <button
+              onClick={() => navigate('/settings/templates/forms')}
+              className="text-sm text-primary-400 hover:underline flex items-center gap-1 transition-colors"
+              type="button"
+            >
               <Settings className="w-4 h-4" />
               Need to add a new template?
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {templates.map((template) => (
-              <div
-                key={template.id}
-                onClick={() =>
-                  updateData({
-                    templateId: template.id,
-                    templateName: template.template_name,
-                  })
-                }
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  data.templateId === template.id
-                    ? 'border-primary-600 bg-primary-900/30'
-                    : 'border-slate-700 hover:border-slate-600'
-                }`}
+          {templates.length === 0 ? (
+            <div className="p-8 text-center border-2 border-dashed border-slate-700 rounded-lg">
+              <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <p className="text-slate-300 mb-3">No templates available yet</p>
+              <button
+                onClick={() => navigate('/settings/templates/forms')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                type="button"
               >
-                <h5 className="font-semibold text-white mb-1">
-                  {template.template_name}
-                </h5>
-                <p className="text-sm text-slate-300 mb-2">
-                  {template.applies_to}
-                </p>
-                <p className="text-xs text-slate-400">
-                  Updated {format(new Date(template.created_at), 'MMM d, yyyy')}
-                </p>
-              </div>
-            ))}
-          </div>
+                <Settings className="w-4 h-4" />
+                Create Your First Template
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {templates.map((template) => (
+                <div
+                  key={template.id}
+                  onClick={() =>
+                    updateData({
+                      templateId: template.id,
+                      templateName: template.template_name,
+                    })
+                  }
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    data.templateId === template.id
+                      ? 'border-primary-600 bg-primary-900/30'
+                      : 'border-slate-700 hover:border-slate-600'
+                  }`}
+                >
+                  <h5 className="font-semibold text-white mb-1">
+                    {template.template_name}
+                  </h5>
+                  <p className="text-sm text-slate-300 mb-2">
+                    {template.applies_to}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Updated {format(new Date(template.created_at), 'MMM d, yyyy')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
