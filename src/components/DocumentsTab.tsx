@@ -13,7 +13,7 @@ interface Document {
   mime_type: string;
   size_bytes: number;
   storage_path: string;
-  uploaded_at: string;
+  created_at: string;
 }
 
 interface Block {
@@ -61,7 +61,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
         .from('documents')
         .select('*')
         .eq('project_id', projectId)
-        .order('uploaded_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setDocuments(data || []);
@@ -199,6 +199,15 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-6">
+      {!canEdit && (
+        <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4 mb-6">
+          <p className="text-yellow-200 text-sm">
+            <strong>Note:</strong> You need admin or inspector role to upload documents.
+            Current role: {profile?.role || 'none'} | User: {profile?.name || 'unknown'}
+          </p>
+        </div>
+      )}
+
       {canEdit && (
         <>
           <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
@@ -357,7 +366,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
                             {typeLabel}
                           </span>
                           <span>{formatFileSize(doc.size_bytes)}</span>
-                          <span>{format(new Date(doc.uploaded_at), 'MMM d, yyyy')}</span>
+                          <span>{format(new Date(doc.created_at), 'MMM d, yyyy')}</span>
                         </div>
                       </div>
                     </div>
