@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, FileText, Users, ClipboardCheck, AlertTriangle, Download, Paperclip, Map, Smartphone, FileCheck, BookOpen, ListChecks, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, FileText, Users, ClipboardCheck, AlertTriangle, Download, Paperclip, Map, Smartphone, FileCheck, BookOpen, ListChecks, CheckCircle2, Circle, AlertCircle, MapPin } from 'lucide-react';
 import { DocumentsTab } from '../components/DocumentsTab';
 import { LoadingScheduleTab } from '../components/LoadingScheduleTab';
 import { MembersTab } from '../components/MembersTab';
@@ -13,6 +13,7 @@ import { SiteManagerTab } from '../components/SiteManagerTab';
 import { ExecutiveSummaryPreview } from '../components/ExecutiveSummaryPreview';
 import { IntroductionPreview } from '../components/IntroductionPreview';
 import { SoftLockPanel } from '../components/SoftLockPanel';
+import { PinCorrectionsTab } from '../components/PinCorrectionsTab';
 
 interface Project {
   id: string;
@@ -50,7 +51,7 @@ interface BlockingInfo {
   state: WorkflowState;
 }
 
-type TabType = 'documents' | 'loading-schedule' | 'members' | 'inspections' | 'ncrs' | 'attachments' | 'exports' | 'site-manager' | 'executive-summary' | 'introduction';
+type TabType = 'documents' | 'loading-schedule' | 'members' | 'inspections' | 'ncrs' | 'attachments' | 'exports' | 'site-manager' | 'executive-summary' | 'introduction' | 'pin-corrections';
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -167,6 +168,7 @@ export function ProjectDetail() {
     { id: 'members' as TabType, label: 'Member Register', icon: Users },
     { id: 'inspections' as TabType, label: 'Inspections', icon: ClipboardCheck },
     { id: 'ncrs' as TabType, label: 'NCRs', icon: AlertTriangle },
+    { id: 'pin-corrections' as TabType, label: 'Pin Corrections', icon: MapPin },
     { id: 'attachments' as TabType, label: 'Export Attachments', icon: Paperclip },
     { id: 'introduction' as TabType, label: 'Introduction', icon: BookOpen },
     { id: 'executive-summary' as TabType, label: 'Executive Summary', icon: FileCheck },
@@ -379,6 +381,7 @@ export function ProjectDetail() {
               )}
 
               {activeTab === 'attachments' && <ExportAttachmentsTab projectId={project.id} />}
+              {activeTab === 'pin-corrections' && <PinCorrectionsTab project={project} />}
               {activeTab === 'introduction' && <IntroductionPreview projectId={project.id} />}
               {activeTab === 'executive-summary' && <ExecutiveSummaryPreview projectId={project.id} />}
               {activeTab === 'exports' && <ExportsTab project={project} />}
