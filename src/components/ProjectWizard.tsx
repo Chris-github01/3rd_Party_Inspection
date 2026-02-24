@@ -159,51 +159,51 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)]">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+    <div className="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-slate-900 rounded-xl shadow-2xl max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] border border-slate-700">
+        <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-white">
               New Single Site Project
             </h2>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-slate-400 mt-1">
               Step {currentStep} of 6
             </p>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="px-6 py-2 border-b border-slate-200">
+        <div className="px-6 py-2 border-b border-slate-700">
           <div className="flex items-center gap-2">
             {[1, 2, 3, 4, 5, 6].map((step) => (
               <div
                 key={step}
-                className={`flex-1 h-2 rounded-full ${
+                className={`flex-1 h-2 rounded-full transition-colors ${
                   step < currentStep
                     ? 'bg-green-500'
                     : step === currentStep
                     ? 'bg-primary-600'
-                    : 'bg-slate-200'
+                    : 'bg-slate-700'
                 }`}
               />
             ))}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6 bg-slate-900">
           {renderStep()}
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-slate-700 flex items-center justify-between bg-slate-900">
           <button
             onClick={handleBack}
             disabled={currentStep === 1}
-            className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
             Back
@@ -213,7 +213,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
             <button
               onClick={handleNext}
               disabled={!canProceed()}
-              className="flex items-center gap-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
             >
               Next
               <ChevronRight className="w-5 h-5" />
