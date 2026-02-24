@@ -8,9 +8,11 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { pdfjsLib } from '../../lib/pdfjs';
+import { exportDrawingWithPins } from '../../lib/pdfSingleDrawingExport';
 import { AddPinModal } from './AddPinModal';
 import { PinDetailModal } from './PinDetailModal';
 
@@ -43,11 +45,22 @@ interface Pin {
 interface DrawingViewerProps {
   drawing: Drawing;
   projectId: string;
+  projectName?: string;
+  blockName?: string;
+  levelName?: string;
   onClose: () => void;
   onPinAdded: () => void;
 }
 
-export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: DrawingViewerProps) {
+export function DrawingViewer({
+  drawing,
+  projectId,
+  projectName,
+  blockName,
+  levelName,
+  onClose,
+  onPinAdded
+}: DrawingViewerProps) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -64,6 +77,7 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
   const [pageCount, setPageCount] = useState(1);
   const [renderedWidth, setRenderedWidth] = useState(0);
   const [renderedHeight, setRenderedHeight] = useState(0);
+  const [exporting, setExporting] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -255,6 +269,45 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
     }
   };
 
+  const handleExportPDF = async () => {
+    try {
+      setExporting(true);
+      console.log('[DrawingViewer] Starting PDF export...');
+
+      const blob = await exportDrawingWithPins({
+        drawingId: drawing.id,
+        storagePath: drawing.preview_image_path,
+        pageNumber: isPdf ? currentPage : 1,
+        projectName,
+        blockName,
+        levelName,
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = [
+        projectName,
+        blockName,
+        levelName,
+        `Page-${isPdf ? currentPage : 1}`,
+      ]
+        .filter(Boolean)
+        .join('_')
+        .replace(/[^a-z0-9_-]/gi, '_') + '.pdf';
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      console.log('[DrawingViewer] ✅ PDF export complete');
+    } catch (error) {
+      console.error('[DrawingViewer] ❌ PDF export failed:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="relative h-full flex flex-col bg-slate-900">
       <div className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
@@ -293,6 +346,16 @@ export function DrawingViewer({ drawing, projectId, onClose, onPinAdded }: Drawi
               </button>
             </div>
           )}
+
+          <button
+            onClick={handleExportPDF}
+            disabled={exporting}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Export drawing with pins to PDF"
+          >
+            <Download className="w-4 h-4" />
+            {exporting ? 'Exporting...' : 'Export PDF'}
+          </button>
 
           <button
             onClick={() => setAddingPin(!addingPin)}

@@ -46,10 +46,31 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
   const [selectedBlockId, setSelectedBlockId] = useState<string>('');
   const [selectedLevelId, setSelectedLevelId] = useState<string>('');
   const [selectedDrawing, setSelectedDrawing] = useState<Drawing | null>(null);
+  const [selectedDrawingContext, setSelectedDrawingContext] = useState<{
+    blockName: string;
+    levelName: string;
+  } | null>(null);
+  const [projectName, setProjectName] = useState<string>('');
 
   useEffect(() => {
+    loadProjectInfo();
     loadSiteStructure();
   }, [projectId]);
+
+  const loadProjectInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('project_name')
+        .eq('id', projectId)
+        .single();
+
+      if (error) throw error;
+      if (data) setProjectName(data.project_name);
+    } catch (error) {
+      console.error('Error loading project info:', error);
+    }
+  };
 
   const loadSiteStructure = async () => {
     setLoading(true);
@@ -76,15 +97,28 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
             (levelsData || []).map(async (level) => {
               const { data: drawingsData, error: drawingsError } = await supabase
                 .from('drawings')
-                .select('*')
+                .select(`
+                  *,
+                  documents!inner(storage_path, filename)
+                `)
                 .eq('level_id', level.id)
                 .order('created_at');
 
               if (drawingsError) throw drawingsError;
 
+              const mappedDrawings = (drawingsData || []).map((d: any) => ({
+                id: d.id,
+                level_id: d.level_id,
+                document_id: d.document_id,
+                page_number: d.page_number,
+                preview_image_path: d.documents.storage_path,
+                scale_factor: d.scale_factor || 1,
+                created_at: d.created_at,
+              }));
+
               return {
                 ...level,
-                drawings: drawingsData || [],
+                drawings: mappedDrawings,
               };
             })
           );
@@ -124,8 +158,9 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
     setShowUploadDrawing(true);
   };
 
-  const handleDrawingClick = (drawing: Drawing) => {
+  const handleDrawingClick = (drawing: Drawing, blockName: string, levelName: string) => {
     setSelectedDrawing(drawing);
+    setSelectedDrawingContext({ blockName, levelName });
   };
 
   if (loading) {
@@ -220,7 +255,7 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
                                   {level.drawings.map((drawing) => (
                                     <button
                                       key={drawing.id}
-                                      onClick={() => handleDrawingClick(drawing)}
+                                      onClick={() => handleDrawingClick(drawing, block.name, level.name)}
                                       className="flex items-center gap-2 w-full p-2 text-left hover:bg-white/10 rounded text-xs"
                                     >
                                       <FileImage className="w-3 h-3 text-blue-300" />
@@ -249,7 +284,13 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
           <DrawingViewer
             drawing={selectedDrawing}
             projectId={projectId}
-            onClose={() => setSelectedDrawing(null)}
+            projectName={projectName}
+            blockName={selectedDrawingContext?.blockName}
+            levelName={selectedDrawingContext?.levelName}
+            onClose={() => {
+              setSelectedDrawing(null);
+              setSelectedDrawingContext(null);
+            }}
             onPinAdded={loadSiteStructure}
           />
         ) : (
