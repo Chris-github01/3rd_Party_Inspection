@@ -209,7 +209,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
             Back
           </button>
 
-          {currentStep < 7 ? (
+          {currentStep < 6 ? (
             <button
               onClick={handleNext}
               disabled={!canProceed()}
