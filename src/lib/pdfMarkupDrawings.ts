@@ -17,6 +17,7 @@ interface Pin {
   steel_type: string | null;
   member_mark: string | null;
   page_number: number;
+  drawing_id: string;
 }
 
 interface Drawing {
@@ -112,6 +113,7 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
     steel_type: p.steel_type,
     member_mark: p.members?.[0]?.member_mark || null,
     page_number: p.page_number,
+    drawing_id: p.drawing_id,
   }));
 
   return { drawings, pins };
@@ -122,28 +124,39 @@ async function getDrawingImageData(
   pageNumber: number
 ): Promise<{ imageData: string | null; width: number; height: number }> {
   try {
+    console.log(`[getDrawingImageData] Loading drawing ${drawing.id}, page ${pageNumber}`);
+    console.log(`[getDrawingImageData] Preview paths:`, drawing.preview_paths);
+    console.log(`[getDrawingImageData] File path:`, drawing.file_path);
+
     if (drawing.preview_paths && drawing.preview_paths.length > 0) {
       const previewIndex = pageNumber - 1;
       if (previewIndex >= 0 && previewIndex < drawing.preview_paths.length) {
         const previewPath = drawing.preview_paths[previewIndex];
+        console.log(`[getDrawingImageData] Attempting to load preview from: ${previewPath}`);
         const dataURL = await downloadPreviewAsDataURL(previewPath);
 
         if (dataURL) {
+          console.log(`[getDrawingImageData] ✅ Preview loaded successfully`);
           return {
             imageData: dataURL,
             width: drawing.preview_width || 1600,
             height: drawing.preview_height || 1200,
           };
         }
+        console.log(`[getDrawingImageData] ⚠️ Preview download returned null, falling back to live render`);
       }
+    } else {
+      console.log(`[getDrawingImageData] No preview paths available, using live render`);
     }
 
     const filePath = drawing.file_path;
 
     if (!filePath || filePath.trim() === '') {
-      console.warn('getDrawingImageData: filePath is empty or null');
+      console.error('[getDrawingImageData] ❌ filePath is empty or null');
       return { imageData: null, width: 0, height: 0 };
     }
+
+    console.log(`[getDrawingImageData] Attempting live PDF render from: ${filePath}`);
 
     const isPdf = filePath.toLowerCase().endsWith('.pdf');
 
@@ -175,21 +188,28 @@ async function getDrawingImageData(
         viewport: viewport,
       }).promise;
 
+      console.log(`[getDrawingImageData] ✅ PDF rendered successfully to canvas: ${canvas.width}x${canvas.height}`);
+
       return {
         imageData: canvas.toDataURL('image/jpeg', 0.95),
         width: canvas.width,
         height: canvas.height,
       };
     } else {
-      const { data } = supabase.storage.from('documents').getPublicUrl(filePath);
+      console.log(`[getDrawingImageData] Downloading image file from storage`);
+      const { data: imageBlob, error: downloadError } = await supabase.storage
+        .from('documents')
+        .download(filePath);
 
-      const response = await fetch(data.publicUrl);
-      const blob = await response.blob();
+      if (downloadError || !imageBlob) {
+        console.error('[getDrawingImageData] ❌ Error downloading image:', downloadError);
+        return { imageData: null, width: 0, height: 0 };
+      }
 
       const dataURL = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
+        reader.readAsDataURL(imageBlob);
       });
 
       const img = new Image();
@@ -197,6 +217,8 @@ async function getDrawingImageData(
         img.onload = resolve;
         img.src = dataURL;
       });
+
+      console.log(`[getDrawingImageData] ✅ Image loaded successfully: ${img.width}x${img.height}`);
 
       return {
         imageData: dataURL,
@@ -331,7 +353,7 @@ export async function addMarkupDrawingsSection(
     // Process each drawing
     for (const drawing of drawings) {
       const drawingPins = pins.filter(
-        (p) => p.page_number === drawing.page_number
+        (p) => p.drawing_id === drawing.id
       );
 
       doc.addPage();
@@ -349,12 +371,16 @@ export async function addMarkupDrawingsSection(
       yPos += 10;
 
       // Load and add the drawing image
+      console.log(`[addMarkupDrawingsSection] Processing drawing ${drawing.id}: ${drawing.file_name}`);
+      console.log(`[addMarkupDrawingsSection] Found ${drawingPins.length} pins for this drawing`);
+
       const { imageData, width: imgWidth, height: imgHeight } = await getDrawingImageData(
         drawing,
         drawing.page_number
       );
 
       if (imageData) {
+        console.log(`[addMarkupDrawingsSection] ✅ Drawing image loaded successfully`);
         // Calculate dimensions to fit on page
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -416,16 +442,25 @@ export async function addMarkupDrawingsSection(
           yPos += drawHeight + 10;
 
         } catch (imgError) {
-          console.error('Error adding image to PDF:', imgError);
+          console.error('[addMarkupDrawingsSection] ❌ Error adding image to PDF:', imgError);
           doc.setFontSize(10);
           doc.setTextColor(200, 0, 0);
-          doc.text('(Drawing image could not be rendered)', 20, yPos);
+          doc.text('(Drawing image could not be rendered - see console for details)', 20, yPos);
+          yPos += 5;
+          doc.setFontSize(8);
+          doc.text(`Error: ${imgError instanceof Error ? imgError.message : String(imgError)}`, 20, yPos);
           yPos += 10;
         }
       } else {
+        console.error('[addMarkupDrawingsSection] ❌ No image data returned for drawing');
         doc.setFontSize(10);
         doc.setTextColor(150, 150, 150);
-        doc.text('(Drawing preview not available)', 20, yPos);
+        doc.text('(Drawing preview not available - image data is null)', 20, yPos);
+        yPos += 5;
+        doc.setFontSize(8);
+        doc.text(`File path: ${drawing.file_path}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Preview paths: ${JSON.stringify(drawing.preview_paths)}`, 20, yPos);
         yPos += 10;
       }
 
