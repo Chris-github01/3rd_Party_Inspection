@@ -127,6 +127,9 @@ export function ExportsTab({ project }: { project: Project }) {
     console.log(`  - Simulated Sets: ${simulatedMemberSets.length}`);
     console.log(`  - Introduction: ${introductionData ? 'Generated' : 'Not available'}`);
     console.log(`  - Executive Summary: ${executiveSummaryData ? 'Generated' : 'Not available'}`);
+    console.log(`  - Drawings/Pins: ${executiveSummaryData?.data?.drawings_pins ?
+      `${executiveSummaryData.data.drawings_pins.total_drawings} drawings, ${executiveSummaryData.data.drawings_pins.total_pins} pins` :
+      'Not available'}`);
 
     // Count total batches in inspections
     const totalBatchesInInspections = inspections.reduce((sum, i) => sum + (i.dft_batches?.length || 0), 0);
