@@ -343,8 +343,13 @@ export function ExportsTab({ project }: { project: Project }) {
       yPos += 6;
     });
 
-    doc.addPage();
-    yPos = 20;
+    // Smart page break: only add new page if insufficient space for section + table header
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    } else {
+      yPos += 15;
+    }
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
