@@ -49,7 +49,7 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
       preview_paths,
       preview_width,
       preview_height,
-      documents!inner(storage_path, file_name),
+      documents!inner(storage_path, filename, original_name),
       levels!inner(name, blocks!inner(name, project_id))
     `)
     .eq('levels.blocks.project_id', projectId)
@@ -92,7 +92,7 @@ export async function fetchMarkupDrawingData(projectId: string): Promise<MarkupD
     document_id: d.document_id,
     page_number: d.page_number,
     file_path: d.documents.storage_path,
-    file_name: d.documents.file_name,
+    file_name: d.documents.original_name || d.documents.filename || 'Unknown',
     level_name: d.levels.name,
     block_name: d.levels.blocks.name,
     preview_paths: d.preview_paths,
@@ -161,37 +161,61 @@ async function getDrawingImageData(
     const isPdf = filePath.toLowerCase().endsWith('.pdf');
 
     if (isPdf) {
+      console.log(`[getDrawingImageData] Step 1: Downloading PDF from storage...`);
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('documents')
         .download(filePath);
 
       if (downloadError || !fileData) {
-        console.error('Error downloading PDF:', downloadError);
+        console.error('[getDrawingImageData] ❌ Step 1 FAILED - Error downloading PDF:', downloadError);
         return { imageData: null, width: 0, height: 0 };
       }
 
+      console.log(`[getDrawingImageData] ✅ Step 1 Complete - PDF downloaded: ${fileData.size} bytes`);
+      console.log(`[getDrawingImageData] Step 2: Converting to ArrayBuffer...`);
+
       const arrayBuffer = await fileData.arrayBuffer();
+      console.log(`[getDrawingImageData] ✅ Step 2 Complete - ArrayBuffer size: ${arrayBuffer.byteLength} bytes`);
+      console.log(`[getDrawingImageData] Step 3: Loading PDF document...`);
+
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      console.log(`[getDrawingImageData] ✅ Step 3 Complete - PDF loaded, ${pdf.numPages} pages`);
+      console.log(`[getDrawingImageData] Step 4: Getting page ${pageNumber}...`);
+
       const page = await pdf.getPage(pageNumber);
+      console.log(`[getDrawingImageData] ✅ Step 4 Complete - Page retrieved`);
 
+      console.log(`[getDrawingImageData] Step 5: Creating viewport...`);
       const viewport = page.getViewport({ scale: 2 });
+      console.log(`[getDrawingImageData] ✅ Step 5 Complete - Viewport: ${viewport.width}x${viewport.height}`);
 
+      console.log(`[getDrawingImageData] Step 6: Creating canvas...`);
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      if (!context) return { imageData: null, width: 0, height: 0 };
+      if (!context) {
+        console.error('[getDrawingImageData] ❌ Step 6 FAILED - Could not get 2D context');
+        return { imageData: null, width: 0, height: 0 };
+      }
 
       canvas.width = viewport.width;
       canvas.height = viewport.height;
+      console.log(`[getDrawingImageData] ✅ Step 6 Complete - Canvas created: ${canvas.width}x${canvas.height}`);
 
+      console.log(`[getDrawingImageData] Step 7: Rendering PDF to canvas...`);
       await page.render({
         canvasContext: context,
         viewport: viewport,
       }).promise;
 
-      console.log(`[getDrawingImageData] ✅ PDF rendered successfully to canvas: ${canvas.width}x${canvas.height}`);
+      console.log(`[getDrawingImageData] ✅ Step 7 Complete - PDF rendered to canvas`);
+      console.log(`[getDrawingImageData] Step 8: Converting canvas to data URL...`);
+
+      const dataURL = canvas.toDataURL('image/jpeg', 0.95);
+      console.log(`[getDrawingImageData] ✅ Step 8 Complete - Data URL length: ${dataURL.length} chars`);
+      console.log(`[getDrawingImageData] 🎉 SUCCESS - Returning image data`);
 
       return {
-        imageData: canvas.toDataURL('image/jpeg', 0.95),
+        imageData: dataURL,
         width: canvas.width,
         height: canvas.height,
       };
@@ -227,7 +251,10 @@ async function getDrawingImageData(
       };
     }
   } catch (error) {
-    console.error('Error loading drawing image:', error);
+    console.error('[getDrawingImageData] ❌ EXCEPTION CAUGHT:', error);
+    console.error('[getDrawingImageData] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('[getDrawingImageData] Error message:', error instanceof Error ? error.message : String(error));
+    console.error('[getDrawingImageData] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return { imageData: null, width: 0, height: 0 };
   }
 }
