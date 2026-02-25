@@ -232,7 +232,7 @@ function drawPinsOnPDF(
     pdf.circle(x, y, radius, 'FD');
 
     pdf.setFontSize(16);
-    pdf.setTextColor(255, 255, 255);
+    pdf.setTextColor(0, 0, 0);
     pdf.setFont('helvetica', 'bold');
 
     const text = pin.label || `${index + 1}`;
