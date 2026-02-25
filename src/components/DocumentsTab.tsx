@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Upload, File, Trash2, Eye, Grid, ChevronRight, ChevronDown, FileUp } from 'lucide-react';
+import { Upload, File, Trash2, Eye, Grid, ChevronRight, ChevronDown, FileUp, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { CreateBlockLevelModal } from './CreateBlockLevelModal';
+import { ConfirmDialog } from './ConfirmDialog';
 import { useToast } from '../contexts/ToastContext';
 
 interface Document {
@@ -30,6 +31,18 @@ interface Level {
   name: string;
   description: string;
   order_index: number;
+  drawing?: Drawing;
+}
+
+interface Drawing {
+  id: string;
+  level_id: string;
+  document_id: string;
+  document?: Document;
+  page_number: number;
+  preview_image_path: string;
+  scale_factor: number;
+  created_at: string;
 }
 
 const DOCUMENT_TYPES = [
@@ -49,13 +62,17 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadingLevelId, setUploadingLevelId] = useState<string | null>(null);
+  const [replacingLevelId, setReplacingLevelId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState('drawing');
   const [showCreateBlockModal, setShowCreateBlockModal] = useState(false);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState<{ levelId: string; levelName: string } | null>(null);
+  const [levelDrawings, setLevelDrawings] = useState<Map<string, Drawing>>(new Map());
 
   useEffect(() => {
     loadDocuments();
     loadBlocks();
+    loadLevelDrawings();
   }, [projectId]);
 
   const loadDocuments = async () => {
@@ -105,6 +122,34 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
       }
     } catch (error) {
       console.error('Error loading blocks:', error);
+    }
+  };
+
+  const loadLevelDrawings = async () => {
+    try {
+      const { data: drawingsData, error } = await supabase
+        .from('drawings')
+        .select(`
+          id,
+          level_id,
+          document_id,
+          page_number,
+          preview_image_path,
+          scale_factor,
+          created_at,
+          document:documents(id, original_name, filename, mime_type, size_bytes, created_at)
+        `)
+        .not('level_id', 'is', null);
+
+      if (error) throw error;
+
+      const drawingsMap = new Map<string, Drawing>();
+      drawingsData?.forEach((drawing: any) => {
+        drawingsMap.set(drawing.level_id, drawing);
+      });
+      setLevelDrawings(drawingsMap);
+    } catch (error) {
+      console.error('Error loading level drawings:', error);
     }
   };
 
@@ -229,12 +274,155 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
       addToast(`Drawing "${file.name}" uploaded successfully!`, 'success');
       await loadDocuments();
       await loadBlocks();
+      await loadLevelDrawings();
       e.target.value = '';
     } catch (error: any) {
       console.error('Upload error:', error);
       addToast('Error uploading drawing: ' + error.message, 'error');
     } finally {
       setUploadingLevelId(null);
+    }
+  };
+
+  const handleReplaceDrawing = async (e: React.ChangeEvent<HTMLInputElement>, levelId: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.dwg'];
+    const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
+
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExt)) {
+      addToast('Please upload a valid drawing file (PDF, PNG, JPG, or DWG)', 'error');
+      e.target.value = '';
+      return;
+    }
+
+    // Check file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      addToast('File size must be less than 50MB', 'error');
+      e.target.value = '';
+      return;
+    }
+
+    setReplacingLevelId(levelId);
+
+    try {
+      const existingDrawing = levelDrawings.get(levelId);
+      if (!existingDrawing) {
+        throw new Error('No existing drawing found for this level');
+      }
+
+      addToast('Replacing drawing...', 'info');
+
+      // Delete old file from storage
+      if (existingDrawing.document?.filename) {
+        const { error: deleteError } = await supabase.storage
+          .from('documents')
+          .remove([existingDrawing.document.filename]);
+
+        if (deleteError) {
+          console.warn('Error deleting old file:', deleteError);
+        }
+      }
+
+      // Upload new file
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `${projectId}/${Date.now()}.${fileExtension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Update document record
+      const { error: docUpdateError } = await supabase
+        .from('documents')
+        .update({
+          filename: fileName,
+          original_name: file.name,
+          mime_type: file.type,
+          size_bytes: file.size,
+          storage_path: fileName,
+        })
+        .eq('id', existingDrawing.document_id);
+
+      if (docUpdateError) throw docUpdateError;
+
+      // Update drawing record
+      const { error: drawingUpdateError } = await supabase
+        .from('drawings')
+        .update({
+          preview_image_path: fileName,
+        })
+        .eq('id', existingDrawing.id);
+
+      if (drawingUpdateError) throw drawingUpdateError;
+
+      addToast(`Drawing replaced with "${file.name}" successfully!`, 'success');
+      await loadDocuments();
+      await loadBlocks();
+      await loadLevelDrawings();
+      e.target.value = '';
+    } catch (error: any) {
+      console.error('Replace error:', error);
+      addToast('Error replacing drawing: ' + error.message, 'error');
+    } finally {
+      setReplacingLevelId(null);
+    }
+  };
+
+  const handleDeleteDrawing = async (levelId: string) => {
+    try {
+      const existingDrawing = levelDrawings.get(levelId);
+      if (!existingDrawing) {
+        throw new Error('No drawing found for this level');
+      }
+
+      addToast('Deleting drawing...', 'info');
+
+      // Delete file from storage
+      if (existingDrawing.document?.filename) {
+        const { error: deleteStorageError } = await supabase.storage
+          .from('documents')
+          .remove([existingDrawing.document.filename]);
+
+        if (deleteStorageError) {
+          console.warn('Error deleting file from storage:', deleteStorageError);
+        }
+      }
+
+      // Delete drawing record (will also handle pins via CASCADE)
+      const { error: drawingDeleteError } = await supabase
+        .from('drawings')
+        .delete()
+        .eq('id', existingDrawing.id);
+
+      if (drawingDeleteError) throw drawingDeleteError;
+
+      // Delete document record
+      if (existingDrawing.document_id) {
+        const { error: docDeleteError } = await supabase
+          .from('documents')
+          .delete()
+          .eq('id', existingDrawing.document_id);
+
+        if (docDeleteError) {
+          console.warn('Error deleting document record:', docDeleteError);
+        }
+      }
+
+      addToast('Drawing deleted successfully!', 'success');
+      await loadDocuments();
+      await loadBlocks();
+      await loadLevelDrawings();
+      setDeleteConfirm(null);
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      addToast('Error deleting drawing: ' + error.message, 'error');
     }
   };
 
@@ -392,48 +580,96 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
 
                     {expandedBlocks.has(block.id) && (
                       <div className="px-4 pb-3 space-y-2">
-                        {block.levels.map((level, index) => (
-                          <div
-                            key={level.id}
-                            className="flex items-center gap-3 px-4 py-2 bg-slate-800 rounded border border-slate-600"
-                          >
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
-                              {index + 1}
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-sm font-medium text-white">
-                                {level.name}
+                        {block.levels.map((level, index) => {
+                          const hasDrawing = levelDrawings.has(level.id);
+                          const drawing = levelDrawings.get(level.id);
+
+                          return (
+                            <div
+                              key={level.id}
+                              className="flex items-center gap-3 px-4 py-2 bg-slate-800 rounded border border-slate-600"
+                            >
+                              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+                                {index + 1}
                               </div>
-                              {level.description && (
-                                <div className="text-xs text-slate-400 mt-0.5">
-                                  {level.description}
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-white">
+                                  {level.name}
+                                </div>
+                                {level.description && (
+                                  <div className="text-xs text-slate-400 mt-0.5">
+                                    {level.description}
+                                  </div>
+                                )}
+                                {hasDrawing && drawing?.document && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <File className="w-3 h-3 text-green-400" />
+                                    <span className="text-xs text-green-400">
+                                      {drawing.document.original_name}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              {canEdit && (
+                                <div className="flex items-center gap-2">
+                                  {!hasDrawing ? (
+                                    <label className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded cursor-pointer transition-colors">
+                                      {uploadingLevelId === level.id ? (
+                                        <>
+                                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                          Uploading...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <FileUp className="w-3.5 h-3.5" />
+                                          Upload
+                                        </>
+                                      )}
+                                      <input
+                                        type="file"
+                                        accept=".pdf,.png,.jpg,.jpeg,.dwg"
+                                        onChange={(e) => handleLevelDrawingUpload(e, level.id)}
+                                        disabled={uploadingLevelId !== null}
+                                        className="hidden"
+                                      />
+                                    </label>
+                                  ) : (
+                                    <>
+                                      <label className="flex items-center gap-2 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium rounded cursor-pointer transition-colors">
+                                        {replacingLevelId === level.id ? (
+                                          <>
+                                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            Replacing...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <RefreshCw className="w-3.5 h-3.5" />
+                                            Replace
+                                          </>
+                                        )}
+                                        <input
+                                          type="file"
+                                          accept=".pdf,.png,.jpg,.jpeg,.dwg"
+                                          onChange={(e) => handleReplaceDrawing(e, level.id)}
+                                          disabled={replacingLevelId !== null || uploadingLevelId !== null}
+                                          className="hidden"
+                                        />
+                                      </label>
+                                      <button
+                                        onClick={() => setDeleteConfirm({ levelId: level.id, levelName: level.name })}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition-colors"
+                                        disabled={replacingLevelId !== null || uploadingLevelId !== null}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Delete
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </div>
-                            {canEdit && (
-                              <label className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded cursor-pointer transition-colors">
-                                {uploadingLevelId === level.id ? (
-                                  <>
-                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Uploading...
-                                  </>
-                                ) : (
-                                  <>
-                                    <FileUp className="w-3.5 h-3.5" />
-                                    Upload Drawing
-                                  </>
-                                )}
-                                <input
-                                  type="file"
-                                  accept=".pdf,.png,.jpg,.jpeg,.dwg"
-                                  onChange={(e) => handleLevelDrawingUpload(e, level.id)}
-                                  disabled={uploadingLevelId !== null}
-                                  className="hidden"
-                                />
-                              </label>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -508,6 +744,21 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
           onSuccess={handleBlockCreated}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={deleteConfirm !== null}
+        title="Delete Drawing"
+        message={`Are you sure you want to delete the drawing for "${deleteConfirm?.levelName}"? This will permanently remove the drawing file and all associated pins. This action cannot be undone.`}
+        confirmLabel="Delete Drawing"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteConfirm) {
+            handleDeleteDrawing(deleteConfirm.levelId);
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }
