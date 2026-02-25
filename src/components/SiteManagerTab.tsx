@@ -61,12 +61,12 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
     try {
       const { data, error } = await supabase
         .from('projects')
-        .select('project_name')
+        .select('name')
         .eq('id', projectId)
         .single();
 
       if (error) throw error;
-      if (data) setProjectName(data.project_name);
+      if (data) setProjectName(data.name);
     } catch (error) {
       console.error('Error loading project info:', error);
     }

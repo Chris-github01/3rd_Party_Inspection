@@ -19,17 +19,48 @@ interface ExportOptions {
   projectName?: string;
   levelName?: string;
   blockName?: string;
+  canvasElement?: HTMLCanvasElement | null;
+  imageElement?: HTMLImageElement | null;
 }
 
 export async function exportDrawingWithPins(options: ExportOptions): Promise<Blob> {
-  const { drawingId, storagePath, pageNumber, projectName, levelName, blockName } = options;
+  const { drawingId, storagePath, pageNumber, projectName, levelName, blockName, canvasElement, imageElement } = options;
 
   console.log(`[exportDrawingWithPins] Starting export for drawing ${drawingId}`);
 
   const pins = await fetchPins(drawingId);
   console.log(`[exportDrawingWithPins] Found ${pins.length} pins`);
 
-  const imageData = await getDrawingImageData(storagePath, pageNumber);
+  let imageData: { imageData: string | null; width: number; height: number };
+
+  if (canvasElement) {
+    console.log(`[exportDrawingWithPins] Using provided canvas element`);
+    imageData = {
+      imageData: canvasElement.toDataURL('image/jpeg', 0.95),
+      width: canvasElement.width,
+      height: canvasElement.height,
+    };
+  } else if (imageElement) {
+    console.log(`[exportDrawingWithPins] Using provided image element`);
+    const canvas = document.createElement('canvas');
+    canvas.width = imageElement.naturalWidth;
+    canvas.height = imageElement.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(imageElement, 0, 0);
+      imageData = {
+        imageData: canvas.toDataURL('image/jpeg', 0.95),
+        width: canvas.width,
+        height: canvas.height,
+      };
+    } else {
+      imageData = await getDrawingImageData(storagePath, pageNumber);
+    }
+  } else {
+    console.log(`[exportDrawingWithPins] Falling back to loading from storage`);
+    imageData = await getDrawingImageData(storagePath, pageNumber);
+  }
+
   console.log(`[exportDrawingWithPins] Image data loaded: ${imageData.width}x${imageData.height}`);
 
   const pdf = new jsPDF({

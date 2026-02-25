@@ -281,6 +281,8 @@ export function DrawingViewer({
         projectName,
         blockName,
         levelName,
+        canvasElement: isPdf ? canvasRef.current : null,
+        imageElement: !isPdf ? imageRef.current : null,
       });
 
       const url = URL.createObjectURL(blob);
