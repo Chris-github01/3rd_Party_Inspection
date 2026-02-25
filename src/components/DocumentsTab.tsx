@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Upload, File, Trash2, Eye, Grid, ChevronRight, ChevronDown } from 'lucide-react';
+import { Upload, File, Trash2, Eye, Grid, ChevronRight, ChevronDown, FileUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { CreateBlockLevelModal } from './CreateBlockLevelModal';
+import { useToast } from '../contexts/ToastContext';
 
 interface Document {
   id: string;
@@ -42,10 +43,12 @@ const DOCUMENT_TYPES = [
 
 export function DocumentsTab({ projectId }: { projectId: string }) {
   const { profile } = useAuth();
+  const { addToast } = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadingLevelId, setUploadingLevelId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState('drawing');
   const [showCreateBlockModal, setShowCreateBlockModal] = useState(false);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
@@ -152,6 +155,86 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
       alert('Error uploading file: ' + error.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleLevelDrawingUpload = async (e: React.ChangeEvent<HTMLInputElement>, levelId: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.dwg'];
+    const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
+
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExt)) {
+      addToast('Please upload a valid drawing file (PDF, PNG, JPG, or DWG)', 'error');
+      e.target.value = '';
+      return;
+    }
+
+    // Check file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      addToast('File size must be less than 50MB', 'error');
+      e.target.value = '';
+      return;
+    }
+
+    setUploadingLevelId(levelId);
+
+    try {
+      addToast('Uploading drawing...', 'info');
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${projectId}/${Date.now()}.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Create document record
+      const { data: documentData, error: docError } = await supabase
+        .from('documents')
+        .insert({
+          project_id: projectId,
+          type: 'drawing',
+          filename: fileName,
+          original_name: file.name,
+          mime_type: file.type,
+          size_bytes: file.size,
+          storage_path: fileName,
+        })
+        .select()
+        .single();
+
+      if (docError) throw docError;
+
+      // Create drawing record linked to level (syncs to site manager)
+      const { error: drawingError } = await supabase
+        .from('drawings')
+        .insert({
+          level_id: levelId,
+          document_id: documentData.id,
+          page_number: 1,
+          preview_image_path: fileName,
+          scale_factor: 1.0,
+        });
+
+      if (drawingError) throw drawingError;
+
+      addToast(`Drawing "${file.name}" uploaded successfully!`, 'success');
+      await loadDocuments();
+      await loadBlocks();
+      e.target.value = '';
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      addToast('Error uploading drawing: ' + error.message, 'error');
+    } finally {
+      setUploadingLevelId(null);
     }
   };
 
@@ -327,6 +410,28 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
                                 </div>
                               )}
                             </div>
+                            {canEdit && (
+                              <label className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded cursor-pointer transition-colors">
+                                {uploadingLevelId === level.id ? (
+                                  <>
+                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    Uploading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <FileUp className="w-3.5 h-3.5" />
+                                    Upload Drawing
+                                  </>
+                                )}
+                                <input
+                                  type="file"
+                                  accept=".pdf,.png,.jpg,.jpeg,.dwg"
+                                  onChange={(e) => handleLevelDrawingUpload(e, level.id)}
+                                  disabled={uploadingLevelId !== null}
+                                  className="hidden"
+                                />
+                              </label>
+                            )}
                           </div>
                         ))}
                       </div>
