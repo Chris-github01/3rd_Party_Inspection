@@ -56,7 +56,7 @@ const DOCUMENT_TYPES = [
 
 export function DocumentsTab({ projectId }: { projectId: string }) {
   const { profile } = useAuth();
-  const { addToast } = useToast();
+  const toast = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
@@ -214,7 +214,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
     const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
 
     if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExt)) {
-      addToast('Please upload a valid drawing file (PDF, PNG, JPG, or DWG)', 'error');
+      toast.error('Please upload a valid drawing file (PDF, PNG, JPG, or DWG)');
       e.target.value = '';
       return;
     }
@@ -222,7 +222,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
     // Check file size (max 50MB)
     const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      addToast('File size must be less than 50MB', 'error');
+      toast.error('File size must be less than 50MB');
       e.target.value = '';
       return;
     }
@@ -230,7 +230,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
     setUploadingLevelId(levelId);
 
     try {
-      addToast('Uploading drawing...', 'info');
+      toast.info('Uploading drawing...');
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${projectId}/${Date.now()}.${fileExt}`;
@@ -272,14 +272,14 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
 
       if (drawingError) throw drawingError;
 
-      addToast(`Drawing "${file.name}" uploaded successfully!`, 'success');
+      toast.success(`Drawing "${file.name}" uploaded successfully!`);
       await loadDocuments();
       await loadBlocks();
       await loadLevelDrawings();
       e.target.value = '';
     } catch (error: any) {
       console.error('Upload error:', error);
-      addToast('Error uploading drawing: ' + error.message, 'error');
+      toast.error('Error uploading drawing: ' + error.message);
     } finally {
       setUploadingLevelId(null);
     }
@@ -295,7 +295,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
     const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
 
     if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExt)) {
-      addToast('Please upload a valid drawing file (PDF, PNG, JPG, or DWG)', 'error');
+      toast.error('Please upload a valid drawing file (PDF, PNG, JPG, or DWG)');
       e.target.value = '';
       return;
     }
@@ -303,7 +303,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
     // Check file size (max 50MB)
     const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      addToast('File size must be less than 50MB', 'error');
+      toast.error('File size must be less than 50MB');
       e.target.value = '';
       return;
     }
@@ -316,7 +316,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
         throw new Error('No existing drawing found for this level');
       }
 
-      addToast('Replacing drawing...', 'info');
+      toast.info('Replacing drawing...');
 
       // Delete old file from storage
       if (existingDrawing.document?.filename) {
@@ -363,14 +363,14 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
 
       if (drawingUpdateError) throw drawingUpdateError;
 
-      addToast(`Drawing replaced with "${file.name}" successfully!`, 'success');
+      toast.success(`Drawing replaced with "${file.name}" successfully!`);
       await loadDocuments();
       await loadBlocks();
       await loadLevelDrawings();
       e.target.value = '';
     } catch (error: any) {
       console.error('Replace error:', error);
-      addToast('Error replacing drawing: ' + error.message, 'error');
+      toast.error('Error replacing drawing: ' + error.message);
     } finally {
       setReplacingLevelId(null);
     }
@@ -383,7 +383,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
         throw new Error('No drawing found for this level');
       }
 
-      addToast('Deleting drawing...', 'info');
+      toast.info('Deleting drawing...');
 
       // Delete file from storage
       if (existingDrawing.document?.filename) {
@@ -416,20 +416,20 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
         }
       }
 
-      addToast('Drawing deleted successfully!', 'success');
+      toast.success('Drawing deleted successfully!');
       await loadDocuments();
       await loadBlocks();
       await loadLevelDrawings();
       setDeleteConfirm(null);
     } catch (error: any) {
       console.error('Delete error:', error);
-      addToast('Error deleting drawing: ' + error.message, 'error');
+      toast.error('Error deleting drawing: ' + error.message);
     }
   };
 
   const handleDeleteBlock = async (blockId: string) => {
     try {
-      addToast('Deleting block...', 'info');
+      toast.info('Deleting block...');
 
       // Get all levels for this block to find associated drawings
       const { data: levelsData, error: levelsError } = await supabase
@@ -491,14 +491,14 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
 
       if (blockError) throw blockError;
 
-      addToast('Block deleted successfully!', 'success');
+      toast.success('Block deleted successfully!');
       await loadDocuments();
       await loadBlocks();
       await loadLevelDrawings();
       setDeleteBlockConfirm(null);
     } catch (error: any) {
       console.error('Delete block error:', error);
-      addToast('Error deleting block: ' + error.message, 'error');
+      toast.error('Error deleting block: ' + error.message);
     }
   };
 
