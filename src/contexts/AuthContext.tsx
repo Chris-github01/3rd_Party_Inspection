@@ -9,6 +9,9 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, name: string, role: UserRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  canManageDocuments: () => boolean;
+  canManageStructure: () => boolean;
+  isAdmin: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -134,8 +137,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const canManageDocuments = () => {
+    return profile?.role === 'admin' || profile?.role === 'inspector';
+  };
+
+  const canManageStructure = () => {
+    return profile?.role === 'admin' || profile?.role === 'inspector';
+  };
+
+  const isAdmin = () => {
+    return profile?.role === 'admin';
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+      canManageDocuments,
+      canManageStructure,
+      isAdmin
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -222,22 +222,22 @@ function drawPinsOnPDF(
   pins.forEach((pin, index) => {
     const x = pin.x * imageWidth;
     const y = pin.y * imageHeight;
-    const radius = 12;
+    const radius = 24;
 
     const color = getPinColor(pin.status);
     pdf.setFillColor(color.r, color.g, color.b);
     pdf.setDrawColor(255, 255, 255);
-    pdf.setLineWidth(2);
+    pdf.setLineWidth(3);
 
     pdf.circle(x, y, radius, 'FD');
 
-    pdf.setFontSize(8);
+    pdf.setFontSize(16);
     pdf.setTextColor(255, 255, 255);
     pdf.setFont('helvetica', 'bold');
 
     const text = pin.label || `${index + 1}`;
     const textWidth = pdf.getTextWidth(text);
-    pdf.text(text, x - textWidth / 2, y + 3);
+    pdf.text(text, x - textWidth / 2, y + 6);
   });
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, ChevronDown, ChevronRight, Upload, FileImage } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { AddBlockModal } from './site-manager/AddBlockModal';
 import { AddLevelModal } from './site-manager/AddLevelModal';
 import { UploadDrawingModal } from './site-manager/UploadDrawingModal';
@@ -37,6 +38,7 @@ interface SiteManagerTabProps {
 }
 
 export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
+  const { canManageStructure } = useAuth();
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -176,13 +178,20 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
       <div className="w-80 border-r border-white/10 bg-white/10 backdrop-blur-sm overflow-y-auto">
         <div className="p-4 border-b border-white/10 bg-white/5 backdrop-blur-sm sticky top-0 z-10">
           <h3 className="text-lg font-semibold text-white mb-3">Site Structure</h3>
-          <button
-            onClick={() => setShowAddBlock(true)}
-            className="flex items-center gap-2 w-full px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
-            <Plus className="w-4 h-4" />
-            Add Block
-          </button>
+          {canManageStructure() ? (
+            <button
+              onClick={() => setShowAddBlock(true)}
+              className="flex items-center gap-2 w-full px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              <Plus className="w-4 h-4" />
+              Add Block
+            </button>
+          ) : (
+            <div className="text-xs text-blue-200 bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+              <p className="font-medium text-white mb-1">Field Inspector Mode</p>
+              <p>Select a drawing to place inspection pins and upload photos.</p>
+            </div>
+          )}
         </div>
 
         <div className="p-4">
@@ -214,13 +223,15 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
 
                   {expandedBlocks.has(block.id) && (
                     <div className="px-3 pb-3 pl-8">
-                      <button
-                        onClick={() => handleAddLevel(block.id)}
-                        className="flex items-center gap-1 text-xs text-primary-300 hover:underline mb-2"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Add Level
-                      </button>
+                      {canManageStructure() && (
+                        <button
+                          onClick={() => handleAddLevel(block.id)}
+                          className="flex items-center gap-1 text-xs text-primary-300 hover:underline mb-2"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add Level
+                        </button>
+                      )}
 
                       {block.levels.length === 0 ? (
                         <p className="text-xs text-blue-200 py-2">No levels yet</p>
@@ -241,13 +252,15 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
                                     {level.drawings.length !== 1 ? 's' : ''}
                                   </p>
                                 </div>
-                                <button
-                                  onClick={() => handleUploadDrawing(level.id)}
-                                  className="p-1 text-primary-300 hover:bg-white/10 rounded"
-                                  title="Upload drawing"
-                                >
-                                  <Upload className="w-4 h-4" />
-                                </button>
+                                {canManageStructure() && (
+                                  <button
+                                    onClick={() => handleUploadDrawing(level.id)}
+                                    className="p-1 text-primary-300 hover:bg-white/10 rounded"
+                                    title="Upload drawing"
+                                  >
+                                    <Upload className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
 
                               {level.drawings.length > 0 && (
