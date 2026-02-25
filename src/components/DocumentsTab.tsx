@@ -67,6 +67,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
   const [showCreateBlockModal, setShowCreateBlockModal] = useState(false);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<{ levelId: string; levelName: string } | null>(null);
+  const [deleteBlockConfirm, setDeleteBlockConfirm] = useState<{ blockId: string; blockName: string; levelCount: number } | null>(null);
   const [levelDrawings, setLevelDrawings] = useState<Map<string, Drawing>>(new Map());
 
   useEffect(() => {
@@ -426,6 +427,81 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
     }
   };
 
+  const handleDeleteBlock = async (blockId: string) => {
+    try {
+      addToast('Deleting block...', 'info');
+
+      // Get all levels for this block to find associated drawings
+      const { data: levelsData, error: levelsError } = await supabase
+        .from('levels')
+        .select('id')
+        .eq('block_id', blockId);
+
+      if (levelsError) throw levelsError;
+
+      const levelIds = levelsData?.map(l => l.id) || [];
+
+      // Get all drawings for these levels
+      if (levelIds.length > 0) {
+        const { data: drawingsData, error: drawingsError } = await supabase
+          .from('drawings')
+          .select(`
+            id,
+            document_id,
+            document:documents(filename)
+          `)
+          .in('level_id', levelIds);
+
+        if (drawingsError) throw drawingsError;
+
+        // Delete all associated files from storage
+        const filesToDelete = drawingsData
+          ?.map((d: any) => d.document?.filename)
+          .filter((f: string | undefined) => f !== undefined) as string[];
+
+        if (filesToDelete.length > 0) {
+          const { error: storageError } = await supabase.storage
+            .from('documents')
+            .remove(filesToDelete);
+
+          if (storageError) {
+            console.warn('Error deleting files from storage:', storageError);
+          }
+        }
+
+        // Delete document records
+        const documentIds = drawingsData?.map((d: any) => d.document_id).filter(Boolean);
+        if (documentIds && documentIds.length > 0) {
+          const { error: docsError } = await supabase
+            .from('documents')
+            .delete()
+            .in('id', documentIds);
+
+          if (docsError) {
+            console.warn('Error deleting document records:', docsError);
+          }
+        }
+      }
+
+      // Delete the block (CASCADE will delete levels, drawings, and pins)
+      const { error: blockError } = await supabase
+        .from('blocks')
+        .delete()
+        .eq('id', blockId);
+
+      if (blockError) throw blockError;
+
+      addToast('Block deleted successfully!', 'success');
+      await loadDocuments();
+      await loadBlocks();
+      await loadLevelDrawings();
+      setDeleteBlockConfirm(null);
+    } catch (error: any) {
+      console.error('Delete block error:', error);
+      addToast('Error deleting block: ' + error.message, 'error');
+    }
+  };
+
   const handleDelete = async (doc: Document) => {
     if (!confirm('Are you sure you want to delete this document?')) return;
 
@@ -551,13 +627,13 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
                     key={block.id}
                     className="bg-slate-700/50 border border-slate-600 rounded-lg overflow-hidden"
                   >
-                    <button
-                      onClick={() => toggleBlockExpand(block.id)}
-                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
+                    <div className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700 transition-colors">
+                      <button
+                        onClick={() => toggleBlockExpand(block.id)}
+                        className="flex-1 flex items-center gap-3 text-left"
+                      >
                         <Grid className="w-5 h-5 text-green-400" />
-                        <div className="text-left">
+                        <div>
                           <div className="font-medium text-white">{block.name}</div>
                           {block.description && (
                             <div className="text-sm text-slate-400 mt-0.5">
@@ -565,18 +641,36 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
                             </div>
                           )}
                         </div>
-                      </div>
+                      </button>
                       <div className="flex items-center gap-3">
                         <span className="text-sm text-slate-400">
                           {block.levels.length} level{block.levels.length !== 1 ? 's' : ''}
                         </span>
-                        {expandedBlocks.has(block.id) ? (
-                          <ChevronDown className="w-5 h-5 text-slate-400" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
+                        {canEdit && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteBlockConfirm({
+                                blockId: block.id,
+                                blockName: block.name,
+                                levelCount: block.levels.length
+                              });
+                            }}
+                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
+                            title="Delete block"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         )}
+                        <button onClick={() => toggleBlockExpand(block.id)}>
+                          {expandedBlocks.has(block.id) ? (
+                            <ChevronDown className="w-5 h-5 text-slate-400" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-slate-400" />
+                          )}
+                        </button>
                       </div>
-                    </button>
+                    </div>
 
                     {expandedBlocks.has(block.id) && (
                       <div className="px-4 pb-3 space-y-2">
@@ -758,6 +852,21 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
           }
         }}
         onCancel={() => setDeleteConfirm(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteBlockConfirm !== null}
+        title="Delete Block"
+        message={`Are you sure you want to delete the block "${deleteBlockConfirm?.blockName}"? This will permanently remove the block, all ${deleteBlockConfirm?.levelCount || 0} level(s), any associated drawings, and all pins. This action cannot be undone.`}
+        confirmLabel="Delete Block"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteBlockConfirm) {
+            handleDeleteBlock(deleteBlockConfirm.blockId);
+          }
+        }}
+        onCancel={() => setDeleteBlockConfirm(null)}
       />
     </div>
   );
