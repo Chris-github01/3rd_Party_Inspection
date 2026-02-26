@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { generateIntroduction } from './introductionGenerator';
 import { generateExecutiveSummary } from './executiveSummaryGenerator';
+import { supabase } from './supabase';
 
 export interface CompleteReportOptions {
   includeIntroduction?: boolean;
@@ -31,7 +32,7 @@ export async function generateCompleteReport(
     ]);
 
     if (executiveSummary && includeExecutiveSummary) {
-      addCoverPage(doc, executiveSummary, introduction);
+      await addCoverPage(doc, executiveSummary, introduction);
       currentPage++;
 
       addShortExecutiveSummaryPage(doc, executiveSummary, currentPage);
@@ -67,26 +68,48 @@ export async function generateCompleteReport(
   }
 }
 
-function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any) {
+async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
 
-  const companyName = introduction?.data.company.company_name || 'P&R Consulting Limited';
+  const companyName = introduction?.data.company.company_name || executiveSummary?.data?.company?.company_name || 'P&R Consulting Limited';
   const projectName = executiveSummary.data.project.project_name;
   const clientName = executiveSummary.data.client.name;
+  const logoUrl = introduction?.data.company.company_logo_url || executiveSummary?.data?.company?.company_logo_url;
 
   doc.setFillColor(59, 130, 246);
   doc.rect(0, 0, pageWidth, 80, 'F');
 
+  // Add logo if available
+  let logoYOffset = 0;
+  if (logoUrl) {
+    try {
+      const { data } = await supabase.storage.from('project-documents').getPublicUrl(logoUrl);
+      if (data?.publicUrl) {
+        const logoImage = await loadImageAsDataURL(data.publicUrl);
+        if (logoImage) {
+          const logoHeight = 30;
+          const logoWidth = 90;
+          const logoX = (pageWidth - logoWidth) / 2;
+          const logoY = 15;
+          doc.addImage(logoImage, 'PNG', logoX, logoY, logoWidth, logoHeight);
+          logoYOffset = 20;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading logo:', error);
+    }
+  }
+
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(28);
   doc.setFont('helvetica', 'bold');
-  doc.text(companyName, pageWidth / 2, 40, { align: 'center' });
+  doc.text(companyName, pageWidth / 2, 40 + logoYOffset, { align: 'center' });
 
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text('Independent Third-Party Inspection Report', pageWidth / 2, 55, {
+  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, 55 + logoYOffset, {
     align: 'center',
   });
 
@@ -340,5 +363,21 @@ function addComplianceWatermarkToAllPages(doc: jsPDF) {
 
     doc.restoreGraphicsState();
     doc.setTextColor(0, 0, 0);
+  }
+}
+
+async function loadImageAsDataURL(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error loading image:', error);
+    return null;
   }
 }

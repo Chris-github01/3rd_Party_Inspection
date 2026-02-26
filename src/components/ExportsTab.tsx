@@ -107,7 +107,7 @@ export function ExportsTab({ project }: { project: Project }) {
             (i) => i.id
           ) || []
         ),
-      supabase.from('organization_settings').select('*').limit(1).maybeSingle(),
+      supabase.from('company_settings').select('*').limit(1).maybeSingle(),
       supabase.from('projects').select('*, clients(logo_path)').eq('id', project.id).maybeSingle(),
     ]);
 
@@ -151,24 +151,28 @@ export function ExportsTab({ project }: { project: Project }) {
     const doc = new jsPDF();
     let yPos = 20;
 
-    if (orgSettings?.logo_path) {
+    if (orgSettings?.logo_url) {
       try {
-        const { data: logoBlob } = await supabase.storage
-          .from('documents')
-          .download(orgSettings.logo_path);
-        if (logoBlob) {
+        const { data: logoData } = await supabase.storage
+          .from('project-documents')
+          .getPublicUrl(orgSettings.logo_url);
+
+        if (logoData?.publicUrl) {
+          // Fetch and convert to data URL
+          const response = await fetch(logoData.publicUrl);
+          const logoBlob = await response.blob();
           const logoDataUrl = await blobToDataURL(logoBlob);
           doc.addImage(logoDataUrl, 'PNG', 15, yPos - 5, 40, 20);
         }
       } catch (error) {
-        console.warn('Could not load organization logo:', error);
+        console.warn('Could not load company logo:', error);
       }
     }
 
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 40, 80);
-    const orgName = orgSettings?.organization_name || 'P&R Consulting Limited';
+    const orgName = orgSettings?.company_name || 'P&R Consulting Limited';
     doc.text(orgName, 105, yPos, { align: 'center' });
     yPos += 12;
 
