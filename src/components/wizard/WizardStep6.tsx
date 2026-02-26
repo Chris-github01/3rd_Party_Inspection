@@ -5,12 +5,12 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { WizardData } from '../ProjectWizard';
 
-interface WizardStep7Props {
+interface WizardStep6Props {
   data: WizardData;
   onComplete: () => void;
 }
 
-export function WizardStep7({ data, onComplete }: WizardStep7Props) {
+export function WizardStep6({ data, onComplete }: WizardStep6Props) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [creating, setCreating] = useState(false);

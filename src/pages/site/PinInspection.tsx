@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { normalizeFRRValue } from '../../lib/frrUtils';
+import { useToast } from '../../contexts/ToastContext';
 
 interface PinInspection {
   id: string;
@@ -60,6 +61,7 @@ interface Photo {
 export function PinInspection() {
   const { projectId, pinId, inspectionId } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [inspection, setInspection] = useState<PinInspection | null>(null);
   const [readings, setReadings] = useState<Reading[]>([]);
@@ -211,10 +213,30 @@ export function PinInspection() {
   };
 
   const calculateDewPoint = (temp: number, rh: number): number => {
+    // Validate inputs
+    if (temp < -50 || temp > 100) {
+      console.warn('Temperature out of valid range (-50 to 100°C)');
+      return 0;
+    }
+    if (rh <= 0 || rh > 100) {
+      console.warn('Relative humidity out of valid range (0-100%)');
+      return 0;
+    }
+
     const a = 17.27;
     const b = 237.7;
-    const alpha = ((a * temp) / (b + temp)) + Math.log(rh / 100);
-    return (b * alpha) / (a - alpha);
+    const rhFraction = rh / 100;
+
+    // Prevent Math.log(0) or Math.log(negative)
+    if (rhFraction <= 0) return 0;
+
+    const alpha = ((a * temp) / (b + temp)) + Math.log(rhFraction);
+    const denominator = a - alpha;
+
+    // Prevent division by zero
+    if (Math.abs(denominator) < 0.0001) return 0;
+
+    return (b * alpha) / denominator;
   };
 
   const handleSaveEnvironment = async () => {
@@ -225,7 +247,7 @@ export function PinInspection() {
     const rh = parseFloat(envForm.rh_percent);
 
     if (isNaN(ambient) || isNaN(steel) || isNaN(rh)) {
-      alert('Please enter valid numbers');
+      toast.error('Please enter valid numbers for all environmental fields');
       return;
     }
 
@@ -262,13 +284,28 @@ export function PinInspection() {
     }
 
     loadEnvironment();
-    alert('Environment saved');
+    toast.success('Environment conditions saved successfully');
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !inspectionId || !pinId || !projectId) return;
 
     const file = e.target.files[0];
+
+    // Validate file is an image
+    const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validImageTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file size (max 50MB)
+    const maxSizeInBytes = 50 * 1024 * 1024;
+    if (file.size > maxSizeInBytes) {
+      toast.error('Image size must be less than 50MB');
+      return;
+    }
+
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${projectId}/pins/${pinId}/${fileName}`;
@@ -277,7 +314,7 @@ export function PinInspection() {
 
     if (uploadError) {
       console.error('Error uploading photo:', uploadError);
-      alert('Failed to upload photo');
+      toast.error('Failed to upload photo');
       return;
     }
 
@@ -290,7 +327,7 @@ export function PinInspection() {
 
     if (insertError) {
       console.error('Error saving photo:', insertError);
-      alert('Failed to save photo');
+      toast.error('Failed to save photo');
       return;
     }
 
@@ -310,7 +347,7 @@ export function PinInspection() {
       return;
     }
 
-    alert('Draft saved');
+    toast.success('Draft saved successfully');
   };
 
   const handleMarkStatus = async (status: 'Passed' | 'Failed' | 'Rectification_Required') => {
@@ -345,7 +382,7 @@ export function PinInspection() {
       return;
     }
 
-    alert(`Inspection marked as ${status}`);
+    toast.success(`Inspection marked as ${status}`);
     navigate(`/projects/${projectId}/site/pins`);
   };
 

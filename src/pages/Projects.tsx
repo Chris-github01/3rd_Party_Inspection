@@ -29,10 +29,13 @@ export function Projects() {
 
   useEffect(() => {
     loadProjects();
+    // Open create modal if 'new' param is present
     if (searchParams.get('new') === 'true') {
-      navigate('/?showCreate=true');
+      setShowCreateModal(true);
+      // Clean up URL parameter
+      navigate('/projects', { replace: true });
     }
-  }, []);
+  }, [searchParams, navigate]);
 
   const loadProjects = async () => {
     try {

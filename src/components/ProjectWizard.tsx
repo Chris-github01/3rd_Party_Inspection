@@ -7,7 +7,7 @@ import { WizardStep2 } from './wizard/WizardStep2';
 import { WizardStep3 } from './wizard/WizardStep3';
 import { WizardStep4 } from './wizard/WizardStep4';
 import { WizardStep5 } from './wizard/WizardStep5';
-import { WizardStep7 } from './wizard/WizardStep7';
+import { WizardStep6 } from './wizard/WizardStep6';
 
 export interface WizardData {
   projectName: string;
@@ -152,7 +152,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
       case 5:
         return <WizardStep5 data={wizardData} updateData={updateData} />;
       case 6:
-        return <WizardStep7 data={wizardData} onComplete={handleComplete} />;
+        return <WizardStep6 data={wizardData} onComplete={handleComplete} />;
       default:
         return null;
     }
