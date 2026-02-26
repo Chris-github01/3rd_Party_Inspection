@@ -3,18 +3,26 @@ import { Building2, Save } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ImageUpload } from '../../components/ImageUpload';
 
-interface OrganizationSettings {
+interface CompanySettings {
   id: string;
-  organization_name: string;
-  logo_path: string | null;
+  company_name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  logo_url: string | null;
 }
 
 export function Organization() {
-  const [settings, setSettings] = useState<OrganizationSettings | null>(null);
+  const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [organizationName, setOrganizationName] = useState('');
-  const [logoPath, setLogoPath] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -24,7 +32,7 @@ export function Organization() {
   const loadSettings = async () => {
     try {
       const { data, error } = await supabase
-        .from('organization_settings')
+        .from('company_settings')
         .select('*')
         .single();
 
@@ -32,11 +40,15 @@ export function Organization() {
 
       if (data) {
         setSettings(data);
-        setOrganizationName(data.organization_name);
-        setLogoPath(data.logo_path || '');
+        setCompanyName(data.company_name || '');
+        setAddress(data.address || '');
+        setPhone(data.phone || '');
+        setEmail(data.email || '');
+        setWebsite(data.website || '');
+        setLogoUrl(data.logo_url || '');
       }
     } catch (error) {
-      console.error('Error loading organization settings:', error);
+      console.error('Error loading company settings:', error);
     } finally {
       setLoading(false);
     }
@@ -50,10 +62,14 @@ export function Organization() {
 
     try {
       const { error } = await supabase
-        .from('organization_settings')
+        .from('company_settings')
         .update({
-          organization_name: organizationName,
-          logo_path: logoPath || null,
+          company_name: companyName,
+          address: address || null,
+          phone: phone || null,
+          email: email || null,
+          website: website || null,
+          logo_url: logoUrl || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', settings.id);
@@ -61,6 +77,7 @@ export function Organization() {
       if (error) throw error;
 
       setMessage('Settings saved successfully');
+      await loadSettings(); // Reload to confirm save
       setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
       console.error('Error saving settings:', error);
@@ -95,12 +112,12 @@ export function Organization() {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 space-y-6">
           <div>
             <label className="block text-sm font-medium text-white mb-2">
-              Organization Name
+              Company Name *
             </label>
             <input
               type="text"
-              value={organizationName}
-              onChange={(e) => setOrganizationName(e.target.value)}
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
               className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               placeholder="e.g., P&R Consulting Limited"
             />
@@ -109,15 +126,69 @@ export function Organization() {
             </p>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">
+              Address
+            </label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="e.g., 123 Main Street, City, Country"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="e.g., +64 21 123 4567"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="e.g., info@company.com"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">
+              Website
+            </label>
+            <input
+              type="url"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              className="w-full px-4 py-2 border border-white/20 bg-white/5 text-white placeholder-blue-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="e.g., https://www.company.com"
+            />
+          </div>
+
           <div className="border-t border-white/10 pt-6">
             <ImageUpload
-              currentImagePath={logoPath}
-              onImageUploaded={(path) => setLogoPath(path)}
-              label="Organization Logo"
+              currentImagePath={logoUrl}
+              onImageUploaded={(path) => setLogoUrl(path)}
+              label="Company Logo"
               maxSizeMB={5}
             />
             <p className="mt-2 text-xs text-blue-200">
-              Upload your organization logo. This will appear on all generated reports.
+              Upload your company logo. This will appear on all generated reports.
               Recommended size: 300x100 pixels (PNG or JPG)
             </p>
           </div>
@@ -137,8 +208,8 @@ export function Organization() {
           <div className="flex justify-end pt-4">
             <button
               onClick={handleSave}
-              disabled={saving || !organizationName.trim()}
-              className="flex items-center gap-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={saving || !companyName.trim()}
+              className="flex items-center gap-2 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Save className="w-4 h-4" />
               {saving ? 'Saving...' : 'Save Changes'}
