@@ -44,7 +44,9 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
   const { profile } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardData>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    // Use sessionStorage instead of localStorage for security
+    // Data is cleared when browser tab closes
+    const saved = sessionStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -81,7 +83,8 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
   }
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(wizardData));
+    // Use sessionStorage for temporary data storage
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(wizardData));
   }, [wizardData]);
 
   const updateData = (updates: Partial<WizardData>) => {
@@ -135,7 +138,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
   };
 
   const handleComplete = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
     onClose();
   };
 

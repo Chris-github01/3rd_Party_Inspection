@@ -6,6 +6,7 @@ import Papa from 'papaparse';
 import { normalizeFRRValue } from '../lib/frrUtils';
 import { generateSimulatedReadings, calculateSummary, type MemberConfig } from '../lib/simulationUtils';
 import { exportReadingsToFormattedExcel } from '../lib/excelExport';
+import { sanitizeCSVValue, validateFRRMinutes, validateDFTMicrons, validateThicknessMM } from '../lib/securityUtils';
 
 interface Member {
   id: string;
@@ -72,20 +73,28 @@ export function MembersTab({ projectId }: { projectId: string }) {
         try {
           const membersData = results.data
             .filter((row: any) => row.member_mark)
-            .map((row: any) => ({
-              project_id: projectId,
-              member_mark: row.member_mark || '',
-              element_type: row.element_type || 'beam',
-              section: row.section || '',
-              level: row.level || '',
-              block: row.block || '',
-              frr_minutes: parseInt(row.frr_minutes) || 0,
-              coating_system: row.coating_system || '',
-              required_dft_microns: parseInt(row.required_dft_microns) || null,
-              required_thickness_mm: parseFloat(row.required_thickness_mm) || null,
-              status: 'not_started',
-              notes: row.notes || '',
-            }));
+            .map((row: any) => {
+              // Sanitize and validate all CSV inputs
+              const frrMinutes = validateFRRMinutes(row.frr_minutes);
+              const dftMicrons = validateDFTMicrons(row.required_dft_microns);
+              const thicknessMM = validateThicknessMM(row.required_thickness_mm);
+
+              return {
+                project_id: projectId,
+                member_mark: sanitizeCSVValue(row.member_mark || ''),
+                element_type: sanitizeCSVValue(row.element_type || 'beam'),
+                section: sanitizeCSVValue(row.section || ''),
+                level: sanitizeCSVValue(row.level || ''),
+                block: sanitizeCSVValue(row.block || ''),
+                frr_minutes: frrMinutes !== null ? frrMinutes : 0,
+                coating_system: sanitizeCSVValue(row.coating_system || ''),
+                required_dft_microns: dftMicrons,
+                required_thickness_mm: thicknessMM,
+                status: 'not_started',
+                notes: sanitizeCSVValue(row.notes || ''),
+              };
+            })
+            .filter(member => member.member_mark.trim().length > 0);  // Remove empty rows
 
           const { error } = await supabase.from('members').insert(membersData);
 

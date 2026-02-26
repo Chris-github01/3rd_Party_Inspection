@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { normalizeFRRValue } from '../../lib/frrUtils';
 import { useToast } from '../../contexts/ToastContext';
+import { buildSafeStorageUrl } from '../../lib/securityUtils';
 
 interface PinInspection {
   id: string;
@@ -691,7 +692,7 @@ export function PinInspection() {
               {photos.map((photo) => (
                 <div key={photo.id} className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden shadow-sm">
                   <img
-                    src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/documents/${photo.storage_path}`}
+                    src={buildSafeStorageUrl(import.meta.env.VITE_SUPABASE_URL, photo.storage_path)}
                     alt={photo.caption || 'Photo'}
                     className="w-full h-32 object-cover"
                   />

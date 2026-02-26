@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { ZoomIn, ZoomOut, Maximize, MapPin, X } from 'lucide-react';
 import { SteelMemberSelect } from '../../components/SteelMemberSelect';
 import { normalizeFRRValue } from '../../lib/frrUtils';
+import { buildSafeStorageUrl } from '../../lib/securityUtils';
 
 interface Drawing {
   id: string;
@@ -394,7 +395,7 @@ export function DrawingsView() {
             <div className="relative">
               <img
                 ref={imageRef}
-                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/${selectedDrawing.preview_image_path}`}
+                src={buildSafeStorageUrl(import.meta.env.VITE_SUPABASE_URL, selectedDrawing.preview_image_path, 'public')}
                 alt="Drawing"
                 className="max-w-full max-h-full"
                 onClick={handleImageClick}

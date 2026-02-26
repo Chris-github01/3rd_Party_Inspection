@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../lib/supabase';
 import { Shield } from 'lucide-react';
+import { validateName, validateEmail, getSafeErrorMessage } from '../lib/securityUtils';
 
 export function Register() {
   const [name, setName] = useState('');
@@ -19,10 +20,33 @@ export function Register() {
     setError('');
     setLoading(true);
 
-    const { error } = await signUp(email, password, name, role);
+    // Validate name
+    const nameValidation = validateName(name);
+    if (!nameValidation.valid) {
+      setError(nameValidation.error || 'Invalid name');
+      setLoading(false);
+      return;
+    }
+
+    // Validate email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      setError(emailValidation.error || 'Invalid email');
+      setLoading(false);
+      return;
+    }
+
+    // Validate password length
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await signUp(email, password, nameValidation.sanitized || name, role);
 
     if (error) {
-      setError(error.message);
+      setError(getSafeErrorMessage(error, 'Registration failed. Please try again.'));
       setLoading(false);
     } else {
       navigate('/');

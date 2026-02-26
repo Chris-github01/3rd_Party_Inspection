@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Shield } from 'lucide-react';
+import { getSafeErrorMessage } from '../lib/securityUtils';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -19,7 +20,7 @@ export function Login() {
     const { error } = await signIn(email, password);
 
     if (error) {
-      setError(error.message);
+      setError(getSafeErrorMessage(error, 'Invalid credentials. Please try again.'));
       setLoading(false);
     } else {
       navigate('/');
@@ -95,10 +96,7 @@ export function Login() {
         </div>
 
         <div className="mt-8 text-center">
-          <p className="text-sm text-slate-400">
-            Demo credentials: inspector@demo.com / demo123
-          </p>
-          <p className="text-xs text-slate-500 mt-4">
+          <p className="text-xs text-slate-500">
             Powered by <span className="font-semibold text-accent-500">P&R Consulting Limited</span>
           </p>
         </div>

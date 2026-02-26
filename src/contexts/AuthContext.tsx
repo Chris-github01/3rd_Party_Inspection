@@ -48,7 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = async (userId: string) => {
     try {
-      console.log('Loading profile for user:', userId);
+      // Development only logging
+      if (import.meta.env.DEV) {
+        console.debug('Loading user profile');
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -56,14 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) {
-        console.error('Profile query error:', error);
+        console.error('Profile query failed');
         throw error;
       }
 
-      console.log('Profile loaded successfully:', data);
+      if (import.meta.env.DEV) {
+        console.debug('Profile loaded successfully');
+      }
 
       if (!data) {
-        console.warn('No profile found for user, creating default admin profile');
+        if (import.meta.env.DEV) {
+          console.warn('No profile found, creating default admin profile');
+        }
         const { error: insertError } = await supabase
           .from('user_profiles')
           .insert({
