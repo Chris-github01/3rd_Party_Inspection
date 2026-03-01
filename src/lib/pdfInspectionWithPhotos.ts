@@ -71,7 +71,7 @@ export async function generateInspectionReportWithPhotos(
   if (memberIds.length > 0) {
     const { data: membersData } = await supabase
       .from('members')
-      .select('id, member_mark, section_size, frr_format, coating_product, dft_required_microns')
+      .select('id, member_mark, section_size, frr_format, coating_system, required_dft_microns')
       .in('id', memberIds);
 
     if (membersData) {
@@ -106,8 +106,8 @@ export async function generateInspectionReportWithPhotos(
       ['Member Mark:', member?.member_mark || 'N/A'],
       ['Section Size:', member?.section_size || 'N/A'],
       ['FRR:', member?.frr_format || 'N/A'],
-      ['Coating Product:', member?.coating_product || 'N/A'],
-      ['Required DFT:', member?.dft_required_microns ? `${member.dft_required_microns} µm` : 'N/A'],
+      ['Coating Product:', member?.coating_system || 'N/A'],
+      ['Required DFT:', member?.required_dft_microns ? `${member.required_dft_microns} µm` : 'N/A'],
       ['Status:', pin.status?.replace('_', ' ').toUpperCase() || 'N/A'],
     ];
 

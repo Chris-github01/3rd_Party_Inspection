@@ -104,7 +104,7 @@ export async function generateEnhancedInspectionReportWithPhotos(
   if (memberIds.length > 0) {
     const { data: membersData } = await supabase
       .from('members')
-      .select('id, member_mark, section_size, frr_format, coating_product, dft_required_microns, updated_at')
+      .select('id, member_mark, section_size, frr_format, coating_system, required_dft_microns, created_at')
       .in('id', memberIds);
 
     if (membersData) {
@@ -124,11 +124,11 @@ export async function generateEnhancedInspectionReportWithPhotos(
       member_mark: member?.member_mark || 'N/A',
       section_size: member?.section_size || 'N/A',
       frr: member?.frr_format || 'N/A',
-      coating_product: member?.coating_product || 'N/A',
-      dft_required: member?.dft_required_microns || 0,
+      coating_product: member?.coating_system || 'N/A',
+      dft_required: member?.required_dft_microns || 0,
       photos,
       photo_count: photos.length,
-      updated_at: member?.updated_at || pin.created_at,
+      updated_at: member?.created_at || pin.created_at,
     });
   }
 
