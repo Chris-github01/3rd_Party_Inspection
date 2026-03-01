@@ -22,6 +22,7 @@ import { InspectionPackages } from './pages/site/InspectionPackages';
 import { DrawingsView } from './pages/site/DrawingsView';
 import { PinsList } from './pages/site/PinsList';
 import { PinInspection } from './pages/site/PinInspection';
+import InspectPDF from './pages/InspectPDF';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -88,6 +89,14 @@ function App() {
             element={
               <PrivateRoute>
                 <ProjectDetail />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/projects/:projectId/inspect-pdf/:workspaceId"
+            element={
+              <PrivateRoute>
+                <InspectPDF />
               </PrivateRoute>
             }
           />

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Download, FileText, Layers, AlertCircle, Camera } from 'lucide-react';
+import { Download, FileText, Layers, AlertCircle, Camera, Edit3 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
@@ -34,6 +35,7 @@ function blobToDataURL(blob: Blob): Promise<string> {
 }
 
 export function ExportsTab({ project }: { project: Project }) {
+  const navigate = useNavigate();
   const [generating, setGenerating] = useState(false);
   const [generatingMerged, setGeneratingMerged] = useState(false);
   const [generatingPhotoReport, setGeneratingPhotoReport] = useState(false);
@@ -920,6 +922,66 @@ export function ExportsTab({ project }: { project: Project }) {
     }
   };
 
+  const handleOpenInInspectPDF = async (reportBlob: Blob, name: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const fileName = `${project.id}/${Date.now()}-${name}.pdf`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('pdf-workspaces')
+        .upload(fileName, reportBlob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: workspace, error: workspaceError } = await supabase
+        .from('pdf_workspaces')
+        .insert({
+          project_id: project.id,
+          user_id: user.id,
+          name: name,
+          source_type: 'export',
+          current_pdf_path: fileName,
+          original_pdf_path: fileName,
+          metadata: {
+            original_filename: `${name}.pdf`,
+            file_type: 'application/pdf',
+          },
+          page_count: 0,
+          file_size_bytes: reportBlob.size,
+        })
+        .select()
+        .single();
+
+      if (workspaceError) throw workspaceError;
+
+      navigate(`/projects/${project.id}/inspect-pdf/${workspace.id}`);
+    } catch (error) {
+      console.error('Failed to open in InspectPDF:', error);
+      alert('Failed to open PDF in InspectPDF. Please try again.');
+    }
+  };
+
+  const handleDownloadOrEdit = async (generateReport: () => Promise<jsPDF>, reportName: string, action: 'download' | 'edit') => {
+    setGenerating(true);
+    try {
+      const doc = await generateReport();
+      const pdfBlob = doc.output('blob');
+
+      if (action === 'edit') {
+        await handleOpenInInspectPDF(pdfBlob, reportName);
+      } else {
+        doc.save(`${reportName}.pdf`);
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert('Failed to generate report. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg border border-slate-200 p-6">
@@ -943,14 +1005,24 @@ export function ExportsTab({ project }: { project: Project }) {
                 <li>• Section 5: Non-conformance reports (if any)</li>
                 <li>• Section 6: Detailed inspection records (all readings and batches)</li>
               </ul>
-              <button
-                onClick={handleDownloadBaseReport}
-                disabled={generating}
-                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
-              >
-                <Download className="w-5 h-5 mr-2" />
-                {generating ? 'Generating...' : 'Download Base Report'}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDownloadBaseReport}
+                  disabled={generating}
+                  className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  {generating ? 'Generating...' : 'Download Base Report'}
+                </button>
+                <button
+                  onClick={() => handleDownloadOrEdit(generateAuditReport, `PRC_InspectionReport_${project.name}_${format(new Date(), 'yyyyMMdd')}`, 'edit')}
+                  disabled={generating}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  <Edit3 className="w-5 h-5 mr-2" />
+                  Edit in InspectPDF
+                </button>
+              </div>
             </div>
           </div>
         </div>
