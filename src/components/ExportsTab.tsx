@@ -8,6 +8,7 @@ import { PDFDocument } from 'pdf-lib';
 import { createDividerPage } from '../lib/pdfUtils';
 import { InspectedMemberSelector } from './InspectedMemberSelector';
 import { generateInspectionReportWithPhotos } from '../lib/pdfInspectionWithPhotos';
+import { generateEnhancedInspectionReportWithPhotos } from '../lib/pdfInspectionWithPhotosEnhanced';
 import { generateIntroduction } from '../lib/introductionGenerator';
 import { generateExecutiveSummary } from '../lib/executiveSummaryGenerator';
 import { addIntroductionToPDF } from '../lib/pdfIntroduction';
@@ -36,6 +37,7 @@ export function ExportsTab({ project }: { project: Project }) {
   const [generating, setGenerating] = useState(false);
   const [generatingMerged, setGeneratingMerged] = useState(false);
   const [generatingPhotoReport, setGeneratingPhotoReport] = useState(false);
+  const [generatingEnhancedPhotoReport, setGeneratingEnhancedPhotoReport] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
 
@@ -805,6 +807,33 @@ export function ExportsTab({ project }: { project: Project }) {
     }
   };
 
+  const handleGenerateEnhancedPhotoReport = async (selectedPinIds: string[]) => {
+    if (selectedPinIds.length === 0) {
+      alert('Please select at least one inspected member');
+      return;
+    }
+
+    setGeneratingEnhancedPhotoReport(true);
+    try {
+      const doc = await generateEnhancedInspectionReportWithPhotos(
+        project.id,
+        project.name,
+        selectedPinIds
+      );
+      doc.save(
+        `Enhanced_Photo_Report_${project.name.replace(/\s+/g, '_')}_${format(
+          new Date(),
+          'yyyyMMdd'
+        )}.pdf`
+      );
+    } catch (error: any) {
+      console.error('Error generating enhanced photo report:', error);
+      alert('Error generating enhanced photo report: ' + error.message);
+    } finally {
+      setGeneratingEnhancedPhotoReport(false);
+    }
+  };
+
   const handleGenerateMergedPack = async () => {
     setGeneratingMerged(true);
     try {
@@ -1026,12 +1055,57 @@ export function ExportsTab({ project }: { project: Project }) {
         </div>
       </div>
 
+      <div className="bg-white rounded-lg border border-blue-200 p-6 border-2">
+        <div className="flex items-start">
+          <Camera className="w-12 h-12 text-blue-600 mr-4 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Enhanced Photo Report with Pin Details
+              </h3>
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded">NEW</span>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">
+              Generate a comprehensive report with <strong>larger photo thumbnails</strong>, complete pin location details (coordinates, page numbers),
+              timestamps, reference IDs, and organized metadata sections. Perfect for detailed documentation and analysis.
+            </p>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <h4 className="text-sm font-semibold text-blue-900 mb-2">Enhanced Features:</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Larger photo thumbnails (120mm × 90mm) for better visibility</li>
+                <li>• Complete location details: X/Y coordinates, normalized positions, canvas size</li>
+                <li>• Comprehensive pin metadata: timestamps, reference IDs, drawing page numbers</li>
+                <li>• Photo metadata: captions, file names, upload dates, sort order</li>
+                <li>• Organized sections: Basic Info, Member Specs, Location, Timestamps, References</li>
+                <li>• Professional formatting with section headers and visual organization</li>
+              </ul>
+            </div>
+
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <InspectedMemberSelector
+                projectId={project.id}
+                onGenerateReport={handleGenerateEnhancedPhotoReport}
+              />
+            </div>
+
+            {generatingEnhancedPhotoReport && (
+              <div className="mt-4 flex items-center gap-2 text-blue-600">
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">Generating enhanced photo report with detailed pin information...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
         <h4 className="font-medium text-primary-900 mb-2">Export File Naming</h4>
         <p className="text-sm text-primary-800">
           <strong>Base Report:</strong> PRC_InspectionReport_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
           <strong>Merged Pack:</strong> PRC_AuditPack_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
-          <strong>Photo Report:</strong> Inspection_Report_Photos_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf
+          <strong>Photo Report:</strong> Inspection_Report_Photos_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
+          <strong>Enhanced Photo Report:</strong> Enhanced_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf
         </p>
       </div>
     </div>
