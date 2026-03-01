@@ -176,7 +176,7 @@ export function Clients() {
                   </div>
 
                   <button
-                    onClick={() => navigate(`/clients/${client.id}`)}
+                    onClick={() => navigate(`/projects?client=${client.id}`)}
                     className="mt-4 w-full px-4 py-2 text-sm text-primary-600 border border-primary-600 rounded-lg hover:bg-white/5 transition-colors"
                   >
                     View Projects

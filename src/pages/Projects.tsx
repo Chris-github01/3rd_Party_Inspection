@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, FolderOpen, Calendar } from 'lucide-react';
+import { Plus, FolderOpen, Calendar, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ProjectWizard } from '../components/ProjectWizard';
 
@@ -26,6 +26,8 @@ export function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [clientName, setClientName] = useState<string>('');
+  const clientId = searchParams.get('client');
 
   useEffect(() => {
     loadProjects();
@@ -39,13 +41,33 @@ export function Projects() {
 
   const loadProjects = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select('*, clients(name)')
         .order('created_at', { ascending: false });
 
+      // Filter by client if clientId is provided
+      if (clientId) {
+        query = query.eq('client_id', clientId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       setProjects(data || []);
+
+      // Get client name if filtering by client
+      if (clientId && data && data.length > 0) {
+        setClientName(data[0].clients?.name || '');
+      } else if (clientId) {
+        // Fetch client name even if no projects
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('name')
+          .eq('id', clientId)
+          .single();
+        setClientName(clientData?.name || '');
+      }
     } catch (error) {
       console.error('Error loading projects:', error);
     } finally {
@@ -71,6 +93,20 @@ export function Projects() {
             <div>
               <h1 className="text-3xl font-bold text-white">Projects</h1>
               <p className="text-blue-100 mt-1">View and manage inspection projects</p>
+              {clientId && clientName && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-600/20 text-primary-300 border border-primary-600/30">
+                    Filtered by: {clientName}
+                  </span>
+                  <button
+                    onClick={() => navigate('/projects')}
+                    className="inline-flex items-center px-2 py-1 text-sm text-blue-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Clear Filter
+                  </button>
+                </div>
+              )}
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
