@@ -216,15 +216,14 @@ function createFormattedWorksheet(group: MemberReadingsGroup): XLSX.WorkSheet {
     }
   }
 
-  if (R === 20 && C === 1) {
-    const complianceCell = ws[XLSX.utils.encode_cell({ r: 20, c: 1 })];
-    if (complianceCell && complianceCell.v === 'PASS') {
-      complianceCell.s.fill = { fgColor: { rgb: '00B050' } };
-      complianceCell.s.font = { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 };
-    } else if (complianceCell && complianceCell.v === 'FAIL') {
-      complianceCell.s.fill = { fgColor: { rgb: 'FF0000' } };
-      complianceCell.s.font = { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 };
-    }
+  // Apply styling to compliance cell
+  const complianceCell = ws[XLSX.utils.encode_cell({ r: 20, c: 1 })];
+  if (complianceCell && complianceCell.v === 'PASS') {
+    complianceCell.s.fill = { fgColor: { rgb: '00B050' } };
+    complianceCell.s.font = { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 };
+  } else if (complianceCell && complianceCell.v === 'FAIL') {
+    complianceCell.s.fill = { fgColor: { rgb: 'FF0000' } };
+    complianceCell.s.font = { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 };
   }
 
   ws['!cols'] = [
