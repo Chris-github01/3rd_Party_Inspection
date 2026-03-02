@@ -8,8 +8,8 @@ from typing import Dict, Any
 
 app = FastAPI(
     title="Loading Schedule Parser",
-    description="Deterministic PDF parser for structural steel loading schedules",
-    version="1.0.0"
+    description="Deterministic PDF parser for structural steel loading schedules with SB/WF support",
+    version="2.0.0-sb-wf-support"
 )
 
 app.add_middleware(
@@ -25,12 +25,17 @@ def root():
     return {
         "service": "Loading Schedule Parser",
         "status": "running",
-        "version": "1.0.0"
+        "version": "2.0.0-sb-wf-support",
+        "features": ["SB sections", "WF sections", "Multiple FRR formats", "Enhanced debug output"]
     }
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "version": "2.0.0-sb-wf-support",
+        "parser_updated": "2026-03-02"
+    }
 
 @app.post("/parse-loading-schedule")
 async def parse_loading_schedule_endpoint(file: UploadFile = File(...)) -> Dict[str, Any]:
