@@ -188,37 +188,37 @@ export function ProjectDetail() {
           </button>
 
           <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold text-white">{project.name}</h1>
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">{project.name}</h1>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {workflowState && (
                   <button
                     onClick={() => setShowStatusPanel(!showStatusPanel)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/20"
+                    className="flex items-center gap-2 px-3 sm:px-4 py-2 min-h-[44px] bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/20"
                   >
                     {workflowState.workflow_ready ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-400" />
+                      <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
                     ) : (
-                      <AlertCircle className="w-5 h-5 text-amber-400" />
+                      <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
                     )}
-                    <span className="text-sm font-medium">
+                    <span className="text-xs sm:text-sm font-medium whitespace-nowrap">
                       {workflowState.workflow_ready ? 'Workflow Active' : 'Workflow Incomplete'}
                     </span>
                   </button>
                 )}
                 <button
                   onClick={() => navigate(`/projects/${project.id}/site`)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                  className="flex items-center space-x-2 px-3 sm:px-4 py-2 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                 >
-                  <Smartphone className="w-5 h-5" />
-                  <span className="font-medium">Site Mode</span>
+                  <Smartphone className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-sm sm:text-base font-medium whitespace-nowrap">Site Mode</span>
                 </button>
               </div>
             </div>
-            <div className="mt-2 flex flex-wrap gap-4 text-sm text-blue-100">
-              <span>Client: {project.client_name}</span>
-              {project.main_contractor && <span>Contractor: {project.main_contractor}</span>}
-              {project.project_ref && <span>Ref: {project.project_ref}</span>}
+            <div className="mt-2 flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-blue-100">
+              <span className="truncate max-w-full sm:max-w-none">Client: {project.client_name}</span>
+              {project.main_contractor && <span className="truncate max-w-full sm:max-w-none">Contractor: {project.main_contractor}</span>}
+              {project.project_ref && <span className="truncate max-w-full sm:max-w-none">Ref: {project.project_ref}</span>}
             </div>
 
             {/* Workflow Status Panel */}
@@ -286,21 +286,22 @@ export function ProjectDetail() {
             )}
           </div>
 
-          <div className="flex space-x-1 border-b border-white/10 overflow-x-auto">
+          <div className="flex space-x-1 border-b border-white/10 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-4 py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                  className={`flex items-center px-3 sm:px-4 py-3 min-h-[48px] border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-primary-600 text-primary-300'
                       : 'border-transparent text-blue-100 hover:text-white hover:border-white/10'
                   }`}
                 >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {tab.label}
+                  <Icon className="w-4 h-4 mr-1.5 sm:mr-2 flex-shrink-0" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.length > 12 ? tab.label.substring(0, 10) + '...' : tab.label}</span>
                 </button>
               );
             })}

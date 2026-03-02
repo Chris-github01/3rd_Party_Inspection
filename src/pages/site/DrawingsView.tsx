@@ -333,28 +333,28 @@ export function DrawingsView() {
 
   return (
     <div className="h-full flex flex-col bg-slate-900">
-      <div className="bg-slate-800 border-b border-slate-700 p-3 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
+      <div className="bg-slate-800 border-b border-slate-700 p-2 sm:p-3 flex items-center justify-between gap-2">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <button
             onClick={handleZoomOut}
-            className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors flex items-center justify-center"
             aria-label="Zoom out"
           >
             <ZoomOut className="w-5 h-5" />
           </button>
-          <span className="text-white text-sm font-medium min-w-[60px] text-center">
+          <span className="text-white text-xs sm:text-sm font-medium min-w-[50px] sm:min-w-[60px] text-center">
             {Math.round(zoom * 100)}%
           </span>
           <button
             onClick={handleZoomIn}
-            className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors flex items-center justify-center"
             aria-label="Zoom in"
           >
             <ZoomIn className="w-5 h-5" />
           </button>
           <button
             onClick={handleResetZoom}
-            className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors flex items-center justify-center"
             aria-label="Reset zoom"
           >
             <Maximize className="w-5 h-5" />
@@ -363,14 +363,14 @@ export function DrawingsView() {
 
         <button
           onClick={() => setDropMode(!dropMode)}
-          className={`flex items-center space-x-2 px-4 py-2 rounded transition-colors ${
+          className={`flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-4 py-2 min-h-[44px] rounded transition-colors ${
             dropMode
               ? 'bg-blue-600 text-white'
               : 'bg-slate-700 hover:bg-slate-600 text-white'
           }`}
         >
-          <MapPin className="w-5 h-5" />
-          <span className="text-sm font-medium">{dropMode ? 'Pin Mode Active' : 'Drop Pin'}</span>
+          <MapPin className="w-5 h-5 flex-shrink-0" />
+          <span className="text-xs sm:text-sm font-medium whitespace-nowrap">{dropMode ? 'Pin Mode Active' : 'Drop Pin'}</span>
         </button>
       </div>
 
@@ -437,30 +437,30 @@ export function DrawingsView() {
       </div>
 
       {showPinSetup && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl">
-            <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Pin Setup</h3>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] sm:max-h-none overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-4 sm:px-6 py-4 flex items-center justify-between z-10">
+              <h3 className="text-base sm:text-lg font-semibold text-slate-900">Pin Setup</h3>
               <button
                 onClick={() => {
                   setShowPinSetup(false);
                   setNewPinPos(null);
                 }}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 min-h-[44px] min-w-[44px] hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center"
               >
                 <X className="w-5 h-5 text-slate-600" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Inspection Package *
                 </label>
                 <select
                   value={pinForm.package_id}
                   onChange={(e) => setPinForm({ ...pinForm, package_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-3 min-h-[48px] text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   {packages.map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
@@ -472,7 +472,7 @@ export function DrawingsView() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Steel Member *
                 </label>
                 <SteelMemberSelect
@@ -490,28 +490,28 @@ export function DrawingsView() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Pin Label (optional)
                 </label>
                 <input
                   type="text"
                   value={pinForm.label}
                   onChange={(e) => setPinForm({ ...pinForm, label: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-3 min-h-[48px] text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Short label"
                 />
               </div>
 
-              <div className="flex space-x-3 pt-4">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
                 <button
                   onClick={handleCreatePin}
-                  className="flex-1 px-4 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                  className="flex-1 px-4 py-3 min-h-[48px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
                 >
                   Save Pin Only
                 </button>
                 <button
                   onClick={handleStartInspection}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                  className="flex-1 px-4 py-3 min-h-[48px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
                 >
                   Start Inspection
                 </button>
