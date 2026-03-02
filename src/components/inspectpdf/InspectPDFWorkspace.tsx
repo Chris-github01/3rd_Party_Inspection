@@ -57,16 +57,26 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         }))
       );
 
-      pdfInputs.unshift({ pdfBytes: currentPdfBytes });
+      pdfInputs.unshift({
+        pdfBytes: currentPdfBytes,
+        pageRange: undefined
+      });
 
-      // @ts-ignore - TODO: Fix type mismatch between options and function signature
+      const sources = pdfInputs.map((input, idx) => ({
+        file: input.pdfBytes,
+        pageRanges: input.pageRange ? [{ start: 1, end: input.pageRange }] : undefined,
+        filename: idx === 0 ? 'current.pdf' : `file${idx}.pdf`
+      }));
+
       const result = await mergePDFs(
-        { pdfs: pdfInputs },
-        (p) => setProgress(p)
+        {
+          sources,
+          outputFilename: 'merged.pdf'
+        },
+        (p) => setProgress(p.progress)
       );
 
-      // @ts-ignore - TODO: Fix result type to match PDFResult
-      const blob = new Blob([result.pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([result.data!], { type: 'application/pdf' });
 
       await updateWorkspacePDF(blob, 'merge', {
         fileCount: files.length + 1,
@@ -101,21 +111,26 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
           .map((p: string) => parseInt(p.trim(), 10))
           .filter((n: number) => !isNaN(n));
 
-        // @ts-ignore - TODO: Fix type mismatch
         results = await splitPDFByPages(
-          { pdfBytes, splitPoints },
-          (p) => setProgress(p)
+          {
+            source: { file: pdfBytes, filename: 'current.pdf' },
+            splitPoints,
+            outputPattern: 'split-{n}.pdf'
+          },
+          (p) => setProgress(p.progress)
         );
       } else {
-        // @ts-ignore - TODO: Fix type mismatch
         results = await splitPDFEveryNPages(
-          { pdfBytes, pagesPerFile: data.everyNPages },
-          (p) => setProgress(p)
+          {
+            source: { file: pdfBytes, filename: 'current.pdf' },
+            pagesPerChunk: data.everyNPages,
+            outputPattern: 'split-{n}.pdf'
+          },
+          (p) => setProgress(p.progress)
         );
       }
 
-      // @ts-ignore - TODO: Fix result type
-      const blob = new Blob([results[0].pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([results[0].data!], { type: 'application/pdf' });
 
       await updateWorkspacePDF(blob, 'split', {
         method,
@@ -148,14 +163,19 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         ? Array.from({ length: workspace.page_count }, (_, i) => i + 1)
         : parsePageRangeString(pages, workspace.page_count);
 
-      // @ts-ignore - TODO: Fix type mismatch
+      const validDegrees = degrees as 90 | 180 | 270 | -90 | -180 | -270;
+
       const result = await rotatePDF(
-        { pdfBytes, pages: pageNumbers, degrees },
-        (p) => setProgress(p)
+        {
+          source: { file: pdfBytes, filename: 'current.pdf' },
+          pageRanges: pageNumbers.map(p => ({ start: p, end: p })),
+          degrees: validDegrees,
+          rotateAllPages: pages === 'all'
+        },
+        (p) => setProgress(p.progress)
       );
 
-      // @ts-ignore - TODO: Fix result type
-      const blob = new Blob([result.pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([result.data!], { type: 'application/pdf' });
 
       await updateWorkspacePDF(blob, 'rotate', {
         pages,

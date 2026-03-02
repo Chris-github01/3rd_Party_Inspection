@@ -666,7 +666,7 @@ export function ExportsTab({ project }: { project: Project }) {
     // Dynamic section numbering based on which sections are included
     let inspectionSectionNumber = '5';
     if (ncrs.length > 0) inspectionSectionNumber = '6';
-    if (executiveSummaryData?.data?.drawings_pins?.total_pins > 0) {
+    if (executiveSummaryData?.data?.drawings_pins?.total_pins && executiveSummaryData.data.drawings_pins.total_pins > 0) {
       inspectionSectionNumber = ncrs.length > 0 ? '7' : '6';
     }
     doc.text(`${inspectionSectionNumber}. Inspection Details`, 20, yPos);

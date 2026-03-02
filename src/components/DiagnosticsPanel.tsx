@@ -17,7 +17,7 @@ interface DiagnosticsPanelProps {
 
 export default function DiagnosticsPanel({ projectId, onClose }: DiagnosticsPanelProps) {
   const { workflowState, diagnostics, loading, error, refreshState, loadDiagnostics } = useWorkflow();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
@@ -179,7 +179,7 @@ export default function DiagnosticsPanel({ projectId, onClose }: DiagnosticsPane
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Email:</span>
-                  <span className="text-white">{profile.email}</span>
+                  <span className="text-white">{user?.email || 'Not available'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Name:</span>

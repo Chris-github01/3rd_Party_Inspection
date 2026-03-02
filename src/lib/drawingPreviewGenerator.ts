@@ -79,7 +79,7 @@ export async function generateDrawingPreviews(
       await page.render({
         canvasContext: context,
         viewport: viewport,
-      }).promise;
+      } as any).promise;
 
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(

@@ -109,9 +109,9 @@ export function InspectionsTab({ projectId }: { projectId: string }) {
         pin_number: pin.pin_number,
         pin_type: pin.pin_type,
         status: pin.status,
-        block_name: pin.blocks?.name || null,
-        level_name: pin.levels?.name || null,
-        member_mark: pin.members?.member_mark || null,
+        block_name: Array.isArray(pin.blocks) ? pin.blocks[0]?.name || null : pin.blocks?.name || null,
+        level_name: Array.isArray(pin.levels) ? pin.levels[0]?.name || null : pin.levels?.name || null,
+        member_mark: Array.isArray(pin.members) ? pin.members[0]?.member_mark || null : pin.members?.member_mark || null,
       }));
 
       setPendingPins(formatted);

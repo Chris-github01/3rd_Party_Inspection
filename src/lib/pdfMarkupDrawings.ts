@@ -205,7 +205,7 @@ async function getDrawingImageData(
       await page.render({
         canvasContext: context,
         viewport: viewport,
-      }).promise;
+      } as any).promise;
 
       console.log(`[getDrawingImageData] ✅ Step 7 Complete - PDF rendered to canvas`);
       console.log(`[getDrawingImageData] Step 8: Converting canvas to data URL...`);

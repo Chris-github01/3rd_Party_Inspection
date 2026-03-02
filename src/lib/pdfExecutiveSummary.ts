@@ -198,6 +198,7 @@ function addComplianceWatermarkToAllPages(doc: jsPDF) {
     doc.setPage(i);
 
     doc.saveGraphicsState();
+    // @ts-ignore - jsPDF GState constructor type definition issue
     doc.setGState(new doc.GState({ opacity: 0.1 }));
 
     doc.setTextColor(34, 197, 94);
