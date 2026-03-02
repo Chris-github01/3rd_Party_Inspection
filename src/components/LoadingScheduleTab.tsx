@@ -221,22 +221,39 @@ export function LoadingScheduleTab({ projectId }: LoadingScheduleTabProps) {
         } else if (parseResult?.errorCode === 'PYTHON_PARSER_UNAVAILABLE') {
           alert('⚠️ Cannot Connect to Python Parser\n\nThe Python parser service is not responding.\n\nThis could mean:\n- Service is not deployed yet\n- Service is cold-starting (first request takes 30-60s)\n- Service URL is incorrect\n- Network connectivity issue\n\nPlease wait a moment and try again, or check PYTHON_PARSER_DEPLOYMENT.md for setup instructions.');
         } else if (parseResult?.errorCode === 'NO_STRUCTURAL_ROWS_DETECTED') {
-          let message = '⚠️ No structural members detected.\n\n';
-          message += 'The parser requires rows with BOTH:\n';
-          message += '1. Section sizes (e.g., 610UB125, 310UC97, 200x200SHS)\n';
-          message += '2. FRR ratings (e.g., 60, 90, 120 minutes)\n\n';
+          console.log('Parse result with debug info:', parseResult);
 
-          if (parseResult?.error) {
-            message += parseResult.error + '\n\n';
+          const metadata = parseResult?.metadata || {};
+          const debugSamples = metadata.debug_samples || [];
+          const headerFRR = metadata.header_frr;
+
+          let message = '⚠️ No structural members detected\n\n';
+
+          if (headerFRR) {
+            message += `✓ Found FRR rating in header: ${headerFRR.frr_format}\n`;
+            message += `✗ But no rows contain section sizes\n\n`;
+          } else {
+            message += 'The parser needs rows with:\n';
+            message += '• Section sizes (e.g., 610UB125, 310UC97, 200x200SHS, 60SB, 600WF)\n';
+            message += '• FRR ratings (can be in header OR in each row)\n\n';
           }
 
-          message += 'Try using a CSV file instead (sample_loading_schedule.csv), or:\n';
-          message += '1. Update the Python parser service with the latest code\n';
-          message += '2. Ensure the PDF contains readable text (not scanned images)\n';
-          message += '3. Check that section sizes follow standard notation\n\n';
-          message += 'See browser console for sample rows found in your file.';
+          if (debugSamples.length > 0) {
+            message += `Analyzed ${debugSamples.length} sample rows from your file:\n\n`;
+            debugSamples.slice(0, 3).forEach((sample: any, idx: number) => {
+              message += `Row ${idx + 1} (Page ${sample.page}): "${sample.text.substring(0, 60)}..."\n`;
+              message += `  Section size: ${sample.has_section ? '✓' : '✗'}\n`;
+              message += `  FRR rating: ${sample.has_frr ? '✓' : '✗'}\n\n`;
+            });
+            message += 'Check console for all sample rows.\n\n';
+          }
 
-          console.log('Parse result with debug info:', parseResult);
+          message += 'Solutions:\n';
+          message += '• Use a CSV file (sample_loading_schedule.csv)\n';
+          message += '• Ensure PDF has text (not scanned images)\n';
+          message += '• Verify section sizes use standard notation\n';
+          message += '• Check that FRR ratings are visible (60, 90, 120, etc.)\n';
+
           alert(message);
         } else if (parseResult?.error && parseResult.itemsExtracted === 0) {
           alert(`⚠️ Parsing failed: ${parseResult.error}\n\nError Code: ${parseResult.errorCode || 'UNKNOWN'}\n\nCheck the browser console for details.`);

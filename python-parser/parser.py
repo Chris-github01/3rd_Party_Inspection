@@ -2,12 +2,12 @@ import pdfplumber
 import re
 from typing import List, Dict, Optional, Any
 
-SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA)\s*\d*)\b", re.I)
-FRR_REGEX = re.compile(r"\bR(\d{2,3})\b", re.I)
-FRR_LEGACY_REGEX = re.compile(r"\bFRR[-:\s]*(\d+)", re.I)
-HAZARD_RATING_REGEX = re.compile(r"\bR(\d{2,3})\s*Hazard\s*Rating", re.I)
+SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA|SB|WF)\s*\d*)\b", re.I)
+FRR_REGEX = re.compile(r"\b(?:R|FRR)[-:\s]*(\d{2,3})\b", re.I)
+FRR_LEGACY_REGEX = re.compile(r"\b(?:FRR|Fire\s+Rating)[-:\s]*(\d+)", re.I)
+HAZARD_RATING_REGEX = re.compile(r"\b(?:R|FRR)[-:\s]*(\d{2,3})\s*Hazard\s*Rating", re.I)
 DFT_REGEX = re.compile(r"\b(\d{2,4})\s*(?:micron|μm|um|mic)?\b", re.I)
-MEMBER_MARK_REGEX = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]?)\b")
+MEMBER_MARK_REGEX = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]?|[A-Z]\d+-[A-Z]\d+|M\d+)\b")
 
 def normalize_section(section_raw: str) -> str:
     """Normalize section size to standard format"""
@@ -57,7 +57,8 @@ def extract_dft(text: str) -> Optional[int]:
 
     for match in matches:
         value = int(match)
-        if 300 <= value <= 3000:
+        # Accept wider range: 100-5000 microns (was 300-3000)
+        if 100 <= value <= 5000:
             return value
 
     return None
@@ -161,10 +162,11 @@ def is_valid_structural_row(text: str, require_frr: bool = True) -> bool:
     if not SECTION_REGEX.search(text):
         return False
 
-    if require_frr and not FRR_REGEX.search(text):
+    if require_frr and not FRR_REGEX.search(text) and not FRR_LEGACY_REGEX.search(text):
         return False
 
-    if len(text) < 10:
+    # Reduced minimum length from 10 to 5 to catch shorter rows
+    if len(text) < 5:
         return False
 
     return True
@@ -362,16 +364,22 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                     debug_info += f"  - Has section size: {sample['has_section']}\n"
                     debug_info += f"  - Has FRR rating: {sample['has_frr']}\n"
 
+                if header_frr:
+                    error_msg = f"No structural members detected. Found FRR rating in header ({header_frr['frr_format']}), but no rows contain section sizes (e.g., 610UB125, 310UC97, 200x200SHS).{debug_info}"
+                else:
+                    error_msg = f"No structural members detected. Check schedule format.\n\nThe parser requires rows with BOTH:\n1. Section sizes (e.g., 610UB125, 310UC97, 200x200SHS)\n2. FRR ratings (e.g., 60, 90, 120 minutes)\n\nNote: FRR can be in the column header (e.g., 'R60 Hazard Rating') or in each row.{debug_info}"
+
                 return {
                     "status": "failed",
                     "error_code": "NO_STRUCTURAL_ROWS_DETECTED",
-                    "error_message": f"No structural members detected. The parser requires rows with both section sizes (e.g., 610UB125) and FRR ratings (e.g., 60, 90, 120).{debug_info}",
+                    "error_message": error_msg,
                     "items_extracted": 0,
                     "items": [],
                     "metadata": {
                         "total_pages": total_pages,
                         "errors": errors,
-                        "debug_samples": debug_samples
+                        "debug_samples": debug_samples,
+                        "header_frr": header_frr
                     }
                 }
 
