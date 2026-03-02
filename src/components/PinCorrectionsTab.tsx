@@ -90,7 +90,7 @@ export function PinCorrectionsTab({ project }: { project: Project }) {
       setCorrections(formattedCorrections);
     } catch (error: any) {
       console.error('Error loading corrections:', error);
-      showToast('Failed to load corrections', 'error');
+      showToast('error', 'Failed to load corrections');
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,7 @@ export function PinCorrectionsTab({ project }: { project: Project }) {
 
   const createBatch = async () => {
     if (!batchName.trim()) {
-      showToast('Please enter a batch name', 'error');
+      showToast('error', 'Please enter a batch name');
       return;
     }
 
@@ -131,21 +131,21 @@ export function PinCorrectionsTab({ project }: { project: Project }) {
 
       if (error) throw error;
 
-      showToast('Correction batch created', 'success');
+      showToast('success', 'Correction batch created');
       setBatchName('');
       setBatchDescription('');
       setShowNewBatch(false);
       loadBatches();
     } catch (error: any) {
       console.error('Error creating batch:', error);
-      showToast('Failed to create batch', 'error');
+      showToast('error', 'Failed to create batch');
     }
   };
 
   const generateReport = async () => {
     try {
       setGenerating(true);
-      showToast('Generating corrections report...', 'info');
+      showToast('info', 'Generating corrections report...');
 
       const batchId = selectedBatch === 'all' ? undefined : selectedBatch;
       const blob = await generatePinCorrectionsReport(project.id, batchId);
@@ -162,10 +162,10 @@ export function PinCorrectionsTab({ project }: { project: Project }) {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      showToast('Corrections report generated successfully', 'success');
+      showToast('success', 'Corrections report generated successfully');
     } catch (error: any) {
       console.error('Error generating report:', error);
-      showToast('Failed to generate corrections report', 'error');
+      showToast('error', 'Failed to generate corrections report');
     } finally {
       setGenerating(false);
     }
