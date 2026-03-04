@@ -9,7 +9,7 @@ import { useToast } from '../contexts/ToastContext';
 
 interface Document {
   id: string;
-  type: string;
+  document_type: string;
   filename: string;
   original_name: string;
   mime_type: string;
@@ -185,7 +185,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
 
       const { error: dbError } = await supabase.from('documents').insert({
         project_id: projectId,
-        type: selectedType,
+        document_type: selectedType,
         filename: fileName,
         original_name: file.name,
         mime_type: file.type,
@@ -787,7 +787,7 @@ export function DocumentsTab({ projectId }: { projectId: string }) {
           <div className="divide-y divide-white/10">
             {documents.map((doc) => {
               const typeLabel =
-                DOCUMENT_TYPES.find((t) => t.value === doc.type)?.label || doc.type;
+                DOCUMENT_TYPES.find((t) => t.value === doc.document_type)?.label || doc.document_type;
 
               return (
                 <div key={doc.id} className="px-6 py-4 hover:bg-white/5">
