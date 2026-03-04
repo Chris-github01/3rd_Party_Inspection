@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Plus, Edit2, Trash2, Search } from 'lucide-react';
+import { Building2, Plus, CreditCard as Edit2, Trash2, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { CreateOrganizationModal } from '../../components/CreateOrganizationModal';
 import { EditOrganizationModal } from '../../components/EditOrganizationModal';

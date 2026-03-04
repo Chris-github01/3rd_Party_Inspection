@@ -1,22 +1,7 @@
 import { useState, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  LayoutDashboard,
-  Users,
-  FolderOpen,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  ChevronDown,
-  ChevronRight,
-  Package,
-  Layers,
-  FileText,
-  Layout as LayoutIcon,
-  Building2,
-} from 'lucide-react';
+import { LayoutDashboard, Users, FolderOpen, Settings, LogOut, Menu, X, ChevronDown, ChevronRight, Package, Layers, FileText, LayoutGrid as LayoutIcon, Building2 } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
