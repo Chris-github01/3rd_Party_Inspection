@@ -113,7 +113,7 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
                 level_id: d.level_id,
                 document_id: d.document_id,
                 page_number: d.page_number,
-                preview_image_path: d.documents.storage_path,
+                preview_image_path: d.documents.filename || d.documents.storage_path,
                 scale_factor: d.scale_factor || 1,
                 created_at: d.created_at,
               }));
