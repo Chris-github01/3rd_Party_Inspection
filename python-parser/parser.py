@@ -6,11 +6,18 @@ from typing import List, Dict, Optional, Any
 SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA|SB|WF|mm\s*Plate)\s*\d*)\b", re.I)
 # Also match plates: 16mmPlate, 32mm Plate, etc.
 PLATE_REGEX = re.compile(r"\b(\d+\s*mm\s*Plate)\b", re.I)
+# AkzoNobel member format: "AU SHS 89x89x6.0", "AU 250UB37.3", "Plate 1000x10", "A 200x200x8"
+AKZONOBEL_MEMBER_REGEX = re.compile(
+    r"\b(?:AU\s+)?(?:A\s+)?(?:Plate\s+)?(\d+(?:\.\d+)?(?:\s*[xX]\s*\d+(?:\.\d+)?)*(?:\s*(?:UB|UC|SHS|RHS|CHS|PFC|EA))?(?:\s*\d+(?:\.\d+)?)?)\b",
+    re.I
+)
 
 FRR_REGEX = re.compile(r"\b(?:R|FRR)[-:\s]*(\d{2,3})\b", re.I)
 FRR_LEGACY_REGEX = re.compile(r"\b(?:FRR|Fire\s+Rating)[-:\s]*(\d+)", re.I)
 HAZARD_RATING_REGEX = re.compile(r"\b(?:R|FRR)[-:\s]*(\d{2,3})\s*Hazard\s*Rating", re.I)
+# DFT in microns OR millimeters
 DFT_REGEX = re.compile(r"\b(\d{2,4})\s*(?:micron|μm|um|mic)?\b", re.I)
+DFT_MM_REGEX = re.compile(r"\b(\d+(?:\.\d+)?)\s*mm\b", re.I)
 MEMBER_MARK_REGEX = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]?|[A-Z]\d+-[A-Z]\d+|M\d+)\b")
 
 # Configuration types (for Altex format)
@@ -208,31 +215,83 @@ def is_valid_structural_row(text: str, require_frr: bool = False) -> bool:
 
     return True
 
-def extract_document_metadata(text: str) -> Dict[str, Any]:
+def detect_document_format(text: str) -> str:
+    """
+    Detect the document format based on content markers.
+    Returns: "akzonobel", "altex", or "generic"
+    """
+    text_lower = text.lower()
+
+    # AkzoNobel markers
+    akzonobel_markers = [
+        "client schedule",
+        "protective coatings www.international-pc.com",
+        "parts list",
+        "hazard rating",
+        "akzonobel"
+    ]
+
+    akzonobel_score = sum(1 for marker in akzonobel_markers if marker in text_lower)
+
+    # Altex markers
+    altex_markers = [
+        "altex coatings limited",
+        "nullifire",
+        "p.o. box 142",
+        "tauranga"
+    ]
+
+    altex_score = sum(1 for marker in altex_markers if marker in text_lower)
+
+    # Decide format
+    if akzonobel_score >= 2:
+        return "akzonobel"
+    elif altex_score >= 2:
+        return "altex"
+    else:
+        return "generic"
+
+def extract_document_metadata(text: str, format_type: str = "generic") -> Dict[str, Any]:
     """
     Extract document-level metadata from full PDF text.
     Looks for:
-    - Schedule Reference (e.g., "Schedule Reference: CST-250911A")
-    - Project name (e.g., "Project: Scott Point Road, Interior...")
-    - Coating system (e.g., "NULLIFIRE SC601")
-    - Supplier (e.g., "Altex Coatings Limited")
+    - Schedule Reference (e.g., "Schedule Reference: CST-250911A" or "Reference AN022478-Rev 01-Option 01")
+    - Project name (e.g., "Project: Scott Point Road, Interior..." or "Project Diocesan Shrewsbury Block Redevelopment")
+    - Coating system (e.g., "NULLIFIRE SC601", "Interchar 3120")
+    - Supplier (e.g., "Altex Coatings Limited", "AkzoNobel")
     """
     metadata = {
         "schedule_reference": None,
         "project_name": None,
         "coating_system": None,
         "supplier": None,
+        "document_format": format_type,
     }
 
-    # Schedule Reference
-    schedule_ref_match = re.search(r"Schedule\s+Reference\s*[:：]\s*([A-Z0-9\-]+)", text, re.I)
-    if schedule_ref_match:
-        metadata["schedule_reference"] = schedule_ref_match.group(1).strip()
+    # Schedule Reference - multiple formats
+    schedule_ref_patterns = [
+        r"Schedule\s+Reference\s*[:：]\s*([A-Z0-9\-]+)",  # Altex format
+        r"Reference\s+([A-Z0-9\-]+)",  # AkzoNobel format
+    ]
+    for pattern in schedule_ref_patterns:
+        schedule_ref_match = re.search(pattern, text, re.I)
+        if schedule_ref_match:
+            metadata["schedule_reference"] = schedule_ref_match.group(1).strip()
+            break
 
-    # Project name
-    project_match = re.search(r"Project\s*[:：]\s*([^\n]+)", text, re.I)
-    if project_match:
-        metadata["project_name"] = project_match.group(1).strip()
+    # Project name - multiple formats
+    project_patterns = [
+        r"Project\s*[:：]\s*([^\n]+)",  # Standard format with colon
+        r"Project\s+([^\n]+?)\s+(?:Reference|Test\s+standards)",  # AkzoNobel format (until next field)
+    ]
+    for pattern in project_patterns:
+        project_match = re.search(pattern, text, re.I)
+        if project_match:
+            project_name = project_match.group(1).strip()
+            # Clean up extra words
+            project_name = re.sub(r"\s+(Reference|Test\s+standards).*", "", project_name, flags=re.I)
+            metadata["project_name"] = project_name
+            break
 
     # Coating system - look for common patterns
     coating_patterns = [
@@ -251,8 +310,9 @@ def extract_document_metadata(text: str) -> Dict[str, Any]:
     # Supplier - look for known suppliers
     supplier_patterns = [
         r"(Altex\s+Coatings\s+Limited)",
+        r"(AkzoNobel)",
+        r"(International\s+(?:Paint|Protective\s+Coatings))",
         r"(Jotun)",
-        r"(International\s+Protective\s+Coatings)",
         r"(PPG)",
         r"(Hempel)",
     ]
@@ -264,9 +324,268 @@ def extract_document_metadata(text: str) -> Dict[str, Any]:
 
     return metadata
 
+def parse_akzonobel_schedule(pdf_path: str) -> Dict[str, Any]:
+    """
+    Parse an AkzoNobel loading schedule PDF with specialized logic.
+
+    AkzoNobel schedules have:
+    - Header with Project, Reference, Test standards, Report Date
+    - "Parts List" sections with "60 Minutes FRR" and "30 Minutes FRR"
+    - Table columns: ID, Member, Type, Section Factor, Hazard Rating, Product, CCT, Quantity, Length, etc.
+    - Member format: "AU SHS 89x89x6.0", "AU 250UB37.3", "Plate 1000x10"
+    - Hazard Rating: "R60", "R30" (convert to minutes)
+    - DFT in mm (convert to microns)
+    """
+    items = []
+    errors = []
+    document_metadata = {}
+
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            total_pages = len(pdf.pages)
+
+            # Extract full document text for metadata
+            full_text = ""
+            for page in pdf.pages:
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        full_text += page_text + "\n"
+                except:
+                    pass
+
+            # Extract document metadata
+            document_metadata = extract_document_metadata(full_text, "akzonobel")
+
+            # Parse each page
+            for page_number, page in enumerate(pdf.pages, start=1):
+                try:
+                    # Extract tables
+                    tables = page.extract_tables()
+
+                    if not tables:
+                        continue
+
+                    for table in tables:
+                        # Find header row to determine column indices
+                        header_row = None
+                        for idx, row in enumerate(table):
+                            if row and any("Member" in str(cell) for cell in row if cell):
+                                header_row = row
+                                break
+
+                        if not header_row:
+                            continue
+
+                        # Map column names to indices
+                        col_map = {}
+                        for idx, cell in enumerate(header_row):
+                            if not cell:
+                                continue
+                            cell_lower = str(cell).lower().strip()
+                            if "member" in cell_lower:
+                                col_map["member"] = idx
+                            elif "hazard" in cell_lower and "rating" in cell_lower:
+                                col_map["hazard_rating"] = idx
+                            elif "dft" in cell_lower:
+                                col_map["dft"] = idx
+                            elif "type" in cell_lower and "exp" not in cell_lower:
+                                col_map["type"] = idx
+                            elif "section" in cell_lower and "factor" in cell_lower:
+                                col_map["section_factor"] = idx
+                            elif "product" in cell_lower:
+                                col_map["product"] = idx
+                            elif "comment" in cell_lower:
+                                col_map["comments"] = idx
+
+                        # Parse data rows
+                        for row in table:
+                            if not row or row == header_row:
+                                continue
+
+                            # Skip if first cell is empty or "ID"
+                            if not row[0] or str(row[0]).strip().upper() == "ID":
+                                continue
+
+                            # Extract member name
+                            member_raw = None
+                            if "member" in col_map and len(row) > col_map["member"]:
+                                member_raw = str(row[col_map["member"]]).strip() if row[col_map["member"]] else None
+
+                            if not member_raw:
+                                continue
+
+                            # Normalize member name (remove AU prefix, extra spaces, newlines)
+                            member_normalized = re.sub(r"\s+", " ", member_raw).strip()
+                            member_normalized = re.sub(r"^(AU|A)\s+", "", member_normalized)
+
+                            # Check if it's a valid steel member
+                            if not (re.search(r"\d+(?:UB|UC|SHS|RHS|CHS|PFC|EA)", member_normalized, re.I) or
+                                    "plate" in member_normalized.lower()):
+                                continue
+
+                            # Extract FRR from Hazard Rating (R60 -> 60, R30 -> 30)
+                            frr_minutes = None
+                            if "hazard_rating" in col_map and len(row) > col_map["hazard_rating"]:
+                                hazard_rating = str(row[col_map["hazard_rating"]]).strip() if row[col_map["hazard_rating"]] else ""
+                                hazard_match = re.search(r"R(\d+)", hazard_rating, re.I)
+                                if hazard_match:
+                                    frr_minutes = int(hazard_match.group(1))
+
+                            # Extract DFT in mm, convert to microns
+                            dft_microns = None
+                            if "dft" in col_map and len(row) > col_map["dft"]:
+                                dft_str = str(row[col_map["dft"]]).strip() if row[col_map["dft"]] else ""
+                                # Try to parse as float
+                                try:
+                                    dft_mm = float(dft_str)
+                                    dft_microns = round(dft_mm * 1000)
+                                except:
+                                    pass
+
+                            # Extract other fields
+                            element_type = None
+                            if "type" in col_map and len(row) > col_map["type"]:
+                                element_type = str(row[col_map["type"]]).strip() if row[col_map["type"]] else None
+
+                            coating_product = None
+                            if "product" in col_map and len(row) > col_map["product"]:
+                                coating_product = str(row[col_map["product"]]).strip() if row[col_map["product"]] else None
+
+                            comments = None
+                            if "comments" in col_map and len(row) > col_map["comments"]:
+                                comments = str(row[col_map["comments"]]).strip() if row[col_map["comments"]] else None
+
+                            # Build row text for reference
+                            row_text = " | ".join(str(cell or "") for cell in row)
+
+                            # Calculate confidence
+                            missing_fields = 0
+                            if not frr_minutes: missing_fields += 1
+                            if not dft_microns: missing_fields += 1
+                            if not coating_product: missing_fields += 0.5
+
+                            confidence = max(0.6, 1.0 - (missing_fields * 0.15))
+                            needs_review = missing_fields >= 1
+
+                            item = {
+                                "page": page_number,
+                                "line": 0,  # Not available for table extraction
+                                "raw_text": row_text.strip(),
+                                "member_mark": None,  # AkzoNobel doesn't use member marks
+                                "section_size_raw": member_raw,
+                                "section_size_normalized": member_normalized,
+                                "frr_minutes": frr_minutes,
+                                "frr_format": f"{frr_minutes}/-/-" if frr_minutes else None,
+                                "dft_required_microns": dft_microns,
+                                "coating_product": coating_product,
+                                "element_type": element_type,
+                                "confidence": confidence,
+                                "needs_review": needs_review,
+                                "comments": comments,
+                            }
+
+                            items.append(item)
+
+                except Exception as page_error:
+                    errors.append(f"Page {page_number}: {str(page_error)}")
+
+            if len(items) == 0:
+                error_msg = "No structural members detected in AkzoNobel schedule.\n\n"
+                error_msg += "Expected format:\n"
+                error_msg += "• Member column with values like 'AU SHS 89x89x6.0', 'AU 250UB37.3', 'Plate 1000x10'\n"
+                error_msg += "• Hazard Rating column with values like 'R60', 'R30'\n"
+                error_msg += "• DFT column with values in mm\n\n"
+                error_msg += "Possible issues:\n"
+                error_msg += "1. PDF is scanned (text not selectable)\n"
+                error_msg += "2. Table structure not recognized\n"
+                error_msg += "3. Column headers don't match expected format\n"
+
+                return {
+                    "status": "failed",
+                    "error_code": "NO_STRUCTURAL_ROWS_DETECTED",
+                    "error_message": error_msg,
+                    "items_extracted": 0,
+                    "items": [],
+                    "metadata": {
+                        "total_pages": total_pages,
+                        "errors": errors,
+                        "document_format": "akzonobel"
+                    }
+                }
+
+            return {
+                "status": "completed",
+                "items_extracted": len(items),
+                "items": items,
+                "metadata": {
+                    "total_pages": total_pages,
+                    "errors": errors if errors else [],
+                    "schedule_reference": document_metadata.get("schedule_reference"),
+                    "project_name": document_metadata.get("project_name"),
+                    "coating_system": document_metadata.get("coating_system"),
+                    "supplier": document_metadata.get("supplier"),
+                    "document_format": "akzonobel",
+                }
+            }
+
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error_code": "PARSER_ERROR",
+            "error_message": str(e),
+            "items_extracted": 0,
+            "items": [],
+            "metadata": {
+                "errors": [str(e)],
+                "document_format": "akzonobel"
+            }
+        }
+
 def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
     """
-    Parse a loading schedule PDF using deterministic position-based extraction
+    Parse a loading schedule PDF using format detection and appropriate parser
+
+    Returns:
+        Dict with status, items_extracted, items, and metadata
+    """
+    try:
+        # First, detect document format by reading full text
+        with pdfplumber.open(pdf_path) as pdf:
+            full_text = ""
+            for page in pdf.pages:
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        full_text += page_text + "\n"
+                except:
+                    pass
+
+            # Detect format
+            format_type = detect_document_format(full_text)
+
+            # Route to appropriate parser
+            if format_type == "akzonobel":
+                return parse_akzonobel_schedule(pdf_path)
+            else:
+                # Use generic parser for Altex and other formats
+                return parse_generic_schedule(pdf_path)
+
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error_code": "PARSER_ERROR",
+            "error_message": str(e),
+            "items_extracted": 0,
+            "items": [],
+            "metadata": {
+                "errors": [str(e)]
+            }
+        }
+
+def parse_generic_schedule(pdf_path: str) -> Dict[str, Any]:
+    """
+    Parse a generic loading schedule PDF (Altex, Jotun, etc.) using deterministic position-based extraction
 
     Returns:
         Dict with status, items_extracted, items, and metadata
@@ -291,8 +610,11 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                 except:
                     pass
 
+            # Detect format
+            format_type = detect_document_format(full_text)
+
             # Extract document metadata
-            document_metadata = extract_document_metadata(full_text)
+            document_metadata = extract_document_metadata(full_text, format_type)
 
             # First pass: scan first few pages for hazard rating in headers
             for page_number in range(1, min(3, total_pages + 1)):
@@ -518,7 +840,8 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                         "total_pages": total_pages,
                         "errors": errors,
                         "debug_samples": debug_samples,
-                        "header_frr": header_frr
+                        "header_frr": header_frr,
+                        "document_format": document_metadata.get("document_format", "generic")
                     }
                 }
 
@@ -533,6 +856,7 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                     "project_name": document_metadata.get("project_name"),
                     "coating_system": document_metadata.get("coating_system"),
                     "supplier": document_metadata.get("supplier"),
+                    "document_format": document_metadata.get("document_format", "generic"),
                 }
             }
 
@@ -544,6 +868,7 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
             "items_extracted": 0,
             "items": [],
             "metadata": {
-                "errors": [str(e)]
+                "errors": [str(e)],
+                "document_format": "generic"
             }
         }
