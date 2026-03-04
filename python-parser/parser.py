@@ -2,12 +2,19 @@ import pdfplumber
 import re
 from typing import List, Dict, Optional, Any
 
-SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA|SB|WF)\s*\d*)\b", re.I)
+# Section sizes: Universal beams/columns, SHS, RHS, plates, etc.
+SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA|SB|WF|mm\s*Plate)\s*\d*)\b", re.I)
+# Also match plates: 16mmPlate, 32mm Plate, etc.
+PLATE_REGEX = re.compile(r"\b(\d+\s*mm\s*Plate)\b", re.I)
+
 FRR_REGEX = re.compile(r"\b(?:R|FRR)[-:\s]*(\d{2,3})\b", re.I)
 FRR_LEGACY_REGEX = re.compile(r"\b(?:FRR|Fire\s+Rating)[-:\s]*(\d+)", re.I)
 HAZARD_RATING_REGEX = re.compile(r"\b(?:R|FRR)[-:\s]*(\d{2,3})\s*Hazard\s*Rating", re.I)
 DFT_REGEX = re.compile(r"\b(\d{2,4})\s*(?:micron|μm|um|mic)?\b", re.I)
 MEMBER_MARK_REGEX = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]?|[A-Z]\d+-[A-Z]\d+|M\d+)\b")
+
+# Configuration types (for Altex format)
+CONFIGURATION_REGEX = re.compile(r"\b(Beam|Column|Brace|Plate)\b", re.I)
 
 def normalize_section(section_raw: str) -> str:
     """Normalize section size to standard format"""
@@ -15,6 +22,27 @@ def normalize_section(section_raw: str) -> str:
     normalized = re.sub(r"\s+", "", normalized)
     normalized = re.sub(r"X", "x", normalized, flags=re.I)
     return normalized
+
+def extract_section_size(text: str) -> Optional[tuple]:
+    """
+    Extract section size from text - handles both standard and plate formats.
+    Returns: (raw_section, normalized_section) or None
+    """
+    # Try plate format first (16mmPlate, 32mm Plate)
+    plate_match = PLATE_REGEX.search(text)
+    if plate_match:
+        raw = plate_match.group(1)
+        normalized = normalize_section(raw)
+        return (raw, normalized)
+
+    # Try standard section format (610UB125, 200x200SHS, etc.)
+    section_match = SECTION_REGEX.search(text)
+    if section_match:
+        raw = section_match.group(1)
+        normalized = normalize_section(raw)
+        return (raw, normalized)
+
+    return None
 
 def extract_hazard_rating_from_header(text: str) -> Optional[Dict[str, Any]]:
     """Extract hazard rating from column header (e.g., 'R60 Hazard Rating (Mins)')"""
@@ -157,19 +185,84 @@ def stitch_rows(rows: List[Dict]) -> List[Dict]:
 
     return stitched
 
-def is_valid_structural_row(text: str, require_frr: bool = True) -> bool:
-    """Check if row contains valid structural member data"""
-    if not SECTION_REGEX.search(text):
+def is_valid_structural_row(text: str, require_frr: bool = False) -> bool:
+    """
+    Check if row contains valid structural member data.
+    NOW FLEXIBLE: Only requires a section size, FRR is optional.
+    """
+    # Check for section size OR plate
+    if not SECTION_REGEX.search(text) and not PLATE_REGEX.search(text):
         return False
 
-    if require_frr and not FRR_REGEX.search(text) and not FRR_LEGACY_REGEX.search(text):
-        return False
+    # Skip obvious header rows
+    text_lower = text.lower()
+    header_keywords = ['element name', 'section size', 'configuration', 'member mark', 'frr minutes', 'dft microns']
+    if any(kw in text_lower for kw in header_keywords):
+        # Only skip if it doesn't also contain actual numeric data
+        if not re.search(r'\d{3,}', text):  # No substantial numbers
+            return False
 
-    # Reduced minimum length from 10 to 5 to catch shorter rows
-    if len(text) < 5:
+    # Minimum length check
+    if len(text) < 3:
         return False
 
     return True
+
+def extract_document_metadata(text: str) -> Dict[str, Any]:
+    """
+    Extract document-level metadata from full PDF text.
+    Looks for:
+    - Schedule Reference (e.g., "Schedule Reference: CST-250911A")
+    - Project name (e.g., "Project: Scott Point Road, Interior...")
+    - Coating system (e.g., "NULLIFIRE SC601")
+    - Supplier (e.g., "Altex Coatings Limited")
+    """
+    metadata = {
+        "schedule_reference": None,
+        "project_name": None,
+        "coating_system": None,
+        "supplier": None,
+    }
+
+    # Schedule Reference
+    schedule_ref_match = re.search(r"Schedule\s+Reference\s*[:：]\s*([A-Z0-9\-]+)", text, re.I)
+    if schedule_ref_match:
+        metadata["schedule_reference"] = schedule_ref_match.group(1).strip()
+
+    # Project name
+    project_match = re.search(r"Project\s*[:：]\s*([^\n]+)", text, re.I)
+    if project_match:
+        metadata["project_name"] = project_match.group(1).strip()
+
+    # Coating system - look for common patterns
+    coating_patterns = [
+        r"(NULLIFIRE\s+[A-Z0-9]+)",
+        r"(Nullifire\s+[A-Z0-9]+)",
+        r"(INTERCHAR\s+\d+)",
+        r"(Interchar\s+\d+)",
+        r"(CARBOLINE\s+\S+)",
+    ]
+    for pattern in coating_patterns:
+        coating_match = re.search(pattern, text)
+        if coating_match:
+            metadata["coating_system"] = coating_match.group(1).strip()
+            break
+
+    # Supplier - look for known suppliers
+    supplier_patterns = [
+        r"(Altex\s+Coatings\s+Limited)",
+        r"(Jotun)",
+        r"(International\s+Protective\s+Coatings)",
+        r"(PPG)",
+        r"(Hempel)",
+    ]
+    for pattern in supplier_patterns:
+        supplier_match = re.search(pattern, text, re.I)
+        if supplier_match:
+            metadata["supplier"] = supplier_match.group(1).strip()
+            break
+
+    return metadata
 
 def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
     """
@@ -182,10 +275,24 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
     errors = []
     debug_samples = []
     header_frr = None  # FRR extracted from column header
+    document_metadata = {}  # Document-level metadata
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
             total_pages = len(pdf.pages)
+
+            # Extract full document text for metadata extraction
+            full_text = ""
+            for page in pdf.pages:
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        full_text += page_text + "\n"
+                except:
+                    pass
+
+            # Extract document metadata
+            document_metadata = extract_document_metadata(full_text)
 
             # First pass: scan first few pages for hazard rating in headers
             for page_number in range(1, min(3, total_pages + 1)):
@@ -240,45 +347,55 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                                     "source": "table"
                                 })
 
-                            # If we have header FRR, don't require FRR in row
-                            require_frr_in_row = header_frr is None
-                            if not is_valid_structural_row(row_text, require_frr=require_frr_in_row):
+                            # Check if row is valid (has section size)
+                            if not is_valid_structural_row(row_text, require_frr=False):
                                 continue
 
-                            # Use header FRR if available, otherwise extract from row
+                            # Extract section size (required)
+                            section_data = extract_section_size(row_text)
+                            if not section_data:
+                                continue
+
+                            section_raw, section_normalized = section_data
+
+                            # Extract FRR (optional - can be from header, row, or null)
+                            frr_minutes = None
+                            frr_format = None
                             if header_frr:
-                                frr_data = header_frr
+                                frr_minutes = header_frr["frr_minutes"]
+                                frr_format = header_frr["frr_format"]
                             else:
                                 frr_data = normalize_frr(row_text)
-                                if not frr_data:
-                                    continue
+                                if frr_data:
+                                    frr_minutes = frr_data["frr_minutes"]
+                                    frr_format = frr_data["frr_format"]
 
-                            section_match = SECTION_REGEX.search(row_text)
-                            if not section_match:
-                                continue
-
-                            section = normalize_section(section_match.group(1))
-
+                            # Extract other fields (all optional)
                             dft_value = extract_dft(row_text)
                             member_mark = extract_member_mark(row_text)
                             coating = extract_coating_product(row_text)
                             element_type = extract_element_type(row_text)
 
-                            needs_review = dft_value is None or member_mark is None
+                            # Calculate completeness for confidence scoring
+                            missing_fields = 0
+                            if not frr_minutes: missing_fields += 1
+                            if not dft_value: missing_fields += 1
+                            if not member_mark: missing_fields += 1
+                            if not coating: missing_fields += 0.5
 
-                            confidence = 0.95
-                            if needs_review:
-                                confidence = 0.75
+                            # Confidence: 1.0 = complete, decreases with missing fields
+                            confidence = max(0.5, 1.0 - (missing_fields * 0.15))
+                            needs_review = missing_fields >= 1
 
                             item = {
                                 "page": page_number,
                                 "line": row_idx + 1,
                                 "raw_text": row_text.strip(),
                                 "member_mark": member_mark,
-                                "section_size_raw": section_match.group(1),
-                                "section_size_normalized": section,
-                                "frr_minutes": frr_data["frr_minutes"],
-                                "frr_format": frr_data["frr_format"],
+                                "section_size_raw": section_raw,
+                                "section_size_normalized": section_normalized,
+                                "frr_minutes": frr_minutes,
+                                "frr_format": frr_format,
                                 "dft_required_microns": dft_value,
                                 "coating_product": coating,
                                 "element_type": element_type,
@@ -306,45 +423,55 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                                 "source": "words"
                             })
 
-                        # If we have header FRR, don't require FRR in row
-                        require_frr_in_row = header_frr is None
-                        if not is_valid_structural_row(row_text, require_frr=require_frr_in_row):
+                        # Check if row is valid (has section size)
+                        if not is_valid_structural_row(row_text, require_frr=False):
                             continue
 
-                        # Use header FRR if available, otherwise extract from row
+                        # Extract section size (required)
+                        section_data = extract_section_size(row_text)
+                        if not section_data:
+                            continue
+
+                        section_raw, section_normalized = section_data
+
+                        # Extract FRR (optional - can be from header, row, or null)
+                        frr_minutes = None
+                        frr_format = None
                         if header_frr:
-                            frr_data = header_frr
+                            frr_minutes = header_frr["frr_minutes"]
+                            frr_format = header_frr["frr_format"]
                         else:
                             frr_data = normalize_frr(row_text)
-                            if not frr_data:
-                                continue
+                            if frr_data:
+                                frr_minutes = frr_data["frr_minutes"]
+                                frr_format = frr_data["frr_format"]
 
-                        section_match = SECTION_REGEX.search(row_text)
-                        if not section_match:
-                            continue
-
-                        section = normalize_section(section_match.group(1))
-
+                        # Extract other fields (all optional)
                         dft_value = extract_dft(row_text)
                         member_mark = extract_member_mark(row_text)
                         coating = extract_coating_product(row_text)
                         element_type = extract_element_type(row_text)
 
-                        needs_review = dft_value is None or member_mark is None
+                        # Calculate completeness for confidence scoring
+                        missing_fields = 0
+                        if not frr_minutes: missing_fields += 1
+                        if not dft_value: missing_fields += 1
+                        if not member_mark: missing_fields += 1
+                        if not coating: missing_fields += 0.5
 
-                        confidence = 0.95
-                        if needs_review:
-                            confidence = 0.75
+                        # Confidence: 1.0 = complete, decreases with missing fields
+                        confidence = max(0.5, 1.0 - (missing_fields * 0.15))
+                        needs_review = missing_fields >= 1
 
                         item = {
                             "page": page_number,
                             "line": row_idx + 1,
                             "raw_text": row_text.strip(),
                             "member_mark": member_mark,
-                            "section_size_raw": section_match.group(1),
-                            "section_size_normalized": section,
-                            "frr_minutes": frr_data["frr_minutes"],
-                            "frr_format": frr_data["frr_format"],
+                            "section_size_raw": section_raw,
+                            "section_size_normalized": section_normalized,
+                            "frr_minutes": frr_minutes,
+                            "frr_format": frr_format,
                             "dft_required_microns": dft_value,
                             "coating_product": coating,
                             "element_type": element_type,
@@ -364,10 +491,22 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                     debug_info += f"  - Has section size: {sample['has_section']}\n"
                     debug_info += f"  - Has FRR rating: {sample['has_frr']}\n"
 
+                error_msg = f"No structural members detected in PDF.\n\n"
+                error_msg += "The parser looks for rows containing section sizes such as:\n"
+                error_msg += "• UB/UC sections: 610UB125, 310UC97, 460UB75\n"
+                error_msg += "• SHS/RHS: 200x200SHS, 150x100RHS\n"
+                error_msg += "• Plates: 16mmPlate, 32mm Plate\n\n"
+
                 if header_frr:
-                    error_msg = f"No structural members detected. Found FRR rating in header ({header_frr['frr_format']}), but no rows contain section sizes (e.g., 610UB125, 310UC97, 200x200SHS).{debug_info}"
+                    error_msg += f"✓ Found FRR rating in header: {header_frr['frr_format']}\n"
                 else:
-                    error_msg = f"No structural members detected. Check schedule format.\n\nThe parser requires rows with BOTH:\n1. Section sizes (e.g., 610UB125, 310UC97, 200x200SHS)\n2. FRR ratings (e.g., 60, 90, 120 minutes)\n\nNote: FRR can be in the column header (e.g., 'R60 Hazard Rating') or in each row.{debug_info}"
+                    error_msg += "Note: FRR rating is optional and can be in header or individual rows.\n"
+
+                error_msg += "\nPossible issues:\n"
+                error_msg += "1. PDF is scanned (text not selectable) - try CSV format\n"
+                error_msg += "2. Section sizes use non-standard format\n"
+                error_msg += "3. Table structure not detected properly\n"
+                error_msg += f"{debug_info}"
 
                 return {
                     "status": "failed",
@@ -389,7 +528,11 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                 "items": items,
                 "metadata": {
                     "total_pages": total_pages,
-                    "errors": errors if errors else []
+                    "errors": errors if errors else [],
+                    "schedule_reference": document_metadata.get("schedule_reference"),
+                    "project_name": document_metadata.get("project_name"),
+                    "coating_system": document_metadata.get("coating_system"),
+                    "supplier": document_metadata.get("supplier"),
                 }
             }
 

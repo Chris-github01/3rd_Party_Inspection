@@ -393,6 +393,12 @@ Deno.serve(async (req: Request) => {
 
     console.log("Final status:", finalStatus);
 
+    // Extract document metadata from artifact
+    const scheduleReference = artifact.metadata?.schedule_reference || null;
+    const projectNameFromSchedule = artifact.metadata?.project_name || null;
+    const coatingSystemName = artifact.metadata?.coating_system || null;
+    const supplierName = artifact.metadata?.supplier || null;
+
     await supabaseClient
       .from("loading_schedule_imports")
       .update({
@@ -402,6 +408,10 @@ Deno.serve(async (req: Request) => {
         artifact_json_path: artifactPath,
         result_json_path: resultPath,
         page_count: artifact.pages.length,
+        schedule_reference: scheduleReference,
+        project_name_from_schedule: projectNameFromSchedule,
+        coating_system_name: coatingSystemName,
+        supplier_name: supplierName,
       })
       .eq("id", importId);
 
@@ -439,12 +449,21 @@ function extractItemFromRow(
   projectId: string,
   importId: string
 ): any | null {
+  // Try multiple column name variations for section size
+  // ALTEX FORMAT: "ELEMENT NAME" contains section sizes like "360UB45", "16mmPlate"
   const sectionRaw =
-    row["section"] ||
+    row["element_name"] ||           // Altex: ELEMENT NAME
+    row["Element Name"] ||
+    row["ELEMENT NAME"] ||
+    row["element name"] ||
+    row["section"] ||                // Traditional
     row["Section"] ||
     row["section_size"] ||
     row["Section Size"] ||
     row["member_size"] ||
+    row["Member Size"] ||
+    row["size"] ||
+    row["Size"] ||
     "";
 
   if (!sectionRaw) {
@@ -453,6 +472,7 @@ function extractItemFromRow(
 
   const sectionNormalized = normalizeSectionSize(sectionRaw);
 
+  // Member mark - various formats
   const memberMark =
     row["member_mark"] ||
     row["Member Mark"] ||
@@ -462,17 +482,28 @@ function extractItemFromRow(
     row["Member"] ||
     "";
 
+  // FRR - various formats
+  // ALTEX FORMAT: "FRR Minutes" column
   const frrRaw =
-    row["frr"] ||
+    row["frr_minutes"] ||            // Altex: FRR Minutes
+    row["FRR Minutes"] ||
+    row["FRR MINUTES"] ||
+    row["frr minutes"] ||
+    row["frr"] ||                    // Traditional
     row["FRR"] ||
-    row["frr_minutes"] ||
     row["fire_rating"] ||
     row["Fire Rating"] ||
     "";
   const { minutes, format } = extractFRR(frrRaw);
 
+  // DFT - various formats
+  // ALTEX FORMAT: "DFT Microns" column
   const dftRaw =
-    row["dft"] ||
+    row["dft_microns"] ||            // Altex: DFT Microns
+    row["DFT Microns"] ||
+    row["DFT MICRONS"] ||
+    row["dft microns"] ||
+    row["dft"] ||                    // Traditional
     row["DFT"] ||
     row["required_dft"] ||
     row["Required DFT"] ||
@@ -480,6 +511,7 @@ function extractItemFromRow(
     "";
   const dft = parseInt(dftRaw) || null;
 
+  // Coating product
   const coating =
     row["coating"] ||
     row["Coating"] ||
@@ -489,8 +521,13 @@ function extractItemFromRow(
     row["Coating System"] ||
     "";
 
-  const elementType = (
-    row["element_type"] ||
+  // Element type
+  // ALTEX FORMAT: "CONFIGURATION" column (Beam, Column, etc.)
+  const elementTypeRaw = (
+    row["configuration"] ||          // Altex: CONFIGURATION
+    row["Configuration"] ||
+    row["CONFIGURATION"] ||
+    row["element_type"] ||           // Traditional
     row["Element Type"] ||
     row["type"] ||
     row["Type"] ||
@@ -498,13 +535,15 @@ function extractItemFromRow(
   ).toLowerCase();
 
   const validElementType =
-    elementType === "beam" ||
-    elementType === "column" ||
-    elementType === "brace" ||
-    elementType === "other"
-      ? elementType
+    elementTypeRaw === "beam" ||
+    elementTypeRaw === "column" ||
+    elementTypeRaw === "brace" ||
+    elementTypeRaw === "plate" ||
+    elementTypeRaw === "other"
+      ? elementTypeRaw
       : null;
 
+  // Schedule reference
   const scheduleRef =
     row["schedule_ref"] ||
     row["Schedule Ref"] ||
@@ -514,8 +553,14 @@ function extractItemFromRow(
     row["Sheet"] ||
     "";
 
-  const confidence = calculateConfidence(minutes, dft, coating);
-  const needsReview = confidence < 0.75 || !minutes || !dft || !coating;
+  // Calculate completeness
+  const missingFields =
+    (minutes ? 0 : 1) +
+    (dft ? 0 : 1) +
+    (coating ? 0 : 1);
+
+  const confidence = Math.max(0.5, 1.0 - (missingFields * 0.15));
+  const needsReview = missingFields >= 1;
 
   return {
     import_id: importId,
