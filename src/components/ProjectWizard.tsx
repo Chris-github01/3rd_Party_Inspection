@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { WizardStep0 } from './wizard/WizardStep0';
 import { WizardStep1 } from './wizard/WizardStep1';
 import { WizardStep2 } from './wizard/WizardStep2';
 import { WizardStep3 } from './wizard/WizardStep3';
@@ -10,12 +11,22 @@ import { WizardStep5 } from './wizard/WizardStep5';
 import { WizardStep6 } from './wizard/WizardStep6';
 
 export interface WizardData {
+  // Step 0: Organization Selection (NEW - MANDATORY FIRST STEP)
+  organizationId: string;
+  organizationName: string;
+  organizationLogoUrl: string | null;
+
+  // Step 1: Project Details
   projectName: string;
   package: string;
   siteType: string;
   projectImagePath?: string;
+
+  // Step 2: Client Selection
   clientId: string;
   clientName: string;
+
+  // Step 3: Template Setup
   setupMode: 'template' | 'duplicate' | 'hybrid';
   templateId: string;
   templateName: string;
@@ -23,6 +34,8 @@ export interface WizardData {
   sourceProjectName: string;
   clonedElements: string[];
   drawingMode: 'with_drawings' | 'without_drawings';
+
+  // Step 4: Location & Address
   country: string;
   addressLine: string;
   suburb: string;
@@ -42,7 +55,7 @@ const STORAGE_KEY = 'project_wizard_draft';
 export function ProjectWizard({ onClose }: ProjectWizardProps) {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
   const [wizardData, setWizardData] = useState<WizardData>(() => {
     // Use sessionStorage instead of localStorage for security
     // Data is cleared when browser tab closes
@@ -59,11 +72,22 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
 
   function getDefaultData(): WizardData {
     return {
+      // Step 0: Organization
+      organizationId: '',
+      organizationName: '',
+      organizationLogoUrl: null,
+
+      // Step 1: Project Details
       projectName: '',
       package: '',
       siteType: 'Single Site',
+      projectImagePath: undefined,
+
+      // Step 2: Client
       clientId: '',
       clientName: '',
+
+      // Step 3: Template Setup
       setupMode: 'template',
       templateId: '',
       templateName: '',
@@ -71,6 +95,8 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
       sourceProjectName: '',
       clonedElements: [],
       drawingMode: 'with_drawings',
+
+      // Step 4: Location
       country: 'New Zealand',
       addressLine: '',
       suburb: '',
@@ -93,6 +119,8 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
 
   const canProceed = () => {
     switch (currentStep) {
+      case 0:
+        return wizardData.organizationId !== '';
       case 1:
         return wizardData.projectName.trim() !== '';
       case 2:
@@ -126,7 +154,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
+    if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
   };
@@ -144,6 +172,8 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
 
   const renderStep = () => {
     switch (currentStep) {
+      case 0:
+        return <WizardStep0 data={wizardData} updateData={updateData} />;
       case 1:
         return <WizardStep1 data={wizardData} updateData={updateData} />;
       case 2:
@@ -170,7 +200,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
               New Single Site Project
             </h2>
             <p className="text-sm text-slate-400 mt-1">
-              Step {currentStep} of 6
+              Step {currentStep + 1} of 7
             </p>
           </div>
           <button
@@ -183,7 +213,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
 
         <div className="px-6 py-2 border-b border-slate-700">
           <div className="flex items-center gap-2">
-            {[1, 2, 3, 4, 5, 6].map((step) => (
+            {[0, 1, 2, 3, 4, 5, 6].map((step) => (
               <div
                 key={step}
                 className={`flex-1 h-2 rounded-full transition-colors ${
@@ -205,7 +235,7 @@ export function ProjectWizard({ onClose }: ProjectWizardProps) {
         <div className="px-6 py-4 border-t border-slate-700 flex items-center justify-between bg-slate-900">
           <button
             onClick={handleBack}
-            disabled={currentStep === 1}
+            disabled={currentStep === 0}
             className="flex items-center gap-2 px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />

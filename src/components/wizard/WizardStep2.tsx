@@ -90,6 +90,26 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
 
   return (
     <div className="space-y-6">
+      {data.organizationName && (
+        <div className="bg-primary-900/20 border border-primary-600/30 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            {data.organizationLogoUrl ? (
+              <img
+                src={data.organizationLogoUrl}
+                alt={data.organizationName}
+                className="w-12 h-12 object-contain rounded"
+              />
+            ) : (
+              <Building className="w-12 h-12 text-primary-400" />
+            )}
+            <div>
+              <p className="text-xs text-slate-400">Organization</p>
+              <p className="text-sm font-semibold text-white">{data.organizationName}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 className="text-xl font-semibold text-white mb-2">
           Choose a Client

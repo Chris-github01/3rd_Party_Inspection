@@ -32,6 +32,7 @@ export function WizardStep6({ data, onComplete }: WizardStep6Props) {
         .join(', ');
 
       const projectData: any = {
+        organization_id: data.organizationId,
         name: data.projectName,
         package: data.package || null,
         project_image_path: data.projectImagePath || null,
@@ -179,6 +180,11 @@ export function WizardStep6({ data, onComplete }: WizardStep6Props) {
 
       <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <p className="text-sm font-medium text-slate-300">Organization</p>
+            <p className="text-white font-semibold">{data.organizationName}</p>
+          </div>
+
           <div>
             <p className="text-sm font-medium text-slate-300">Created By</p>
             <p className="text-white">{profile?.name || 'Current User'}</p>
