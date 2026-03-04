@@ -56,7 +56,7 @@ export function Layout({ children }: LayoutProps) {
       label: 'Settings',
       icon: Settings,
       children: [
-        { label: 'Organization', icon: Building2, path: '/settings/organization' },
+        { label: 'Organizations', icon: Building2, path: '/settings/organizations' },
         { label: 'Members', icon: Layers, path: '/settings/members' },
         { label: 'Materials', icon: Package, path: '/settings/materials' },
         { label: 'Reports', icon: FileText, path: '/settings/reports' },

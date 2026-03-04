@@ -17,6 +17,7 @@ import { FormTemplateDetail } from './pages/settings/FormTemplateDetail';
 import { ProjectTemplates } from './pages/settings/ProjectTemplates';
 import { ProjectTemplateDetail } from './pages/settings/ProjectTemplateDetail';
 import { Organization } from './pages/settings/Organization';
+import { Organizations } from './pages/settings/Organizations';
 import { SiteMode } from './pages/SiteMode';
 import { InspectionPackages } from './pages/site/InspectionPackages';
 import { DrawingsView } from './pages/site/DrawingsView';
@@ -182,6 +183,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Organization />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/settings/organizations"
+            element={
+              <PrivateRoute>
+                <Organizations />
               </PrivateRoute>
             }
           />

@@ -1,6 +1,12 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
-import { X } from 'lucide-react';
+import { X, Building2 } from 'lucide-react';
+
+interface Organization {
+  id: string;
+  name: string;
+  logo_url: string | null;
+}
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -9,6 +15,8 @@ interface CreateProjectModalProps {
 }
 
 export function CreateProjectModal({ isOpen, onClose, onSuccess }: CreateProjectModalProps) {
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     client_name: '',
@@ -17,9 +25,38 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: CreateProject
     project_ref: '',
     start_date: new Date().toISOString().split('T')[0],
     notes: '',
+    organization_id: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      loadOrganizations();
+    }
+  }, [isOpen]);
+
+  const loadOrganizations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name, logo_url')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setOrganizations(data || []);
+
+      // Set first organization as default if available
+      if (data && data.length > 0 && !formData.organization_id) {
+        setFormData(prev => ({ ...prev, organization_id: data[0].id }));
+      }
+    } catch (error) {
+      console.error('Error loading organizations:', error);
+    } finally {
+      setLoadingOrgs(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -46,6 +83,7 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: CreateProject
         project_ref: '',
         start_date: new Date().toISOString().split('T')[0],
         notes: '',
+        organization_id: organizations.length > 0 ? organizations[0].id : '',
       });
     } catch (err: any) {
       console.error('Error creating project:', err);
@@ -91,6 +129,37 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: CreateProject
                     className="w-full px-3 py-3 min-h-[48px] text-base border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Commercial Tower Project"
                   />
+                </div>
+
+                <div className="col-span-1 sm:col-span-2">
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Organization *
+                  </label>
+                  {loadingOrgs ? (
+                    <div className="w-full px-3 py-3 min-h-[48px] border border-slate-600 bg-slate-700 text-slate-400 rounded-lg flex items-center">
+                      Loading organizations...
+                    </div>
+                  ) : organizations.length === 0 ? (
+                    <div className="w-full px-3 py-3 min-h-[48px] border border-red-500/50 bg-red-500/10 text-red-300 rounded-lg flex items-center gap-2">
+                      <span>No active organizations found. Please create an organization first.</span>
+                    </div>
+                  ) : (
+                    <select
+                      required
+                      value={formData.organization_id}
+                      onChange={(e) => setFormData({ ...formData, organization_id: e.target.value })}
+                      className="w-full px-3 py-3 min-h-[48px] text-base border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    >
+                      {organizations.map((org) => (
+                        <option key={org.id} value={org.id}>
+                          {org.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="mt-1 text-xs text-slate-300">
+                    The selected organization's branding will appear on all reports for this project
+                  </p>
                 </div>
 
                 <div className="col-span-1">
@@ -183,8 +252,8 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }: CreateProject
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="px-4 py-3 min-h-[48px] bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 order-1 sm:order-2"
+                  disabled={saving || organizations.length === 0}
+                  className="px-4 py-3 min-h-[48px] bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
                 >
                   {saving ? 'Creating...' : 'Create Project'}
                 </button>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Building2, Save } from 'lucide-react';
+import { Building2, Save, AlertCircle, ExternalLink } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ImageUpload } from '../../components/ImageUpload';
+import { useNavigate } from 'react-router-dom';
 
 interface CompanySettings {
   id: string;
@@ -14,6 +15,7 @@ interface CompanySettings {
 }
 
 export function Organization() {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -107,6 +109,28 @@ export function Organization() {
             <p className="text-blue-100">
               Manage your organization details and branding
             </p>
+          </div>
+
+          {/* Multi-Organization Notice */}
+          <div className="mb-6 bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-white font-medium mb-1">Multi-Organization Support Now Available</h3>
+                <p className="text-blue-200 text-sm mb-3">
+                  You can now manage multiple organizations and assign projects to specific organizations.
+                  Each project will use its assigned organization's branding in reports.
+                </p>
+                <button
+                  onClick={() => navigate('/settings/organizations')}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <Building2 className="w-4 h-4" />
+                  Manage Organizations
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 space-y-6">
