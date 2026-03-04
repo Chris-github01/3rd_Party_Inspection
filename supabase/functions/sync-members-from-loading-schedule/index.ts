@@ -159,9 +159,24 @@ Deno.serve(async (req: Request) => {
           }
         } else {
           // Create new member
+          // Generate a meaningful member mark if not provided
+          let generatedMemberMark = item.member_mark;
+          if (!generatedMemberMark) {
+            // Try to create from FRR + section size
+            if (finalFRR && item.section_size_normalized) {
+              generatedMemberMark = `R${finalFRR}-${item.section_size_normalized}`;
+            } else if (item.section_size_normalized) {
+              generatedMemberMark = item.section_size_normalized;
+            } else if (item.loading_schedule_ref) {
+              generatedMemberMark = item.loading_schedule_ref;
+            } else {
+              generatedMemberMark = `ITEM-${stats.itemsProcessed}`;
+            }
+          }
+
           const newMember = {
             project_id: projectId,
-            member_mark: item.member_mark || `ITEM-${stats.itemsProcessed}`,
+            member_mark: generatedMemberMark,
             element_type: item.element_type || "other",
             section: item.section_size_normalized || "UNKNOWN",
             section_size: item.section_size_normalized || "UNKNOWN",
