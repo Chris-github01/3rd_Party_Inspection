@@ -100,6 +100,11 @@ export function DrawingViewer({
     try {
       setImageLoading(true);
 
+      console.log('[DrawingViewer] Loading content:', {
+        preview_image_path: drawing.preview_image_path,
+        document_id: drawing.document_id,
+      });
+
       const isPdfFile = drawing.preview_image_path.toLowerCase().endsWith('.pdf');
       setIsPdf(isPdfFile);
 
@@ -107,11 +112,19 @@ export function DrawingViewer({
       if (drawing.preview_image_path.startsWith('http')) {
         url = drawing.preview_image_path;
       } else {
+        let storagePath = drawing.preview_image_path;
+        if (storagePath.startsWith('documents/')) {
+          storagePath = storagePath.substring('documents/'.length);
+        }
+
         const { data } = supabase.storage
           .from('documents')
-          .getPublicUrl(drawing.preview_image_path);
+          .getPublicUrl(storagePath);
         url = data.publicUrl;
       }
+
+      console.log('[DrawingViewer] Generated URL:', url);
+      console.log('[DrawingViewer] Is PDF:', isPdfFile);
       setImageUrl(url);
 
       if (isPdfFile) {
@@ -126,21 +139,30 @@ export function DrawingViewer({
 
   const loadPdf = async (url: string) => {
     try {
+      console.log('[DrawingViewer] Loading PDF from URL:', url);
       const loadingTask = pdfjsLib.getDocument(url);
       const pdf = await loadingTask.promise;
       pdfDocRef.current = pdf;
       setPageCount(pdf.numPages);
       setCurrentPage(drawing.page_number || 1);
+      console.log('[DrawingViewer] PDF loaded successfully, pages:', pdf.numPages);
       await renderPdfPage(drawing.page_number || 1);
     } catch (error) {
-      console.error('Error loading PDF:', error);
+      console.error('[DrawingViewer] Error loading PDF:', error);
     }
   };
 
   const renderPdfPage = async (pageNum: number) => {
-    if (!pdfDocRef.current || !canvasRef.current) return;
+    if (!pdfDocRef.current || !canvasRef.current) {
+      console.log('[DrawingViewer] Cannot render PDF page:', {
+        hasPdfDoc: !!pdfDocRef.current,
+        hasCanvas: !!canvasRef.current,
+      });
+      return;
+    }
 
     try {
+      console.log('[DrawingViewer] Rendering page:', pageNum);
       const page = await pdfDocRef.current.getPage(pageNum);
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
@@ -162,8 +184,9 @@ export function DrawingViewer({
       };
 
       await page.render(renderContext).promise;
+      console.log('[DrawingViewer] Page rendered successfully');
     } catch (error) {
-      console.error('Error rendering PDF page:', error);
+      console.error('[DrawingViewer] Error rendering PDF page:', error);
     }
   };
 
