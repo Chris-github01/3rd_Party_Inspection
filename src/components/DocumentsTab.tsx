@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Upload, File, Trash2, Eye, Grid, ChevronRight, ChevronDown, FileUp, RefreshCw } from 'lucide-react';
+import { Upload, File, Trash2, Eye, Grid2x2 as Grid, ChevronRight, ChevronDown, FileUp, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { CreateBlockLevelModal } from './CreateBlockLevelModal';
 import { ConfirmDialog } from './ConfirmDialog';
