@@ -562,8 +562,8 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
     Jotun schedules have:
     - Header with project info, zone, revision
     - "Protection: 30 Minutes" or "Protection: 60 Minutes" section headers
-    - Table columns: Steel Type, Designation, DFT (mm), Quantity, Area
-    - Designation format: "200x200x9", "250UB25", "310UB32", etc.
+    - Table columns: Steel Type, Designation, DFT (mm), WFT (mm), etc.
+    - Designation format: "200x200x9", "250UB25", "310UB32", "AU UB 250UB25", etc.
     - DFT in mm (convert to microns)
     """
     items = []
@@ -613,9 +613,11 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                     for table in tables:
                         # Find header row to determine column indices
                         header_row = None
+                        header_row_idx = None
                         for idx, row in enumerate(table):
-                            if row and any(cell and ("Steel Type" in str(cell) or "Designation" in str(cell)) for cell in row):
+                            if row and any(cell and ("Steel Type" in str(cell) or "Designation" in str(cell) or "DFT" in str(cell)) for cell in row):
                                 header_row = row
+                                header_row_idx = idx
                                 break
 
                         if not header_row:
@@ -629,26 +631,39 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                             cell_str = str(cell).strip()
                             cell_lower = cell_str.lower()
 
-                            if "steel type" in cell_lower:
+                            if "steel type" in cell_lower or "steel_type" in cell_lower:
                                 col_map["steel_type"] = idx
                             elif "designation" in cell_lower:
                                 col_map["designation"] = idx
-                            elif "dft" in cell_lower:
+                            elif "dft" in cell_lower and "mm" in cell_lower:
                                 col_map["dft"] = idx
-                            elif "quantity" in cell_lower:
-                                col_map["quantity"] = idx
-                            elif "area" in cell_lower:
-                                col_map["area"] = idx
+                            elif "wft" in cell_lower:
+                                col_map["wft"] = idx
+                            elif "use" in cell_lower:
+                                col_map["use"] = idx
 
-                        # Parse data rows
-                        for row in table:
-                            if not row or row == header_row:
+                        # Parse data rows (skip header and "Total" rows)
+                        for row_idx, row in enumerate(table):
+                            if not row or row == header_row or row_idx <= header_row_idx:
                                 continue
 
-                            # Extract designation (section size)
+                            # Skip "Total" rows
+                            if row and row[0] and "Total" in str(row[0]):
+                                continue
+
+                            # Extract designation (section size) - could be in Steel Type or Designation column
                             designation = None
+
+                            # Try "Designation" column first
                             if "designation" in col_map and len(row) > col_map["designation"]:
                                 designation = str(row[col_map["designation"]]).strip() if row[col_map["designation"]] else None
+
+                            # If empty, try "Steel Type" column
+                            if (not designation or designation == "") and "steel_type" in col_map and len(row) > col_map["steel_type"]:
+                                steel_type_val = str(row[col_map["steel_type"]]).strip() if row[col_map["steel_type"]] else None
+                                # Check if steel_type contains the actual member designation
+                                if steel_type_val and re.search(r"\d+(?:x\d+)?(?:UB|UC|SHS|RHS|PFC)", steel_type_val, re.I):
+                                    designation = steel_type_val
 
                             if not designation or designation == "":
                                 continue
@@ -657,28 +672,28 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                             if "Designation" in designation or "Steel Type" in designation:
                                 continue
 
+                            # Clean up designation (remove "AU", extra spaces)
+                            designation = re.sub(r"^(AU\s+|A\s+)", "", designation).strip()
+
                             # Normalize designation to standard format
                             designation_normalized = normalize_section(designation)
 
-                            # Check if it's a valid steel member (contains numbers and possibly UB/UC/SHS/RHS)
+                            # Check if it's a valid steel member
                             if not re.search(r"\d", designation_normalized):
                                 continue
 
-                            # Extract steel type (element type)
+                            # Extract element type from "Use" column or steel type
                             element_type = None
-                            if "steel_type" in col_map and len(row) > col_map["steel_type"]:
-                                steel_type_str = str(row[col_map["steel_type"]]).strip() if row[col_map["steel_type"]] else None
-                                if steel_type_str:
-                                    steel_type_lower = steel_type_str.lower()
-                                    if "ub" in steel_type_lower or "beam" in steel_type_lower or "au ub" in steel_type_lower:
+                            if "use" in col_map and len(row) > col_map["use"]:
+                                use_str = str(row[col_map["use"]]).strip() if row[col_map["use"]] else None
+                                if use_str:
+                                    use_lower = use_str.lower()
+                                    if "beam" in use_lower:
                                         element_type = "beam"
-                                    elif "uc" in steel_type_lower or "column" in steel_type_lower or "au uc" in steel_type_lower:
+                                    elif "column" in use_lower:
                                         element_type = "column"
-                                    elif "shs" in steel_type_lower or "rhs" in steel_type_lower:
-                                        # Could be beam, column, or brace - default to beam
-                                        element_type = "beam"
-                                    elif "plate" in steel_type_lower:
-                                        element_type = "other"
+                                    elif "brace" in use_lower:
+                                        element_type = "brace"
 
                             # Extract DFT in mm, convert to microns
                             dft_microns = None
