@@ -1,6 +1,12 @@
 import pdfplumber
 import re
+import os
+import base64
+import io
 from typing import List, Dict, Optional, Any
+from openai import OpenAI
+from pdf2image import convert_from_path
+from PIL import Image
 
 # Section sizes: Universal beams/columns, SHS, RHS, plates, etc.
 SECTION_REGEX = re.compile(r"\b(\d+\s*[xX]?\s*\d*\s*(?:UB|UC|WB|SHS|RHS|CHS|FB|WC|CWB|PFC|EA|UA|SB|WF|mm\s*Plate)\s*\d*)\b", re.I)
@@ -696,15 +702,150 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
             "metadata": {"errors": [str(e)], "document_format": "jotun"}
         }
 
+def parse_with_openai(pdf_path: str) -> Dict[str, Any]:
+    """
+    Parse loading schedule using OpenAI GPT-4 Vision to intelligently extract data
+    """
+    try:
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if not openai_key:
+            return {
+                "status": "failed",
+                "error_code": "NO_OPENAI_KEY",
+                "error_message": "OPENAI_API_KEY not configured",
+                "items_extracted": 0,
+                "items": [],
+                "metadata": {"errors": ["OPENAI_API_KEY environment variable not set"]}
+            }
+
+        client = OpenAI(api_key=openai_key)
+
+        # Convert PDF pages to images
+        images = convert_from_path(pdf_path, dpi=150)
+
+        all_items = []
+        total_pages = len(images)
+
+        for page_num, img in enumerate(images, start=1):
+            # Convert image to base64
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG")
+            img_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+            # Call GPT-4 Vision
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": """Extract ALL steel members from this loading schedule page. For each member, extract:
+- member_mark: Member identifier (e.g., B1, C2, M10)
+- section_size: Steel section designation (e.g., 310UB32, 200x200x9 SHS, 16mmPlate)
+- element_type: One of: beam, column, brace, plate, other
+- frr_minutes: Fire resistance rating in minutes (30, 60, 90, 120, 180, 240)
+- dft_microns: Dry film thickness in microns (convert from mm if needed: 1mm = 1000 microns)
+- coating_product: Coating system name
+
+Return JSON array with this exact structure:
+[{"member_mark": "B1", "section_size": "310UB32", "element_type": "beam", "frr_minutes": 60, "dft_microns": 450, "coating_product": "SteelMaster"}]
+
+If FRR is in the header/title, apply it to all rows. If a value is missing, use null. Extract EVERY row with steel section data."""
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{img_base64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=4000
+            )
+
+            # Parse response
+            content = response.choices[0].message.content
+
+            # Extract JSON from response (handle markdown code blocks)
+            import json
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
+
+            page_items = json.loads(content.strip())
+
+            # Add page number and normalize
+            for item in page_items:
+                all_items.append({
+                    "page": page_num,
+                    "line": 0,
+                    "raw_text": "",
+                    "member_mark": item.get("member_mark"),
+                    "section_size_raw": item.get("section_size"),
+                    "section_size_normalized": normalize_section(item.get("section_size", "")),
+                    "frr_minutes": item.get("frr_minutes"),
+                    "frr_format": f"{item.get('frr_minutes')}/-/-" if item.get("frr_minutes") else None,
+                    "dft_required_microns": item.get("dft_microns"),
+                    "coating_product": item.get("coating_product"),
+                    "element_type": item.get("element_type", "").lower() if item.get("element_type") else None,
+                    "confidence": 0.95,
+                    "needs_review": False,
+                    "comments": None,
+                })
+
+        if len(all_items) == 0:
+            return {
+                "status": "failed",
+                "error_code": "NO_ITEMS_EXTRACTED",
+                "error_message": "GPT-4 could not extract any items",
+                "items_extracted": 0,
+                "items": [],
+                "metadata": {"total_pages": total_pages, "errors": [], "parser": "openai_gpt4"}
+            }
+
+        return {
+            "status": "completed",
+            "items_extracted": len(all_items),
+            "items": all_items,
+            "metadata": {
+                "total_pages": total_pages,
+                "errors": [],
+                "parser": "openai_gpt4",
+                "supplier": "AI Extracted",
+                "coating_system": all_items[0].get("coating_product") if all_items else None,
+            }
+        }
+
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error_code": "OPENAI_PARSE_ERROR",
+            "error_message": str(e),
+            "items_extracted": 0,
+            "items": [],
+            "metadata": {"errors": [str(e)], "parser": "openai_gpt4"}
+        }
+
 def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
     """
-    Parse a loading schedule PDF using format detection and appropriate parser
+    Parse a loading schedule PDF using OpenAI first, with fallback to format-specific parsers
 
     Returns:
         Dict with status, items_extracted, items, and metadata
     """
     try:
-        # First, detect document format by reading full text
+        # Try OpenAI first if key is available
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if openai_key:
+            result = parse_with_openai(pdf_path)
+            if result["status"] == "completed" and result["items_extracted"] > 0:
+                return result
+
+        # Fallback to regex-based parsers
         with pdfplumber.open(pdf_path) as pdf:
             full_text = ""
             for page in pdf.pages:
