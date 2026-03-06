@@ -592,14 +592,19 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                         if any(x in line.lower() for x in ["steel type", "designation", "page ", "standard:", "steelmaster enquiry", "subset:"]):
                             continue
 
-                        # Look for steel designations: 200x200x9, 250UB25, 310UB32, etc.
+                        # Look for steel designations - more flexible patterns for Jotun format
                         steel_patterns = [
-                            r"((?:SHS|RHS|CHS)\s+\d+x\d+(?:x[\d.]+)?)",
-                            r"((?:AU\s+)?(?:UB|UC|PFC|WB)\s+\d+(?:\s*UB|UC|PFC|WB)?\s*[\d.]+)",
-                            r"(\d+\s*(?:UB|UC|WB|PFC)\s*\d+)",
-                            r"(\d+x\d+x[\d.]+)",
-                            r"(Plate\s+Girder\s+[\dx]+)",
+                            # SHS/RHS/CHS: "SHS 200x200x9.0", "200x200x9 SHS", "200x200x9"
+                            r"(?:SHS|RHS|CHS)?\s*(\d+x\d+x[\d.]+)(?:\s*(?:SHS|RHS|CHS))?",
+                            # UB/UC/WB/PFC: "310UB32.0", "AU 310UB32", "310 UB 32"
+                            r"(?:AU\s+)?(\d+\s*(?:UB|UC|WB|PFC)\s*[\d.]+)",
+                            # Reverse format: "UB 310 32"
+                            r"((?:UB|UC|WB|PFC)\s+\d+\s*[\d.]+)",
+                            # Plate Girder: "Plate Girder 900x16", "900x16"
+                            r"(?:Plate\s+Girder\s+)?(\d+x\d+)",
+                            # EQ sections: "EQ 150x150x10"
                             r"(EQ\s+\d+x\d+x\d+)",
+                            # Flat Plate: "Flat Plate 200x16"
                             r"(Flat\s+Plate\s+\d+x\d+)"
                         ]
 
@@ -613,6 +618,7 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                         if not designation:
                             continue
 
+                        # Clean up designation
                         designation = re.sub(r"^(AU\s+|A\s+)", "", designation).strip()
                         designation_normalized = normalize_section(designation)
 
