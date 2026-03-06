@@ -558,13 +558,6 @@ def parse_akzonobel_schedule(pdf_path: str) -> Dict[str, Any]:
 def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
     """
     Parse a Jotun SteelMaster loading schedule PDF.
-
-    Jotun schedules have:
-    - Header with project info, zone, revision
-    - "Protection: 30 Minutes" or "Protection: 60 Minutes" section headers
-    - Table columns: Steel Type, Designation, DFT (mm), WFT (mm), etc.
-    - Designation format: "200x200x9", "250UB25", "310UB32", "AU UB 250UB25", etc.
-    - DFT in mm (convert to microns)
     """
     items = []
     errors = []
@@ -573,8 +566,6 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
     try:
         with pdfplumber.open(pdf_path) as pdf:
             total_pages = len(pdf.pages)
-
-            # Extract full document text for metadata
             full_text = ""
             for page in pdf.pages:
                 try:
@@ -584,16 +575,11 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                 except:
                     pass
 
-            # Extract document metadata
             document_metadata = extract_document_metadata(full_text, "jotun")
 
-            # Parse each page
             for page_number, page in enumerate(pdf.pages, start=1):
                 try:
-                    # Extract text to find protection level headers
                     page_text = page.extract_text() or ""
-
-                    # Look for protection level in page text
                     current_frr = None
                     protection_match = re.search(r"Protection:\s*(\d+)\s*Minutes", page_text, re.I)
                     if protection_match:
@@ -604,102 +590,74 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                                 "frr_format": f"{frr_value}/-/-"
                             }
 
-                    # Extract tables
                     tables = page.extract_tables()
-
                     if not tables:
                         continue
 
                     for table in tables:
-                        # Find header row to determine column indices
-                        header_row = None
                         header_row_idx = None
+                        col_map = {}
+
                         for idx, row in enumerate(table):
-                            if row and any(cell and ("Steel Type" in str(cell) or "Designation" in str(cell) or "DFT" in str(cell)) for cell in row):
-                                header_row = row
+                            if not row:
+                                continue
+                            row_text = " ".join(str(cell or "") for cell in row).lower()
+                            if "steel type" in row_text or ("designation" in row_text and "dft" in row_text):
                                 header_row_idx = idx
+                                for col_idx, cell in enumerate(row):
+                                    if not cell:
+                                        continue
+                                    cell_lower = str(cell).lower().strip()
+                                    if "steel" in cell_lower and "type" in cell_lower:
+                                        col_map["steel_type"] = col_idx
+                                    elif "designation" in cell_lower:
+                                        col_map["designation"] = col_idx
+                                    elif "dft" in cell_lower:
+                                        col_map["dft"] = col_idx
+                                    elif "use" in cell_lower:
+                                        col_map["use"] = col_idx
                                 break
 
-                        if not header_row:
+                        if header_row_idx is None:
                             continue
 
-                        # Map column names to indices
-                        col_map = {}
-                        for idx, cell in enumerate(header_row):
-                            if not cell:
-                                continue
-                            cell_str = str(cell).strip()
-                            cell_lower = cell_str.lower()
-
-                            if "steel type" in cell_lower or "steel_type" in cell_lower:
-                                col_map["steel_type"] = idx
-                            elif "designation" in cell_lower:
-                                col_map["designation"] = idx
-                            elif "dft" in cell_lower and "mm" in cell_lower:
-                                col_map["dft"] = idx
-                            elif "wft" in cell_lower:
-                                col_map["wft"] = idx
-                            elif "use" in cell_lower:
-                                col_map["use"] = idx
-
-                        # Parse data rows (skip header and "Total" rows)
                         for row_idx, row in enumerate(table):
-                            if not row or row == header_row or row_idx <= header_row_idx:
+                            if row_idx <= header_row_idx or not row:
                                 continue
 
-                            # Skip "Total" rows
-                            if row and row[0] and "Total" in str(row[0]):
+                            row_text = " ".join(str(cell or "") for cell in row)
+                            if "Total" in row_text or not row_text.strip():
                                 continue
 
-                            # Extract designation (section size) - could be in Steel Type or Designation column
                             designation = None
-
-                            # Try "Designation" column first
                             if "designation" in col_map and len(row) > col_map["designation"]:
-                                designation = str(row[col_map["designation"]]).strip() if row[col_map["designation"]] else None
+                                designation = str(row[col_map["designation"]]) if row[col_map["designation"]] else None
 
-                            # If empty, try "Steel Type" column
-                            if (not designation or designation == "") and "steel_type" in col_map and len(row) > col_map["steel_type"]:
-                                steel_type_val = str(row[col_map["steel_type"]]).strip() if row[col_map["steel_type"]] else None
-                                # Check if steel_type contains the actual member designation
-                                if steel_type_val and re.search(r"\d+(?:x\d+)?(?:UB|UC|SHS|RHS|PFC)", steel_type_val, re.I):
-                                    designation = steel_type_val
+                            if not designation and "steel_type" in col_map and len(row) > col_map["steel_type"]:
+                                designation = str(row[col_map["steel_type"]]) if row[col_map["steel_type"]] else None
 
-                            if not designation or designation == "":
+                            if not designation or not designation.strip():
                                 continue
 
-                            # Skip header-like rows
-                            if "Designation" in designation or "Steel Type" in designation:
-                                continue
-
-                            # Clean up designation (remove "AU", extra spaces)
                             designation = re.sub(r"^(AU\s+|A\s+)", "", designation).strip()
+                            if not re.search(r"\d", designation):
+                                continue
 
-                            # Normalize designation to standard format
                             designation_normalized = normalize_section(designation)
 
-                            # Check if it's a valid steel member
-                            if not re.search(r"\d", designation_normalized):
-                                continue
-
-                            # Extract element type from "Use" column or steel type
                             element_type = None
                             if "use" in col_map and len(row) > col_map["use"]:
-                                use_str = str(row[col_map["use"]]).strip() if row[col_map["use"]] else None
+                                use_str = str(row[col_map["use"]]) if row[col_map["use"]] else None
                                 if use_str:
                                     use_lower = use_str.lower()
                                     if "beam" in use_lower:
                                         element_type = "beam"
-                                    elif "column" in use_lower:
+                                    elif "column" in use_lower or "alm" in use_lower:
                                         element_type = "column"
-                                    elif "brace" in use_lower:
-                                        element_type = "brace"
 
-                            # Extract DFT in mm, convert to microns
                             dft_microns = None
                             if "dft" in col_map and len(row) > col_map["dft"]:
-                                dft_str = str(row[col_map["dft"]]).strip() if row[col_map["dft"]] else ""
-                                # Remove non-numeric characters except decimal point
+                                dft_str = str(row[col_map["dft"]]) if row[col_map["dft"]] else ""
                                 dft_str = re.sub(r"[^\d.]", "", dft_str)
                                 if dft_str:
                                     try:
@@ -708,62 +666,42 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                                     except:
                                         pass
 
-                            # Build row text for reference
-                            row_text = " | ".join(str(cell or "") for cell in row)
-
-                            # Calculate confidence
                             missing_fields = 0
                             if not current_frr: missing_fields += 1
                             if not dft_microns: missing_fields += 1
-                            if not element_type: missing_fields += 0.5
 
-                            confidence = max(0.6, 1.0 - (missing_fields * 0.15))
+                            confidence = max(0.7, 1.0 - (missing_fields * 0.15))
                             needs_review = missing_fields >= 1
 
                             item = {
                                 "page": page_number,
-                                "line": 0,  # Not available for table extraction
+                                "line": row_idx,
                                 "raw_text": row_text.strip(),
-                                "member_mark": None,  # Jotun doesn't use member marks
+                                "member_mark": None,
                                 "section_size_raw": designation,
                                 "section_size_normalized": designation_normalized,
                                 "frr_minutes": current_frr["frr_minutes"] if current_frr else None,
                                 "frr_format": current_frr["frr_format"] if current_frr else None,
                                 "dft_required_microns": dft_microns,
-                                "coating_product": "Jotun SteelMaster",  # Default coating for Jotun schedules
+                                "coating_product": "SteelMaster",
                                 "element_type": element_type,
                                 "confidence": confidence,
                                 "needs_review": needs_review,
                                 "comments": None,
                             }
-
                             items.append(item)
 
                 except Exception as page_error:
                     errors.append(f"Page {page_number}: {str(page_error)}")
 
             if len(items) == 0:
-                error_msg = "No structural members detected in Jotun schedule.\n\n"
-                error_msg += "Expected format:\n"
-                error_msg += "• Protection: XX Minutes header\n"
-                error_msg += "• Table with columns: Steel Type, Designation, DFT (mm)\n"
-                error_msg += "• Designation values like '200x200x9', '250UB25', '310UB32'\n\n"
-                error_msg += "Possible issues:\n"
-                error_msg += "1. PDF is scanned (text not selectable)\n"
-                error_msg += "2. Table structure not recognized\n"
-                error_msg += "3. Column headers don't match expected format\n"
-
                 return {
                     "status": "failed",
                     "error_code": "NO_STRUCTURAL_ROWS_DETECTED",
-                    "error_message": error_msg,
+                    "error_message": "No structural members detected",
                     "items_extracted": 0,
                     "items": [],
-                    "metadata": {
-                        "total_pages": total_pages,
-                        "errors": errors,
-                        "document_format": "jotun"
-                    }
+                    "metadata": {"total_pages": total_pages, "errors": errors, "document_format": "jotun"}
                 }
 
             return {
@@ -788,10 +726,7 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
             "error_message": str(e),
             "items_extracted": 0,
             "items": [],
-            "metadata": {
-                "errors": [str(e)],
-                "document_format": "jotun"
-            }
+            "metadata": {"errors": [str(e)], "document_format": "jotun"}
         }
 
 def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
