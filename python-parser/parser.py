@@ -556,12 +556,9 @@ def parse_akzonobel_schedule(pdf_path: str) -> Dict[str, Any]:
         }
 
 def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
-    """
-    Parse a Jotun SteelMaster loading schedule PDF.
-    """
+    """Parse Jotun SteelMaster loading schedule - uses text extraction instead of tables"""
     items = []
     errors = []
-    document_metadata = {}
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -569,9 +566,7 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
             full_text = ""
             for page in pdf.pages:
                 try:
-                    page_text = page.extract_text()
-                    if page_text:
-                        full_text += page_text + "\n"
+                    full_text += (page.extract_text() or "") + "\n"
                 except:
                     pass
 
@@ -585,111 +580,77 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                     if protection_match:
                         frr_value = int(protection_match.group(1))
                         if frr_value in [30, 60, 90, 120, 180, 240]:
-                            current_frr = {
-                                "frr_minutes": frr_value,
-                                "frr_format": f"{frr_value}/-/-"
-                            }
+                            current_frr = frr_value
 
-                    tables = page.extract_tables()
-                    if not tables:
-                        continue
-
-                    for table in tables:
-                        header_row_idx = None
-                        col_map = {}
-
-                        for idx, row in enumerate(table):
-                            if not row:
-                                continue
-                            row_text = " ".join(str(cell or "") for cell in row).lower()
-                            if "steel type" in row_text or ("designation" in row_text and "dft" in row_text):
-                                header_row_idx = idx
-                                for col_idx, cell in enumerate(row):
-                                    if not cell:
-                                        continue
-                                    cell_lower = str(cell).lower().strip()
-                                    if "steel" in cell_lower and "type" in cell_lower:
-                                        col_map["steel_type"] = col_idx
-                                    elif "designation" in cell_lower:
-                                        col_map["designation"] = col_idx
-                                    elif "dft" in cell_lower:
-                                        col_map["dft"] = col_idx
-                                    elif "use" in cell_lower:
-                                        col_map["use"] = col_idx
-                                break
-
-                        if header_row_idx is None:
+                    lines = page_text.split('\n')
+                    for line_num, line in enumerate(lines):
+                        line = line.strip()
+                        if not line or len(line) < 10:
+                            continue
+                        if "Total" in line and re.search(r"^\s*Total\s+[\d.]+", line):
+                            continue
+                        if any(x in line.lower() for x in ["steel type", "designation", "page ", "standard:", "steelmaster enquiry", "subset:"]):
                             continue
 
-                        for row_idx, row in enumerate(table):
-                            if row_idx <= header_row_idx or not row:
-                                continue
+                        # Look for steel designations: 200x200x9, 250UB25, 310UB32, etc.
+                        steel_patterns = [
+                            r"((?:SHS|RHS|CHS)\s+\d+x\d+(?:x[\d.]+)?)",
+                            r"((?:AU\s+)?(?:UB|UC|PFC|WB)\s+\d+(?:\s*UB|UC|PFC|WB)?\s*[\d.]+)",
+                            r"(\d+\s*(?:UB|UC|WB|PFC)\s*\d+)",
+                            r"(\d+x\d+x[\d.]+)",
+                            r"(Plate\s+Girder\s+[\dx]+)",
+                            r"(EQ\s+\d+x\d+x\d+)",
+                            r"(Flat\s+Plate\s+\d+x\d+)"
+                        ]
 
-                            row_text = " ".join(str(cell or "") for cell in row)
-                            if "Total" in row_text or not row_text.strip():
-                                continue
+                        designation = None
+                        for pattern in steel_patterns:
+                            match = re.search(pattern, line, re.I)
+                            if match:
+                                designation = match.group(1).strip()
+                                break
 
-                            designation = None
-                            if "designation" in col_map and len(row) > col_map["designation"]:
-                                designation = str(row[col_map["designation"]]) if row[col_map["designation"]] else None
+                        if not designation:
+                            continue
 
-                            if not designation and "steel_type" in col_map and len(row) > col_map["steel_type"]:
-                                designation = str(row[col_map["steel_type"]]) if row[col_map["steel_type"]] else None
+                        designation = re.sub(r"^(AU\s+|A\s+)", "", designation).strip()
+                        designation_normalized = normalize_section(designation)
 
-                            if not designation or not designation.strip():
-                                continue
+                        # Extract DFT - look for decimal numbers in mm (0.441, 0.422, etc.)
+                        dft_microns = None
+                        dft_matches = re.findall(r"0\.(\d{3})", line)
+                        if dft_matches:
+                            try:
+                                dft_mm = float("0." + dft_matches[-1])
+                                dft_microns = round(dft_mm * 1000)
+                            except:
+                                pass
 
-                            designation = re.sub(r"^(AU\s+|A\s+)", "", designation).strip()
-                            if not re.search(r"\d", designation):
-                                continue
+                        # Extract element type
+                        element_type = None
+                        line_lower = line.lower()
+                        if "beam" in line_lower:
+                            element_type = "beam"
+                        elif "column" in line_lower or "alm" in line_lower:
+                            element_type = "column"
 
-                            designation_normalized = normalize_section(designation)
-
-                            element_type = None
-                            if "use" in col_map and len(row) > col_map["use"]:
-                                use_str = str(row[col_map["use"]]) if row[col_map["use"]] else None
-                                if use_str:
-                                    use_lower = use_str.lower()
-                                    if "beam" in use_lower:
-                                        element_type = "beam"
-                                    elif "column" in use_lower or "alm" in use_lower:
-                                        element_type = "column"
-
-                            dft_microns = None
-                            if "dft" in col_map and len(row) > col_map["dft"]:
-                                dft_str = str(row[col_map["dft"]]) if row[col_map["dft"]] else ""
-                                dft_str = re.sub(r"[^\d.]", "", dft_str)
-                                if dft_str:
-                                    try:
-                                        dft_mm = float(dft_str)
-                                        dft_microns = round(dft_mm * 1000)
-                                    except:
-                                        pass
-
-                            missing_fields = 0
-                            if not current_frr: missing_fields += 1
-                            if not dft_microns: missing_fields += 1
-
-                            confidence = max(0.7, 1.0 - (missing_fields * 0.15))
-                            needs_review = missing_fields >= 1
-
-                            item = {
-                                "page": page_number,
-                                "line": row_idx,
-                                "raw_text": row_text.strip(),
-                                "member_mark": None,
-                                "section_size_raw": designation,
-                                "section_size_normalized": designation_normalized,
-                                "frr_minutes": current_frr["frr_minutes"] if current_frr else None,
-                                "frr_format": current_frr["frr_format"] if current_frr else None,
-                                "dft_required_microns": dft_microns,
-                                "coating_product": "SteelMaster",
-                                "element_type": element_type,
-                                "confidence": confidence,
-                                "needs_review": needs_review,
-                                "comments": None,
-                            }
-                            items.append(item)
+                        item = {
+                            "page": page_number,
+                            "line": line_num,
+                            "raw_text": line[:200],
+                            "member_mark": None,
+                            "section_size_raw": designation,
+                            "section_size_normalized": designation_normalized,
+                            "frr_minutes": current_frr,
+                            "frr_format": f"{current_frr}/-/-" if current_frr else None,
+                            "dft_required_microns": dft_microns,
+                            "coating_product": "SteelMaster",
+                            "element_type": element_type,
+                            "confidence": 0.85 if (current_frr and dft_microns) else 0.7,
+                            "needs_review": not (current_frr and dft_microns),
+                            "comments": None,
+                        }
+                        items.append(item)
 
                 except Exception as page_error:
                     errors.append(f"Page {page_number}: {str(page_error)}")
