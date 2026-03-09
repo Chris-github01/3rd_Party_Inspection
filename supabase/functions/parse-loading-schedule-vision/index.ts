@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import Anthropic from "npm:@anthropic-ai/sdk@0.27.0";
+import OpenAI from "npm:openai@4.67.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,9 +34,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!anthropicApiKey) {
-      throw new Error("ANTHROPIC_API_KEY environment variable not set");
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openaiApiKey) {
+      throw new Error("OPENAI_API_KEY environment variable not set");
     }
 
     const { pdfUrl, projectId, scheduleReference }: ParseRequest = await req.json();
@@ -55,9 +55,9 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[Vision Parser] PDF downloaded, size: ${pdfBytes.byteLength} bytes`);
 
-    // Initialize Anthropic client
-    const anthropic = new Anthropic({
-      apiKey: anthropicApiKey,
+    // Initialize OpenAI client
+    const openai = new OpenAI({
+      apiKey: openaiApiKey,
     });
 
     // Create the extraction prompt
@@ -100,37 +100,38 @@ Return ONLY valid JSON in this exact format:
 
 Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no other text.`;
 
-    console.log(`[Vision Parser] Calling Claude Vision API...`);
+    console.log(`[Vision Parser] Calling OpenAI GPT-4 Vision API...`);
 
-    // Call Claude Vision API
-    const message = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 4096,
+    // Call OpenAI Vision API with PDF support
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
       messages: [
         {
           role: "user",
           content: [
             {
-              type: "document",
-              source: {
-                type: "base64",
-                media_type: "application/pdf",
-                data: pdfBase64,
-              },
-            },
-            {
               type: "text",
               text: extractionPrompt,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:application/pdf;base64,${pdfBase64}`,
+                detail: "high",
+              },
             },
           ],
         },
       ],
+      max_tokens: 4096,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
     });
 
-    console.log(`[Vision Parser] Claude API response received`);
+    console.log(`[Vision Parser] OpenAI API response received`);
 
-    // Extract the JSON from Claude's response
-    const responseText = message.content[0].type === "text" ? message.content[0].text : "";
+    // Extract the JSON from OpenAI's response
+    const responseText = completion.choices[0]?.message?.content || "";
     console.log(`[Vision Parser] Raw response: ${responseText.substring(0, 500)}...`);
 
     // Parse the JSON response
@@ -145,7 +146,7 @@ Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no
     } catch (parseError) {
       console.error(`[Vision Parser] Failed to parse JSON:`, parseError);
       console.error(`[Vision Parser] Response text:`, responseText);
-      throw new Error(`Failed to parse Claude's JSON response: ${parseError.message}`);
+      throw new Error(`Failed to parse OpenAI's JSON response: ${parseError.message}`);
     }
 
     console.log(`[Vision Parser] Parsed ${parsedData.items?.length || 0} items`);
@@ -164,7 +165,7 @@ Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no
       if (!item.dft_required_microns) missingFields++;
       if (!parsedData.coating_product) missingFields += 0.5;
 
-      const confidence = Math.max(0.8, 1.0 - missingFields * 0.1); // High confidence for LMM
+      const confidence = Math.max(0.8, 1.0 - missingFields * 0.1);
       const needsReview = missingFields >= 1;
 
       return {
@@ -187,8 +188,8 @@ Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no
       customer_name: parsedData.customer_name,
       coating_product: parsedData.coating_product,
       items: normalizedItems,
-      parser_type: "claude_vision",
-      model: "claude-3-5-sonnet-20241022",
+      parser_type: "openai_vision",
+      model: "gpt-4o",
     };
 
     console.log(`[Vision Parser] Successfully parsed ${result.items.length} items`);
