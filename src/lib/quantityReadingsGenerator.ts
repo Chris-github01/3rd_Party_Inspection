@@ -11,6 +11,8 @@ export interface QuantityReadingConfig {
   quantity: number;
   requiredDftMicrons: number;
   baseIdPrefix?: string;
+  minValue?: number;
+  maxValue?: number;
 }
 
 export interface GeneratedReading {
@@ -40,26 +42,30 @@ export function generateAutoId(memberMark: string, sequenceNumber: number, baseP
 /**
  * Generate realistic DFT reading with natural variation
  */
-function generateDftReading(requiredDft: number, variancePercent: number = 10): number {
+function generateDftReading(requiredDft: number, variancePercent: number = 10, minValue?: number, maxValue?: number): number {
+  if (minValue !== undefined && maxValue !== undefined) {
+    return Math.round(minValue + Math.random() * (maxValue - minValue));
+  }
+
   const variance = requiredDft * (variancePercent / 100);
-  const minValue = requiredDft - variance;
-  const maxValue = requiredDft + variance;
-  return Math.round(minValue + Math.random() * (maxValue - minValue));
+  const calculatedMin = requiredDft - variance;
+  const calculatedMax = requiredDft + variance;
+  return Math.round(calculatedMin + Math.random() * (calculatedMax - calculatedMin));
 }
 
 /**
  * Generate 3 DFT readings and calculate average
  */
-function generate3DftReadings(requiredDft: number): {
+function generate3DftReadings(requiredDft: number, minValue?: number, maxValue?: number): {
   reading1: number;
   reading2: number;
   reading3: number;
   average: number;
   status: 'pass' | 'fail';
 } {
-  const reading1 = generateDftReading(requiredDft);
-  const reading2 = generateDftReading(requiredDft);
-  const reading3 = generateDftReading(requiredDft);
+  const reading1 = generateDftReading(requiredDft, 10, minValue, maxValue);
+  const reading2 = generateDftReading(requiredDft, 10, minValue, maxValue);
+  const reading3 = generateDftReading(requiredDft, 10, minValue, maxValue);
   const average = Math.round((reading1 + reading2 + reading3) / 3);
 
   // Pass if average is within 90% of required (industry standard tolerance)
@@ -89,7 +95,7 @@ export async function generateQuantityBasedReadings(
 
   for (let i = 1; i <= config.quantity; i++) {
     const generatedId = generateAutoId(config.memberMark, i, config.baseIdPrefix);
-    const dftData = generate3DftReadings(config.requiredDftMicrons);
+    const dftData = generate3DftReadings(config.requiredDftMicrons, config.minValue, config.maxValue);
     const envData = generateEnvironmentalConditions();
 
     readings.push({

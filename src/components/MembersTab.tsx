@@ -1070,7 +1070,39 @@ function GenerateQuantityReadingsModal({
   const [generatedData, setGeneratedData] = useState<Map<string, any[]>>(new Map());
   const [viewingMember, setViewingMember] = useState<string | null>(null);
 
+  // Generation parameters
+  const [lowestValue, setLowestValue] = useState<number>(400);
+  const [highestValue, setHighestValue] = useState<number>(550);
+  const [readingsPerMember, setReadingsPerMember] = useState<number>(100);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const validateInputs = (): string[] => {
+    const errs: string[] = [];
+
+    if (isNaN(lowestValue) || lowestValue <= 0) {
+      errs.push('Lowest Value must be a positive number');
+    }
+    if (isNaN(highestValue) || highestValue <= 0) {
+      errs.push('Highest Value must be a positive number');
+    }
+    if (lowestValue >= highestValue) {
+      errs.push('Lowest Value must be less than Highest Value');
+    }
+    if (isNaN(readingsPerMember) || readingsPerMember < 1) {
+      errs.push('Readings per Member must be at least 1');
+    }
+
+    return errs;
+  };
+
   const handleGenerate = async () => {
+    const validationErrors = validateInputs();
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setErrors([]);
     setGenerating(true);
     const dataMap = new Map();
 
@@ -1080,8 +1112,10 @@ function GenerateQuantityReadingsModal({
           memberId: member.id,
           memberMark: member.member_mark,
           projectId,
-          quantity: member.quantity || 1,
+          quantity: readingsPerMember,
           requiredDftMicrons: member.required_dft_microns || 450,
+          minValue: lowestValue,
+          maxValue: highestValue,
         };
 
         const readings = await generateQuantityBasedReadings(config);
@@ -1112,25 +1146,77 @@ function GenerateQuantityReadingsModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 mb-6">
+          <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
-              <Hash className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-200">
-                <strong>Auto-ID Generation System</strong>
+              <AlertCircle className="w-5 h-5 text-amber-300 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-200">
+                <strong>Simulation Mode for demonstration purposes only.</strong>
                 <br />
-                Each member will generate sequential IDs based on its quantity setting.
-                For example, if member "100EA8" has quantity 3, it will create:
-                <ul className="list-disc list-inside mt-2 ml-2">
-                  <li>100EA8-001 with 3 DFT readings</li>
-                  <li>100EA8-002 with 3 DFT readings</li>
-                  <li>100EA8-003 with 3 DFT readings</li>
-                </ul>
+                Generated values are not actual field measurements.
               </div>
             </div>
           </div>
 
+          {generatedData.size === 0 && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Lowest Value (µm) *
+                  </label>
+                  <input
+                    type="number"
+                    value={lowestValue}
+                    onChange={(e) => setLowestValue(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    step="1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Highest Value (µm) *
+                  </label>
+                  <input
+                    type="number"
+                    value={highestValue}
+                    onChange={(e) => setHighestValue(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    step="1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Readings per Member *
+                  </label>
+                  <input
+                    type="number"
+                    value={readingsPerMember}
+                    onChange={(e) => setReadingsPerMember(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="1"
+                    step="1"
+                  />
+                </div>
+              </div>
+
+              {errors.length > 0 && (
+                <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 mb-4">
+                  <ul className="list-disc list-inside text-sm text-red-200">
+                    {errors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white">Selected Members Summary:</h3>
+            <h3 className="text-lg font-semibold text-white">Selected Members:</h3>
             <div className="bg-slate-700/50 rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-slate-600/50">
@@ -1138,17 +1224,16 @@ function GenerateQuantityReadingsModal({
                     <th className="px-4 py-2 text-left text-xs font-medium text-slate-300">Member Mark</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-slate-300">Section</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-slate-300">Req. DFT</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Quantity</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Total Readings</th>
                     {generatedData.size > 0 && (
-                      <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Actions</th>
+                      <>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Readings Generated</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Actions</th>
+                      </>
                     )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-600/30">
                   {selectedMembers.map((member) => {
-                    const quantity = member.quantity || 1;
-                    const totalReadingsPerMember = quantity * 3;
                     const memberReadings = generatedData.get(member.id);
 
                     return (
@@ -1156,19 +1241,20 @@ function GenerateQuantityReadingsModal({
                         <td className="px-4 py-3 text-sm font-medium text-white">{member.member_mark}</td>
                         <td className="px-4 py-3 text-sm text-slate-300">{member.section}</td>
                         <td className="px-4 py-3 text-sm text-slate-300">{member.required_dft_microns} µm</td>
-                        <td className="px-4 py-3 text-sm text-center text-blue-300 font-medium">{quantity}</td>
-                        <td className="px-4 py-3 text-sm text-center text-slate-300">
-                          {totalReadingsPerMember} readings ({quantity} IDs × 3 readings each)
-                        </td>
                         {memberReadings && (
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => setViewingMember(member.id)}
-                              className="text-xs text-blue-400 hover:text-blue-300 underline"
-                            >
-                              View Details
-                            </button>
-                          </td>
+                          <>
+                            <td className="px-4 py-3 text-sm text-center text-green-300 font-medium">
+                              {memberReadings.length} readings
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <button
+                                onClick={() => setViewingMember(member.id)}
+                                className="text-xs text-blue-400 hover:text-blue-300 underline"
+                              >
+                                View Details
+                              </button>
+                            </td>
+                          </>
                         )}
                       </tr>
                     );
@@ -1185,7 +1271,7 @@ function GenerateQuantityReadingsModal({
                   Successfully generated {totalReadings} total readings across {generatedData.size} member(s).
                   <br />
                   <span className="text-xs text-green-300 mt-2 block">
-                    Note: Pins dropped on drawings are for spot checks. All IDs with readings are for full measurement checks and have been recorded.
+                    All readings have been saved to the database and will appear in reports.
                   </span>
                 </div>
               </div>
