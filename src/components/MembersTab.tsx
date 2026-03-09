@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Upload, CreditCard as Edit, Trash2, Download, FlaskConical, Hash } from 'lucide-react';
+import { Plus, Upload, CreditCard as Edit, Trash2, Download, FlaskConical, Hash, AlertCircle } from 'lucide-react';
 import Papa from 'papaparse';
 import { normalizeFRRValue } from '../lib/frrUtils';
 import { generateSimulatedReadings, calculateSummary, type MemberConfig } from '../lib/simulationUtils';
