@@ -867,6 +867,9 @@ def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
             product_match = re.search(r"(NULLIFIRE\s+[A-Z0-9]+)", full_text, re.I)
             if product_match:
                 product_name = product_match.group(1).strip()
+                print(f"[DEBUG] Altex Parser - Detected product from title: {product_name}")
+            else:
+                print(f"[WARNING] Altex Parser - Could not detect product name from document title")
 
             # Extract FRR from project description if present (multiple patterns)
             header_frr = None
@@ -874,12 +877,16 @@ def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
             frr_match = re.search(r"(\d+)\s*min\s*FRR", full_text, re.I)
             if frr_match:
                 header_frr = int(frr_match.group(1))
+                print(f"[DEBUG] Altex Parser - Detected FRR from title: {header_frr}")
             else:
                 # Pattern 2: "FRR Minutes" column with values like "60"
                 # Check if this is a schedule with FRR in title
                 title_frr_match = re.search(r"(\d+)\s*min\s*FRR", full_text, re.I)
                 if title_frr_match:
                     header_frr = int(title_frr_match.group(1))
+                    print(f"[DEBUG] Altex Parser - Detected FRR from title (pattern 2): {header_frr}")
+                else:
+                    print(f"[WARNING] Altex Parser - Could not detect FRR from document title")
 
             # Parse each page
             for page_number, page in enumerate(pdf.pages, start=1):
@@ -929,8 +936,13 @@ def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
                             elif "PRODUCT" in cell_upper or "SC902" in cell_upper:
                                 col_map["product"] = idx
 
+                        # Debug: Log detected columns
+                        print(f"[DEBUG] Altex Parser - Detected columns: {list(col_map.keys())}")
+                        print(f"[DEBUG] Column indices: {col_map}")
+
                         # Validate we found the critical columns
                         if "element_name" not in col_map or "dft" not in col_map:
+                            print(f"[WARNING] Missing critical columns. Found: {list(col_map.keys())}")
                             continue
 
                         # Parse data rows (skip header)
@@ -983,8 +995,22 @@ def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
                                 except:
                                     pass
 
+                            # Extract member mark from ITEM CODE column
+                            member_mark = None
+                            if "item_code" in col_map and len(row) > col_map["item_code"]:
+                                item_code_str = str(row[col_map["item_code"]]).strip() if row[col_map["item_code"]] else ""
+                                if item_code_str and item_code_str.lower() not in ["", "none", "null"]:
+                                    member_mark = item_code_str
+
+                            # If no ITEM CODE column, try using the section name as member mark
+                            if not member_mark and section_normalized:
+                                member_mark = section_normalized
+
                             # Build row text for reference
                             row_text = " | ".join(str(cell or "") for cell in row)
+
+                            # Debug: Log extracted values for this row
+                            print(f"[DEBUG] Row {row_idx}: Section={section_normalized}, Member Mark={member_mark}, FRR={frr_minutes}, DFT={dft_microns}, Product={product_name}")
 
                             # Calculate confidence
                             missing_fields = 0
@@ -999,7 +1025,7 @@ def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
                                 "page": page_number,
                                 "line": 0,
                                 "raw_text": row_text.strip(),
-                                "member_mark": None,
+                                "member_mark": member_mark,
                                 "section_size_raw": element_name,
                                 "section_size_normalized": section_normalized,
                                 "frr_minutes": frr_minutes,
