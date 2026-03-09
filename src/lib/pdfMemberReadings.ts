@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 interface Member {
   member_mark: string;
@@ -104,7 +104,7 @@ export async function generateMemberReadingsPDF(
       ['Inspection Date:', inspectionDate.toLocaleDateString()],
     ];
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: yPos,
       head: [],
       body: memberInfo,
@@ -136,7 +136,7 @@ export async function generateMemberReadingsPDF(
         ['Compliance:', summary.compliance || 'N/A'],
       ];
 
-      (doc as any).autoTable({
+      autoTable(doc, {
         startY: yPos,
         head: [],
         body: statsInfo,
@@ -175,7 +175,7 @@ export async function generateMemberReadingsPDF(
       readingsRows.push(row);
     }
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: yPos,
       head: [],
       body: readingsRows,
