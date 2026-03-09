@@ -193,7 +193,7 @@ Deno.serve(async (req: Request) => {
           errors: [],
         });
       } else if (importRecord.source_type === "pdf") {
-        console.log("Parsing PDF file - calling Claude Vision parser");
+        console.log("Parsing PDF file - calling Python parser");
 
         try {
           // Get public URL for the PDF
@@ -207,95 +207,96 @@ Deno.serve(async (req: Request) => {
 
           console.log("PDF URL:", urlData.publicUrl);
 
-          // Call the vision parser edge function
-          const visionResponse = await supabaseClient.functions.invoke(
-            "parse-loading-schedule-vision",
-            {
-              body: {
-                pdfUrl: urlData.publicUrl,
-                projectId: importRecord.project_id,
-                scheduleReference: importRecord.schedule_reference,
-              },
-            }
-          );
+          // Call the Python parser (supports PDF natively)
+          console.log("Calling Python parser at:", PYTHON_PARSER_URL);
+          const pythonResponse = await fetch(`${PYTHON_PARSER_URL}/parse`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              pdf_url: urlData.publicUrl,
+            }),
+          });
 
-          if (visionResponse.error) {
-            console.error("Vision parser error:", visionResponse.error);
-            parseErrorCode = "VISION_PARSER_ERROR";
-            parseError = visionResponse.error.message || "Vision parser failed";
+          if (!pythonResponse.ok) {
+            const errorText = await pythonResponse.text();
+            console.error("Python parser HTTP error:", pythonResponse.status, errorText);
+            parseErrorCode = "PYTHON_PARSER_ERROR";
+            parseError = `Python parser failed with status ${pythonResponse.status}: ${errorText}`;
 
             artifact.pages.push({
               pageNumber: 1,
-              method: "claude_vision",
+              method: "python_parser",
               confidence: 0.0,
               errors: [parseError],
             });
           } else {
-            const parseResult = visionResponse.data;
-            console.log("Vision parser result:", parseResult);
+            const parseResult = await pythonResponse.json();
+            console.log("Python parser result:", parseResult);
 
-            if (!parseResult.success) {
-              parseErrorCode = "VISION_PARSER_FAILED";
-              parseError = parseResult.error || "Vision parser failed";
+            if (parseResult.status === "failed") {
+              parseErrorCode = parseResult.error_code || "PYTHON_PARSER_FAILED";
+              parseError = parseResult.error_message || "Python parser failed";
 
               artifact.pages.push({
                 pageNumber: 1,
-                method: "claude_vision",
+                method: "python_parser",
                 confidence: 0.0,
                 errors: [parseError],
               });
             } else {
               const items = parseResult.items || [];
-              console.log(`Vision parser extracted ${items.length} items`);
+              console.log(`Python parser extracted ${items.length} items`);
 
               for (const item of items) {
                 extractedItems.push({
                   import_id: importId,
                   project_id: importRecord.project_id,
-                  loading_schedule_ref: parseResult.schedule_reference || null,
+                  loading_schedule_ref: parseResult.metadata?.schedule_reference || null,
                   member_mark: item.member_mark,
                   element_type: item.element_type,
                   section_size_raw: item.section_size_raw,
                   section_size_normalized: item.section_size_normalized,
                   frr_minutes: item.frr_minutes,
-                  frr_format: item.frr_minutes ? `${item.frr_minutes}/-/-` : null,
+                  frr_format: item.frr_format || (item.frr_minutes ? `${item.frr_minutes}/-/-` : null),
                   coating_product: item.coating_product,
                   dft_required_microns: item.dft_required_microns,
                   needs_review: item.needs_review,
                   confidence: item.confidence,
-                  cite_page: 1,
-                  cite_line_start: 0,
-                  cite_line_end: 0,
+                  cite_page: item.page || 1,
+                  cite_line_start: item.line || 0,
+                  cite_line_end: item.line || 0,
                 });
               }
 
               artifact.metadata = {
                 ...artifact.metadata,
-                schedule_reference: parseResult.schedule_reference,
-                project_name: parseResult.project_name,
-                customer_name: parseResult.customer_name,
-                coating_product: parseResult.coating_product,
-                parser_type: parseResult.parser_type,
-                model: parseResult.model,
+                schedule_reference: parseResult.metadata?.schedule_reference,
+                project_name: parseResult.metadata?.project_name,
+                customer_name: parseResult.metadata?.customer_name,
+                coating_system: parseResult.metadata?.coating_system,
+                supplier: parseResult.metadata?.supplier,
+                document_format: parseResult.metadata?.document_format,
               };
 
               artifact.pages.push({
                 pageNumber: 1,
-                method: "claude_vision",
+                method: "python_parser",
                 confidence: 0.95,
                 lineCount: items.length,
-                errors: [],
+                errors: parseResult.metadata?.errors || [],
               });
             }
           }
         } catch (fetchError: any) {
-          console.error("Failed to call vision parser:", fetchError);
-          parseErrorCode = "VISION_PARSER_UNAVAILABLE";
-          parseError = `Cannot connect to vision parser service. Error: ${fetchError.message}`;
+          console.error("Failed to call Python parser:", fetchError);
+          parseErrorCode = "PYTHON_PARSER_UNAVAILABLE";
+          parseError = `Cannot connect to Python parser service at ${PYTHON_PARSER_URL}. Error: ${fetchError.message}`;
 
           artifact.pages.push({
             pageNumber: 1,
-            method: "claude_vision",
+            method: "python_parser",
             confidence: 0.0,
             errors: [parseError],
           });

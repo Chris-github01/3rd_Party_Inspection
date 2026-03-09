@@ -1,7 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import OpenAI from "npm:openai@4.67.3";
-import { createCanvas } from "https://deno.land/x/canvas@v1.4.1/mod.ts";
-import { getDocument } from "npm:pdfjs-dist@3.11.174";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,41 +25,6 @@ interface ScheduleItem {
   needs_review: boolean;
 }
 
-async function pdfToImages(pdfBytes: Uint8Array): Promise<string[]> {
-  const images: string[] = [];
-
-  try {
-    const loadingTask = getDocument({ data: pdfBytes });
-    const pdf = await loadingTask.promise;
-
-    console.log(`[PDF Converter] PDF has ${pdf.numPages} pages`);
-
-    // Process only first page for loading schedules (usually single page)
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better quality
-
-    const canvas = createCanvas(viewport.width, viewport.height);
-    const context = canvas.getContext('2d');
-
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-    }).promise;
-
-    // Convert canvas to base64 PNG
-    const imageData = canvas.toDataURL('image/png');
-    const base64Image = imageData.split(',')[1]; // Remove data:image/png;base64, prefix
-
-    images.push(base64Image);
-    console.log(`[PDF Converter] Converted page 1 to PNG`);
-
-    return images;
-  } catch (error) {
-    console.error('[PDF Converter] Error converting PDF:', error);
-    throw new Error(`Failed to convert PDF to images: ${error.message}`);
-  }
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -73,7 +36,7 @@ Deno.serve(async (req: Request) => {
   try {
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {
-      throw new Error("OPENAI_API_KEY environment variable not set");
+      throw new Error("OPENAI_API_KEY environment variable not set. Please configure your OpenAI API key in Supabase Edge Function secrets.");
     }
 
     const { pdfUrl, projectId, scheduleReference }: ParseRequest = await req.json();
@@ -84,16 +47,12 @@ Deno.serve(async (req: Request) => {
     // Download PDF from Supabase storage
     const pdfResponse = await fetch(pdfUrl);
     if (!pdfResponse.ok) {
-      throw new Error(`Failed to download PDF: ${pdfResponse.statusText}`);
+      throw new Error(`Failed to download PDF: ${pdfResponse.status} ${pdfResponse.statusText}`);
     }
 
-    const pdfBytes = new Uint8Array(await pdfResponse.arrayBuffer());
+    const pdfBytes = await pdfResponse.arrayBuffer();
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
     console.log(`[Vision Parser] PDF downloaded, size: ${pdfBytes.byteLength} bytes`);
-
-    // Convert PDF to images (OpenAI doesn't support PDF directly)
-    console.log(`[Vision Parser] Converting PDF to images...`);
-    const imageBase64Array = await pdfToImages(pdfBytes);
-    console.log(`[Vision Parser] Converted to ${imageBase64Array.length} images`);
 
     // Initialize OpenAI client
     const openai = new OpenAI({
@@ -141,34 +100,30 @@ Return ONLY valid JSON in this exact format:
 Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no other text.`;
 
     console.log(`[Vision Parser] Calling OpenAI GPT-4 Vision API...`);
+    console.log(`[Vision Parser] Note: OpenAI Vision API does NOT support PDF format directly.`);
+    console.log(`[Vision Parser] This call will likely fail. Recommendation: Use Python parser or convert PDF to images first.`);
 
-    // Call OpenAI Vision API with images
+    // Call OpenAI Vision API
     let completion;
     try {
-      const messageContent: any[] = [
-        {
-          type: "text",
-          text: extractionPrompt,
-        },
-      ];
-
-      // Add all images
-      for (const imageBase64 of imageBase64Array) {
-        messageContent.push({
-          type: "image_url",
-          image_url: {
-            url: `data:image/png;base64,${imageBase64}`,
-            detail: "high",
-          },
-        });
-      }
-
       completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "user",
-            content: messageContent,
+            content: [
+              {
+                type: "text",
+                text: extractionPrompt,
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:application/pdf;base64,${pdfBase64}`,
+                  detail: "high",
+                },
+              },
+            ],
           },
         ],
         max_tokens: 4096,
@@ -178,18 +133,34 @@ Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no
       console.log(`[Vision Parser] OpenAI API response received`);
     } catch (openaiError: any) {
       console.error(`[Vision Parser] OpenAI API Error:`, openaiError);
-      console.error(`[Vision Parser] Error details:`, {
-        message: openaiError.message,
+
+      const errorDetails = {
+        message: openaiError.message || 'Unknown error',
         type: openaiError.type,
         code: openaiError.code,
         status: openaiError.status,
-      });
+        param: openaiError.param,
+      };
 
-      throw new Error(
-        `OpenAI API error: ${openaiError.message || 'Unknown error'}. ` +
-        `Status: ${openaiError.status || 'N/A'}. ` +
-        `Check that your OpenAI API key is valid and has GPT-4o access.`
-      );
+      console.error(`[Vision Parser] Error details:`, errorDetails);
+
+      // Provide helpful error message based on error type
+      let userMessage = `OpenAI API error: ${errorDetails.message}`;
+
+      if (errorDetails.message?.includes('Invalid image') ||
+          errorDetails.message?.includes('image_url') ||
+          errorDetails.message?.includes('unsupported') ||
+          errorDetails.status === 400) {
+        userMessage = `OpenAI Vision API does not support PDF files directly. The file must be converted to an image format (PNG/JPEG) first. Please use the Python-based parser instead, which can handle PDF files natively.`;
+      } else if (errorDetails.code === 'invalid_api_key' || errorDetails.status === 401) {
+        userMessage = `OpenAI API key is invalid or missing. Please check your OPENAI_API_KEY configuration in Supabase Edge Function secrets.`;
+      } else if (errorDetails.code === 'insufficient_quota' || errorDetails.status === 429) {
+        userMessage = `OpenAI API quota exceeded. Please check your OpenAI account billing or try again later.`;
+      } else if (errorDetails.code === 'model_not_found') {
+        userMessage = `Your OpenAI API key does not have access to GPT-4o Vision. Please upgrade your OpenAI account or use a different model.`;
+      }
+
+      throw new Error(userMessage);
     }
 
     // Extract the JSON from OpenAI's response
@@ -264,14 +235,16 @@ Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no
         "Content-Type": "application/json",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[Vision Parser] Error:`, error);
+
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error.message || 'Unknown error occurred',
+        error_type: error.constructor?.name || 'Error',
         stack: error.stack,
-        errorType: error.constructor.name,
+        recommendation: "Consider using the Python-based parser which supports PDF files natively, or convert your PDF to PNG/JPEG images before using this vision parser."
       }),
       {
         status: 500,
