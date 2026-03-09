@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import OpenAI from "npm:openai@4.67.3";
+import { createCanvas } from "https://deno.land/x/canvas@v1.4.1/mod.ts";
+import { getDocument } from "npm:pdfjs-dist@3.11.174";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,6 +25,41 @@ interface ScheduleItem {
   dft_required_microns: number | null;
   confidence: number;
   needs_review: boolean;
+}
+
+async function pdfToImages(pdfBytes: Uint8Array): Promise<string[]> {
+  const images: string[] = [];
+
+  try {
+    const loadingTask = getDocument({ data: pdfBytes });
+    const pdf = await loadingTask.promise;
+
+    console.log(`[PDF Converter] PDF has ${pdf.numPages} pages`);
+
+    // Process only first page for loading schedules (usually single page)
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better quality
+
+    const canvas = createCanvas(viewport.width, viewport.height);
+    const context = canvas.getContext('2d');
+
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+    }).promise;
+
+    // Convert canvas to base64 PNG
+    const imageData = canvas.toDataURL('image/png');
+    const base64Image = imageData.split(',')[1]; // Remove data:image/png;base64, prefix
+
+    images.push(base64Image);
+    console.log(`[PDF Converter] Converted page 1 to PNG`);
+
+    return images;
+  } catch (error) {
+    console.error('[PDF Converter] Error converting PDF:', error);
+    throw new Error(`Failed to convert PDF to images: ${error.message}`);
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -50,10 +87,13 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to download PDF: ${pdfResponse.statusText}`);
     }
 
-    const pdfBytes = await pdfResponse.arrayBuffer();
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
-
+    const pdfBytes = new Uint8Array(await pdfResponse.arrayBuffer());
     console.log(`[Vision Parser] PDF downloaded, size: ${pdfBytes.byteLength} bytes`);
+
+    // Convert PDF to images (OpenAI doesn't support PDF directly)
+    console.log(`[Vision Parser] Converting PDF to images...`);
+    const imageBase64Array = await pdfToImages(pdfBytes);
+    console.log(`[Vision Parser] Converted to ${imageBase64Array.length} images`);
 
     // Initialize OpenAI client
     const openai = new OpenAI({
@@ -102,33 +142,55 @@ Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no
 
     console.log(`[Vision Parser] Calling OpenAI GPT-4 Vision API...`);
 
-    // Call OpenAI Vision API with PDF support
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
+    // Call OpenAI Vision API with images
+    let completion;
+    try {
+      const messageContent: any[] = [
         {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: extractionPrompt,
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:application/pdf;base64,${pdfBase64}`,
-                detail: "high",
-              },
-            },
-          ],
+          type: "text",
+          text: extractionPrompt,
         },
-      ],
-      max_tokens: 4096,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-    });
+      ];
 
-    console.log(`[Vision Parser] OpenAI API response received`);
+      // Add all images
+      for (const imageBase64 of imageBase64Array) {
+        messageContent.push({
+          type: "image_url",
+          image_url: {
+            url: `data:image/png;base64,${imageBase64}`,
+            detail: "high",
+          },
+        });
+      }
+
+      completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: messageContent,
+          },
+        ],
+        max_tokens: 4096,
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+      });
+      console.log(`[Vision Parser] OpenAI API response received`);
+    } catch (openaiError: any) {
+      console.error(`[Vision Parser] OpenAI API Error:`, openaiError);
+      console.error(`[Vision Parser] Error details:`, {
+        message: openaiError.message,
+        type: openaiError.type,
+        code: openaiError.code,
+        status: openaiError.status,
+      });
+
+      throw new Error(
+        `OpenAI API error: ${openaiError.message || 'Unknown error'}. ` +
+        `Status: ${openaiError.status || 'N/A'}. ` +
+        `Check that your OpenAI API key is valid and has GPT-4o access.`
+      );
+    }
 
     // Extract the JSON from OpenAI's response
     const responseText = completion.choices[0]?.message?.content || "";
@@ -209,6 +271,7 @@ Extract ALL items from the table. Do not skip any rows. Return ONLY the JSON, no
         success: false,
         error: error.message,
         stack: error.stack,
+        errorType: error.constructor.name,
       }),
       {
         status: 500,
