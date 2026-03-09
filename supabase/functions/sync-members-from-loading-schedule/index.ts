@@ -118,20 +118,29 @@ Deno.serve(async (req: Request) => {
       stats.itemsProcessed++;
 
       try {
-        // Try to find existing member
+        // Try to find existing member using multiple strategies for idempotency
         let existingMember = null;
 
-        if (item.member_mark) {
+        // Strategy 1: Check if this exact schedule item is already linked to a member
+        existingMember = existingMembers?.find(
+          (m) => m.loading_schedule_item_id === item.id
+        );
+
+        // Strategy 2: Check by member mark if available
+        if (!existingMember && item.member_mark) {
           existingMember = existingMembers?.find(
             (m) => m.member_mark === item.member_mark
           );
         }
 
-        if (!existingMember && item.section_size_normalized && item.loading_schedule_ref) {
+        // Strategy 3: Check by section size match (avoid creating duplicates of same section)
+        if (!existingMember && item.section_size_normalized) {
+          // Only match if section, FRR, and DFT all match to avoid false positives
           existingMember = existingMembers?.find(
             (m) =>
-              m.section_size === item.section_size_normalized &&
-              m.loading_schedule_item_id
+              m.section === item.section_size_normalized &&
+              m.frr_minutes === (frrFromMemberMark || item.frr_minutes) &&
+              m.required_dft_microns === item.dft_required_microns
           );
         }
 

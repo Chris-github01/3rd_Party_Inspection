@@ -868,11 +868,18 @@ def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
             if product_match:
                 product_name = product_match.group(1).strip()
 
-            # Extract FRR from project description if present
+            # Extract FRR from project description if present (multiple patterns)
             header_frr = None
+            # Pattern 1: "60 min FRR" or "60min FRR"
             frr_match = re.search(r"(\d+)\s*min\s*FRR", full_text, re.I)
             if frr_match:
                 header_frr = int(frr_match.group(1))
+            else:
+                # Pattern 2: "FRR Minutes" column with values like "60"
+                # Check if this is a schedule with FRR in title
+                title_frr_match = re.search(r"(\d+)\s*min\s*FRR", full_text, re.I)
+                if title_frr_match:
+                    header_frr = int(title_frr_match.group(1))
 
             # Parse each page
             for page_number, page in enumerate(pdf.pages, start=1):
@@ -901,15 +908,17 @@ def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
                         for idx, cell in enumerate(header_row):
                             if not cell:
                                 continue
-                            cell_upper = str(cell).upper().strip()
+                            # Normalize cell text: remove newlines, extra spaces
+                            cell_upper = str(cell).upper().strip().replace("\n", " ").replace("\r", " ")
+                            cell_upper = re.sub(r"\s+", " ", cell_upper)
 
                             if "ELEMENT NAME" in cell_upper or "ELEMENT" in cell_upper:
                                 col_map["element_name"] = idx
                             elif "CONFIGURATION" in cell_upper:
                                 col_map["configuration"] = idx
-                            elif "FRR" in cell_upper and "MINUTES" in cell_upper:
+                            elif "FRR" in cell_upper and "MINUTE" in cell_upper:
                                 col_map["frr"] = idx
-                            elif "DFT" in cell_upper and "MICRONS" in cell_upper:
+                            elif "DFT" in cell_upper and "MICRON" in cell_upper:
                                 col_map["dft"] = idx
                             elif "ITEM" in cell_upper and "CODE" in cell_upper:
                                 col_map["item_code"] = idx
@@ -917,6 +926,8 @@ def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
                                 col_map["sides"] = idx
                             elif "HP/A" in cell_upper.replace(" ", ""):
                                 col_map["hp_a"] = idx
+                            elif "PRODUCT" in cell_upper or "SC902" in cell_upper:
+                                col_map["product"] = idx
 
                         # Validate we found the critical columns
                         if "element_name" not in col_map or "dft" not in col_map:
