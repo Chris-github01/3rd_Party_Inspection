@@ -1154,6 +1154,8 @@ function GenerateQuantityReadingsModal({
     setErrors([]);
     setGenerating(true);
     const dataMap = new Map();
+    // Store member configs for use in success message
+    const memberConfigs = new Map<string, { readingsPerSet: number; memberQuantity: number }>();
 
     try {
       for (const member of selectedMembers) {
@@ -1179,6 +1181,9 @@ function GenerateQuantityReadingsModal({
         const memberQuantity = member.quantity || 1;
         const totalReadings = memberQuantity * readingsCount;
 
+        // Store config for later use in success message
+        memberConfigs.set(member.id, { readingsPerSet: readingsCount, memberQuantity });
+
         const config: QuantityReadingConfig = {
           memberId: member.id,
           memberMark: member.member_mark,
@@ -1202,9 +1207,9 @@ function GenerateQuantityReadingsModal({
       let setInfo = '';
       for (const member of selectedMembers) {
         const memberReadings = dataMap.get(member.id) || [];
-        const memberQuantity = member.quantity || 1;
-        if (memberQuantity > 1) {
-          setInfo += `\n${member.member_mark}: ${memberQuantity} sets × ${readingsCount} readings = ${memberReadings.length} total`;
+        const memberConfig = memberConfigs.get(member.id);
+        if (memberConfig && memberConfig.memberQuantity > 1) {
+          setInfo += `\n${member.member_mark}: ${memberConfig.memberQuantity} sets × ${memberConfig.readingsPerSet} readings = ${memberReadings.length} total`;
         }
       }
 
