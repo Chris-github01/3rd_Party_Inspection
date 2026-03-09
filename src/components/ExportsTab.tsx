@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Download, FileText, Layers, AlertCircle, Camera, Edit3 } from 'lucide-react';
+import { Download, FileText, Layers, AlertCircle, Camera, CreditCard as Edit3 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
