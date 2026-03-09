@@ -62,6 +62,20 @@ export async function generateMemberReadingsPDF(
   doc.text(`Report Date: ${new Date().toLocaleDateString()}`, 14, yPos);
   yPos += 10;
 
+  // Add note about spot checks vs full measurements
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(100, 100, 100);
+  const noteText = 'Note: Pins dropped on drawings indicate spot check locations. All IDs with readings below represent full measurement checks and have been recorded.';
+  const splitNote = doc.splitTextToSize(noteText, 180);
+  splitNote.forEach((line: string) => {
+    doc.text(line, 14, yPos);
+    yPos += 4;
+  });
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  yPos += 6;
+
   for (let i = 0; i < membersWithReadings.length; i++) {
     const { member, memberSet, readings, inspectionDate } = membersWithReadings[i];
     const summary = memberSet.summary_json;

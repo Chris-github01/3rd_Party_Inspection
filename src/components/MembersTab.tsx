@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Upload, Edit, Trash2, Download, FlaskConical } from 'lucide-react';
+import { Plus, Upload, Edit, Trash2, Download, FlaskConical, Hash } from 'lucide-react';
 import Papa from 'papaparse';
 import { normalizeFRRValue } from '../lib/frrUtils';
 import { generateSimulatedReadings, calculateSummary, type MemberConfig } from '../lib/simulationUtils';
 import { exportReadingsToFormattedExcel } from '../lib/excelExport';
 import { sanitizeCSVValue, validateFRRMinutes, validateDFTMicrons, validateThicknessMM } from '../lib/securityUtils';
+import { generateQuantityBasedReadings, saveGeneratedReadings, type QuantityReadingConfig } from '../lib/quantityReadingsGenerator';
 
 interface Member {
   id: string;
@@ -21,6 +22,9 @@ interface Member {
   required_thickness_mm: number;
   status: string;
   notes: string;
+  quantity: number;
+  auto_generated_base_id: string | null;
+  is_spot_check: boolean;
 }
 
 const ELEMENT_TYPES = ['beam', 'column', 'brace', 'other'];
@@ -41,6 +45,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showQuantityReadingsModal, setShowQuantityReadingsModal] = useState(false);
 
   useEffect(() => {
     loadMembers();
@@ -321,6 +326,20 @@ export function MembersTab({ projectId }: { projectId: string }) {
                 alert('Please select at least one member by checking the checkbox next to it');
                 return;
               }
+              setShowQuantityReadingsModal(true);
+            }}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            title={selectedMembers.size === 0 ? 'Select members first' : `Generate quantity-based readings for ${selectedMembers.size} member(s)`}
+          >
+            <Hash className="w-5 h-5 mr-2" />
+            Generate Quantity Readings
+          </button>
+          <button
+            onClick={() => {
+              if (selectedMembers.size === 0) {
+                alert('Please select at least one member by checking the checkbox next to it');
+                return;
+              }
               setShowGenerateModal(true);
             }}
             className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
@@ -416,6 +435,9 @@ export function MembersTab({ projectId }: { projectId: string }) {
                     Req. DFT
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
+                    Quantity
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-200 uppercase">
                     Status
                   </th>
                   {canEdit && (
@@ -454,6 +476,31 @@ export function MembersTab({ projectId }: { projectId: string }) {
                       <td className="px-4 py-3 text-sm text-blue-100">{member.coating_system}</td>
                       <td className="px-4 py-3 text-sm text-blue-100">
                         {member.required_dft_microns ? `${member.required_dft_microns} µm` : '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {canEdit ? (
+                          <input
+                            type="number"
+                            min="1"
+                            value={member.quantity || 1}
+                            onChange={async (e) => {
+                              const newQuantity = parseInt(e.target.value) || 1;
+                              try {
+                                const { error } = await supabase
+                                  .from('members')
+                                  .update({ quantity: newQuantity })
+                                  .eq('id', member.id);
+                                if (error) throw error;
+                                await loadMembers();
+                              } catch (error: any) {
+                                alert('Error updating quantity: ' + error.message);
+                              }
+                            }}
+                            className="w-20 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-white focus:ring-2 focus:ring-blue-500"
+                          />
+                        ) : (
+                          <span className="text-sm text-blue-100">{member.quantity || 1}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -519,6 +566,19 @@ export function MembersTab({ projectId }: { projectId: string }) {
           }}
         />
       )}
+
+      {showQuantityReadingsModal && (
+        <GenerateQuantityReadingsModal
+          projectId={projectId}
+          selectedMembers={members.filter(m => selectedMembers.has(m.id))}
+          onClose={() => setShowQuantityReadingsModal(false)}
+          onGenerated={() => {
+            setShowQuantityReadingsModal(false);
+            setSelectedMembers(new Set());
+            loadMembers();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -545,6 +605,7 @@ function MemberModal({
     required_dft_microns: member?.required_dft_microns || 0,
     required_thickness_mm: member?.required_thickness_mm || 0,
     notes: member?.notes || '',
+    quantity: member?.quantity || 1,
   });
   const [loading, setLoading] = useState(false);
 
@@ -693,6 +754,25 @@ function MemberModal({
                     }
                     className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Quantity *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.quantity}
+                    onChange={(e) =>
+                      setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })
+                    }
+                    className="w-full px-4 py-2 border border-slate-600 bg-slate-700 text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                    placeholder="Number of instances"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Number of instances to create with auto-generated IDs
+                  </p>
                 </div>
 
                 <div className="sm:col-span-2">
@@ -974,3 +1054,284 @@ function GenerateReadingsModal({
     </div>
   );
 }
+
+function GenerateQuantityReadingsModal({
+  projectId,
+  selectedMembers,
+  onClose,
+  onGenerated,
+}: {
+  projectId: string;
+  selectedMembers: Member[];
+  onClose: () => void;
+  onGenerated: () => void;
+}) {
+  const [generating, setGenerating] = useState(false);
+  const [generatedData, setGeneratedData] = useState<Map<string, any[]>>(new Map());
+  const [viewingMember, setViewingMember] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    const dataMap = new Map();
+
+    try {
+      for (const member of selectedMembers) {
+        const config: QuantityReadingConfig = {
+          memberId: member.id,
+          memberMark: member.member_mark,
+          projectId,
+          quantity: member.quantity || 1,
+          requiredDftMicrons: member.required_dft_microns || 450,
+        };
+
+        const readings = await generateQuantityBasedReadings(config);
+        await saveGeneratedReadings(config, readings);
+        dataMap.set(member.id, readings);
+      }
+
+      setGeneratedData(dataMap);
+      alert(`Successfully generated readings for ${selectedMembers.length} member(s) with a total of ${Array.from(dataMap.values()).reduce((sum, readings) => sum + readings.length, 0)} individual test readings.`);
+    } catch (error: any) {
+      console.error('Error generating quantity readings:', error);
+      alert('Failed to generate readings: ' + error.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const totalReadings = Array.from(generatedData.values()).reduce((sum, readings) => sum + readings.length, 0);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-slate-800 rounded-lg max-w-6xl w-full my-8 border border-slate-700 max-h-[90vh] flex flex-col">
+        <div className="flex-shrink-0 px-6 py-4 border-b border-slate-700">
+          <h2 className="text-2xl font-bold text-white">Generate Quantity-Based Test Readings</h2>
+          <p className="text-sm text-slate-400 mt-1">
+            Auto-generate sequential IDs and test readings based on member quantities
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <Hash className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-200">
+                <strong>Auto-ID Generation System</strong>
+                <br />
+                Each member will generate sequential IDs based on its quantity setting.
+                For example, if member "100EA8" has quantity 3, it will create:
+                <ul className="list-disc list-inside mt-2 ml-2">
+                  <li>100EA8-001 with 3 DFT readings</li>
+                  <li>100EA8-002 with 3 DFT readings</li>
+                  <li>100EA8-003 with 3 DFT readings</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">Selected Members Summary:</h3>
+            <div className="bg-slate-700/50 rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-600/50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-300">Member Mark</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-300">Section</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-300">Req. DFT</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Quantity</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Total Readings</th>
+                    {generatedData.size > 0 && (
+                      <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Actions</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-600/30">
+                  {selectedMembers.map((member) => {
+                    const quantity = member.quantity || 1;
+                    const totalReadingsPerMember = quantity * 3;
+                    const memberReadings = generatedData.get(member.id);
+
+                    return (
+                      <tr key={member.id} className="hover:bg-slate-600/20">
+                        <td className="px-4 py-3 text-sm font-medium text-white">{member.member_mark}</td>
+                        <td className="px-4 py-3 text-sm text-slate-300">{member.section}</td>
+                        <td className="px-4 py-3 text-sm text-slate-300">{member.required_dft_microns} µm</td>
+                        <td className="px-4 py-3 text-sm text-center text-blue-300 font-medium">{quantity}</td>
+                        <td className="px-4 py-3 text-sm text-center text-slate-300">
+                          {totalReadingsPerMember} readings ({quantity} IDs × 3 readings each)
+                        </td>
+                        {memberReadings && (
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => setViewingMember(member.id)}
+                              className="text-xs text-blue-400 hover:text-blue-300 underline"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {generatedData.size > 0 && (
+              <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4">
+                <div className="text-sm text-green-200">
+                  <strong>✓ Generation Complete!</strong>
+                  <br />
+                  Successfully generated {totalReadings} total readings across {generatedData.size} member(s).
+                  <br />
+                  <span className="text-xs text-green-300 mt-2 block">
+                    Note: Pins dropped on drawings are for spot checks. All IDs with readings are for full measurement checks and have been recorded.
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-shrink-0 px-6 py-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+          {generatedData.size > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                onGenerated();
+                onClose();
+              }}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              Done
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={generating}
+                className="px-4 py-2 text-white hover:bg-slate-700 rounded-lg disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={generating}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {generating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Hash className="w-4 h-4" />
+                    Generate All Readings
+                  </>
+                )}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {viewingMember && (
+        <ReadingsDetailModal
+          member={selectedMembers.find(m => m.id === viewingMember)!}
+          readings={generatedData.get(viewingMember) || []}
+          onClose={() => setViewingMember(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReadingsDetailModal({
+  member,
+  readings,
+  onClose,
+}: {
+  member: Member;
+  readings: any[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-[60]">
+      <div className="bg-slate-800 rounded-lg max-w-5xl w-full border border-slate-700 max-h-[80vh] flex flex-col">
+        <div className="flex-shrink-0 px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-white">Detailed Readings: {member.member_mark}</h2>
+            <p className="text-sm text-slate-400">Section: {member.section} | Required DFT: {member.required_dft_microns} µm</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="bg-slate-700/50 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-600/50 sticky top-0">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-slate-300">Generated ID</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Reading 1</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Reading 2</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Reading 3</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Average</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Status</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Temp (°C)</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Humidity (%)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-600/30">
+                {readings.map((reading) => (
+                  <tr key={reading.generatedId} className="hover:bg-slate-600/20">
+                    <td className="px-4 py-3 font-mono text-blue-300">{reading.generatedId}</td>
+                    <td className="px-4 py-3 text-center text-slate-300">{reading.dftReading1} µm</td>
+                    <td className="px-4 py-3 text-center text-slate-300">{reading.dftReading2} µm</td>
+                    <td className="px-4 py-3 text-center text-slate-300">{reading.dftReading3} µm</td>
+                    <td className="px-4 py-3 text-center font-medium text-white">{reading.dftAverage} µm</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                        reading.status === 'pass'
+                          ? 'bg-green-500/20 text-green-300'
+                          : 'bg-red-500/20 text-red-300'
+                      }`}>
+                        {reading.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center text-slate-300">{reading.temperatureC}°C</td>
+                    <td className="px-4 py-3 text-center text-slate-300">{reading.humidityPercent}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+            <p className="text-xs text-blue-200">
+              <strong>Note:</strong> These readings represent full measurement checks. Each generated ID corresponds to a complete inspection with 3 DFT readings per location.
+              Pins dropped on drawings indicate spot check locations for visual reference, while these detailed records provide comprehensive coverage.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-shrink-0 px-6 py-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
