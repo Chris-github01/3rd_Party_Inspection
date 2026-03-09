@@ -85,17 +85,35 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
   let logoYOffset = 0;
   if (logoUrl) {
     try {
-      const { data } = await supabase.storage.from('project-documents').getPublicUrl(logoUrl);
-      if (data?.publicUrl) {
-        const logoImage = await loadImageAsDataURL(data.publicUrl);
-        if (logoImage) {
-          const logoHeight = 30;
-          const logoWidth = 90;
-          const logoX = (pageWidth - logoWidth) / 2;
-          const logoY = 15;
-          doc.addImage(logoImage, 'PNG', logoX, logoY, logoWidth, logoHeight);
-          logoYOffset = 20;
+      let logoImage: string | null = null;
+
+      // Check if logoUrl is already a full URL (starts with http:// or https://)
+      if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+        logoImage = await loadImageAsDataURL(logoUrl);
+      } else {
+        // Try to load from storage - check multiple possible buckets
+        const buckets = ['organization-logos', 'project-documents', 'documents'];
+        for (const bucket of buckets) {
+          try {
+            const { data } = await supabase.storage.from(bucket).getPublicUrl(logoUrl);
+            if (data?.publicUrl) {
+              logoImage = await loadImageAsDataURL(data.publicUrl);
+              if (logoImage) break;
+            }
+          } catch (err) {
+            // Try next bucket
+            continue;
+          }
         }
+      }
+
+      if (logoImage) {
+        const logoHeight = 30;
+        const logoWidth = 90;
+        const logoX = (pageWidth - logoWidth) / 2;
+        const logoY = 15;
+        doc.addImage(logoImage, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        logoYOffset = 20;
       }
     } catch (error) {
       console.error('Error loading logo:', error);
@@ -178,7 +196,9 @@ function addShortExecutiveSummaryPage(doc: jsPDF, summary: any, pageNumber: numb
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
+  const bottomMargin = 30;
   const contentWidth = pageWidth - 2 * margin;
+  const maxY = pageHeight - bottomMargin;
 
   let yPos = margin;
 
@@ -202,6 +222,13 @@ function addShortExecutiveSummaryPage(doc: jsPDF, summary: any, pageNumber: numb
       continue;
     }
 
+    const lineHeight = line.includes(':') ? 8 : 6;
+
+    if (yPos + lineHeight > maxY) {
+      doc.addPage();
+      yPos = margin;
+    }
+
     if (line.includes(':')) {
       const [label, value] = line.split(':');
       doc.setFont('helvetica', 'bold');
@@ -222,11 +249,6 @@ function addShortExecutiveSummaryPage(doc: jsPDF, summary: any, pageNumber: numb
       doc.text(splitText, margin, yPos);
       yPos += splitText.length * 6;
     }
-
-    if (yPos > pageHeight - margin) {
-      doc.addPage();
-      yPos = margin;
-    }
   }
 }
 
@@ -240,7 +262,9 @@ function addFullExecutiveSummaryPage(doc: jsPDF, summary: any, pageNumber: numbe
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
+  const bottomMargin = 30;
   const contentWidth = pageWidth - 2 * margin;
+  const maxY = pageHeight - bottomMargin;
 
   let yPos = margin;
 
@@ -277,7 +301,7 @@ function addFullExecutiveSummaryPage(doc: jsPDF, summary: any, pageNumber: numbe
     const lines = doc.splitTextToSize(paragraph, contentWidth);
 
     for (const line of lines) {
-      if (yPos > pageHeight - margin - 10) {
+      if (yPos + 5 > maxY) {
         doc.addPage();
         yPos = margin;
       }
@@ -304,7 +328,9 @@ function addFullIntroductionPage(
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
+  const bottomMargin = 30;
   const contentWidth = pageWidth - 2 * margin;
+  const maxY = pageHeight - bottomMargin;
 
   let yPos = margin;
 
@@ -330,7 +356,7 @@ function addFullIntroductionPage(
 
     const lines = doc.splitTextToSize(paragraph, contentWidth);
     for (const line of lines) {
-      if (yPos > pageHeight - margin - 10) {
+      if (yPos + 5 > maxY) {
         doc.addPage();
         yPos = margin;
       }
