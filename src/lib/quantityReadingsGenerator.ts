@@ -13,6 +13,7 @@ export interface QuantityReadingConfig {
   baseIdPrefix?: string;
   minValue?: number;
   maxValue?: number;
+  readingsPerSet?: number; // Number of readings per quantity set (e.g., 100)
 }
 
 export interface GeneratedReading {
@@ -25,6 +26,8 @@ export interface GeneratedReading {
   status: 'pass' | 'fail';
   temperatureC: number;
   humidityPercent: number;
+  setNumber?: number; // Which quantity set this reading belongs to (e.g., Set 1, Set 2)
+  readingWithinSet?: number; // Reading number within its set (1-100)
 }
 
 /**
@@ -87,16 +90,27 @@ function generateEnvironmentalConditions(): { temperatureC: number; humidityPerc
 
 /**
  * Generate all test readings for a member based on quantity
+ * If readingsPerSet is provided, organize readings into sets
  */
 export async function generateQuantityBasedReadings(
   config: QuantityReadingConfig
 ): Promise<GeneratedReading[]> {
   const readings: GeneratedReading[] = [];
+  const readingsPerSet = config.readingsPerSet || config.quantity;
 
   for (let i = 1; i <= config.quantity; i++) {
     const generatedId = generateAutoId(config.memberMark, i, config.baseIdPrefix);
     const dftData = generate3DftReadings(config.requiredDftMicrons, config.minValue, config.maxValue);
     const envData = generateEnvironmentalConditions();
+
+    // Calculate which set this reading belongs to
+    let setNumber: number | undefined;
+    let readingWithinSet: number | undefined;
+
+    if (config.readingsPerSet && config.readingsPerSet > 0) {
+      setNumber = Math.ceil(i / config.readingsPerSet);
+      readingWithinSet = ((i - 1) % config.readingsPerSet) + 1;
+    }
 
     readings.push({
       sequenceNumber: i,
@@ -108,6 +122,8 @@ export async function generateQuantityBasedReadings(
       status: dftData.status,
       temperatureC: envData.temperatureC,
       humidityPercent: envData.humidityPercent,
+      setNumber,
+      readingWithinSet,
     });
   }
 
@@ -121,21 +137,31 @@ export async function saveGeneratedReadings(
   config: QuantityReadingConfig,
   readings: GeneratedReading[]
 ): Promise<void> {
-  const readingsToInsert = readings.map((reading) => ({
-    member_id: config.memberId,
-    project_id: config.projectId,
-    sequence_number: reading.sequenceNumber,
-    generated_id: reading.generatedId,
-    dft_reading_1: reading.dftReading1,
-    dft_reading_2: reading.dftReading2,
-    dft_reading_3: reading.dftReading3,
-    dft_average: reading.dftAverage,
-    status: reading.status,
-    temperature_c: reading.temperatureC,
-    humidity_percent: reading.humidityPercent,
-    reading_type: 'full_measurement',
-    notes: `Auto-generated reading ${reading.sequenceNumber} of ${config.quantity}`,
-  }));
+  const readingsToInsert = readings.map((reading) => {
+    let notes = `Auto-generated reading ${reading.sequenceNumber} of ${config.quantity}`;
+
+    // Add set information if available
+    if (reading.setNumber && reading.readingWithinSet && config.readingsPerSet) {
+      const totalSets = Math.ceil(config.quantity / config.readingsPerSet);
+      notes = `Set ${reading.setNumber}/${totalSets}: Reading ${reading.readingWithinSet}/${config.readingsPerSet}`;
+    }
+
+    return {
+      member_id: config.memberId,
+      project_id: config.projectId,
+      sequence_number: reading.sequenceNumber,
+      generated_id: reading.generatedId,
+      dft_reading_1: reading.dftReading1,
+      dft_reading_2: reading.dftReading2,
+      dft_reading_3: reading.dftReading3,
+      dft_average: reading.dftAverage,
+      status: reading.status,
+      temperature_c: reading.temperatureC,
+      humidity_percent: reading.humidityPercent,
+      reading_type: 'full_measurement',
+      notes,
+    };
+  });
 
   // Delete existing readings for this member first
   await supabase

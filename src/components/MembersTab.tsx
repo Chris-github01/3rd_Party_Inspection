@@ -1172,14 +1172,22 @@ function GenerateQuantityReadingsModal({
           readingsCount = globalReadingsPerMember;
         }
 
+        // Calculate total readings: member.quantity × readingsCount
+        // member.quantity represents number of sets (e.g., 3 pieces)
+        // readingsCount represents readings per set (e.g., 100)
+        // Total = 3 × 100 = 300 readings
+        const memberQuantity = member.quantity || 1;
+        const totalReadings = memberQuantity * readingsCount;
+
         const config: QuantityReadingConfig = {
           memberId: member.id,
           memberMark: member.member_mark,
           projectId,
-          quantity: readingsCount,
+          quantity: totalReadings,
           requiredDftMicrons: member.required_dft_microns || 450,
           minValue: lowestValue,
           maxValue: highestValue,
+          readingsPerSet: readingsCount, // Track readings per set for grouping
         };
 
         const readings = await generateQuantityBasedReadings(config);
@@ -1188,7 +1196,19 @@ function GenerateQuantityReadingsModal({
       }
 
       setGeneratedData(dataMap);
-      alert(`Successfully generated readings for ${selectedMembers.length} member(s) with a total of ${Array.from(dataMap.values()).reduce((sum, readings) => sum + readings.length, 0)} individual test readings.`);
+      const totalReadings = Array.from(dataMap.values()).reduce((sum, readings) => sum + readings.length, 0);
+
+      // Calculate set information
+      let setInfo = '';
+      for (const member of selectedMembers) {
+        const memberReadings = dataMap.get(member.id) || [];
+        const memberQuantity = member.quantity || 1;
+        if (memberQuantity > 1) {
+          setInfo += `\n${member.member_mark}: ${memberQuantity} sets × ${readingsCount} readings = ${memberReadings.length} total`;
+        }
+      }
+
+      alert(`Successfully generated readings for ${selectedMembers.length} member(s) with a total of ${totalReadings} individual test readings.${setInfo}`);
     } catch (error: any) {
       console.error('Error generating quantity readings:', error);
       alert('Failed to generate readings: ' + error.message);
