@@ -88,7 +88,8 @@ export function ExportsTab({ project }: { project: Project }) {
       ncrsRes,
       dftBatchesRes,
       simulatedMemberSetsRes,
-      orgSettingsRes,
+      quantityReadingsRes,
+      companySettingsFallbackRes,
       projectDetailsRes,
     ] = await Promise.all([
       supabase.from('members').select('*').eq('project_id', project.id).order('member_mark'),
@@ -111,8 +112,13 @@ export function ExportsTab({ project }: { project: Project }) {
             (i) => i.id
           ) || []
         ),
+      supabase.from('inspection_readings').select('*').eq('project_id', project.id).order('member_id, sequence_number'),
       supabase.from('company_settings').select('*').limit(1).maybeSingle(),
-      supabase.from('projects').select('*, clients(logo_path)').eq('id', project.id).maybeSingle(),
+      supabase.from('projects').select(`
+        *,
+        clients(logo_path),
+        organizations(id, name, logo_url, address, phone, email, website)
+      `).eq('id', project.id).single(),
     ]);
 
     const members = membersRes.data || [];
@@ -120,8 +126,19 @@ export function ExportsTab({ project }: { project: Project }) {
     const ncrs = ncrsRes.data || [];
     const dftBatches = dftBatchesRes.data || [];
     const simulatedMemberSets = simulatedMemberSetsRes.data || [];
-    const orgSettings = orgSettingsRes.data;
+    const quantityReadings = quantityReadingsRes.data || [];
+    const companySettingsFallback = companySettingsFallbackRes.data;
     const projectDetails = projectDetailsRes.data;
+    const orgSettings = projectDetails?.organizations || companySettingsFallback;
+
+    // Group quantity readings by member_id
+    const readingsByMember = quantityReadings.reduce((acc: Record<string, any[]>, reading: any) => {
+      if (!acc[reading.member_id]) {
+        acc[reading.member_id] = [];
+      }
+      acc[reading.member_id].push(reading);
+      return acc;
+    }, {});
 
     // Data validation logging
     console.log('📊 Report Data Summary:');
@@ -153,30 +170,70 @@ export function ExportsTab({ project }: { project: Project }) {
     }
 
     const doc = new jsPDF();
+    const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
+    const MARGIN = {
+      top: 20,
+      bottom: 30,
+      left: 20,
+      right: 20,
+    };
+    const MAX_Y = PAGE_HEIGHT - MARGIN.bottom;
+    const CONTENT_WIDTH = 210 - MARGIN.left - MARGIN.right;
+
+    // Helper function for page breaks
+    const checkPageBreak = (currentY: number, requiredSpace: number = 10): number => {
+      if (currentY + requiredSpace > MAX_Y) {
+        doc.addPage();
+        return MARGIN.top;
+      }
+      return currentY;
+    };
+
     let yPos = 20;
 
+    // Load organization logo with multi-bucket fallback
     if (orgSettings?.logo_url) {
       try {
-        const { data: logoData } = await supabase.storage
-          .from('project-documents')
-          .getPublicUrl(orgSettings.logo_url);
+        let logoDataUrl = null;
 
-        if (logoData?.publicUrl) {
-          // Fetch and convert to data URL
-          const response = await fetch(logoData.publicUrl);
+        // Check if full URL
+        if (orgSettings.logo_url.startsWith('http://') || orgSettings.logo_url.startsWith('https://')) {
+          const response = await fetch(orgSettings.logo_url);
           const logoBlob = await response.blob();
-          const logoDataUrl = await blobToDataURL(logoBlob);
+          logoDataUrl = await blobToDataURL(logoBlob);
+        } else {
+          // Try multiple buckets
+          const buckets = ['organization-logos', 'project-documents', 'documents'];
+          for (const bucket of buckets) {
+            try {
+              const { data: logoData } = await supabase.storage
+                .from(bucket)
+                .getPublicUrl(orgSettings.logo_url);
+
+              if (logoData?.publicUrl) {
+                const response = await fetch(logoData.publicUrl);
+                const logoBlob = await response.blob();
+                logoDataUrl = await blobToDataURL(logoBlob);
+                if (logoDataUrl) break;
+              }
+            } catch (err) {
+              continue;
+            }
+          }
+        }
+
+        if (logoDataUrl) {
           doc.addImage(logoDataUrl, 'PNG', 15, yPos - 5, 40, 20);
         }
       } catch (error) {
-        console.warn('Could not load company logo:', error);
+        console.warn('Could not load organization logo:', error);
       }
     }
 
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 40, 80);
-    const orgName = orgSettings?.company_name || 'P&R Consulting Limited';
+    const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
     doc.text(orgName, 105, yPos, { align: 'center' });
     yPos += 12;
 
@@ -251,10 +308,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
         const lines = doc.splitTextToSize(paragraph, 170);
         for (const line of lines) {
-          if (yPos > 257) {
-            doc.addPage();
-            yPos = 20;
-          }
+          yPos = checkPageBreak(yPos, 5);
           doc.text(line, 20, yPos);
           yPos += 5;
         }
@@ -368,8 +422,31 @@ export function ExportsTab({ project }: { project: Project }) {
     doc.text('4. DFT Summary by Member', 20, yPos);
     yPos += 10;
 
-    // Build DFT data including ALL batches (not just first one)
+    // Build DFT data including ALL sources: quantity readings, batches, and simulated sets
     const dftData: any[] = [];
+
+    // First, add quantity-based readings for members
+    members.forEach((member) => {
+      const memberReadings = readingsByMember[member.id];
+      if (memberReadings && memberReadings.length > 0) {
+        const avgDft = memberReadings.reduce((sum: number, r: any) => sum + r.dft_average, 0) / memberReadings.length;
+        const minDft = Math.min(...memberReadings.map((r: any) => r.dft_average));
+        const maxDft = Math.max(...memberReadings.map((r: any) => r.dft_average));
+        const allPass = memberReadings.every((r: any) => r.status === 'pass');
+
+        dftData.push([
+          `${member.member_mark}${member.is_spot_check ? ' (Spot)' : ''}`,
+          member.required_dft_microns || 'N/A',
+          avgDft.toFixed(1),
+          minDft,
+          maxDft,
+          memberReadings.length,
+          allPass ? 'PASS' : 'FAIL',
+        ]);
+      }
+    });
+
+    // Then, add inspection-based DFT data
     inspections
       .filter((i) => i.dft_batches && i.dft_batches.length > 0)
       .forEach((i) => {
@@ -479,12 +556,8 @@ export function ExportsTab({ project }: { project: Project }) {
       });
 
       for (const set of simulatedMemberSets) {
-        if ((doc as any).lastAutoTable.finalY > 220) {
-          doc.addPage();
-          yPos = 20;
-        } else {
-          yPos = (doc as any).lastAutoTable.finalY + 15;
-        }
+        yPos = (doc as any).lastAutoTable.finalY + 15;
+        yPos = checkPageBreak(yPos, 30);
 
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
@@ -517,9 +590,83 @@ export function ExportsTab({ project }: { project: Project }) {
           styles: { fontSize: 7, cellPadding: 2, halign: 'center' },
           margin: { left: 20, right: 20, bottom: 30 },
           didDrawPage: (data: any) => {
-            const pageHeight = doc.internal.pageSize.height;
-            if (data.cursor.y > pageHeight - 30) {
-              data.cursor.y = 20;
+            if (data.cursor.y > MAX_Y) {
+              data.cursor.y = MARGIN.top;
+            }
+          },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      }
+    }
+
+    // Add detailed quantity readings section
+    if (Object.keys(readingsByMember).length > 0) {
+      doc.addPage();
+      yPos = 20;
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Quantity-Based Inspection Readings', 20, yPos);
+      yPos += 10;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('This section contains detailed readings for members with quantity-based inspections.', 20, yPos);
+      yPos += 10;
+
+      for (const [memberId, readings] of Object.entries(readingsByMember)) {
+        const member = members.find((m: any) => m.id === memberId);
+        if (!member) continue;
+
+        yPos = checkPageBreak(yPos, 40);
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Member: ${member.member_mark}`, 20, yPos);
+        yPos += 7;
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        const avgDft = readings.reduce((sum: number, r: any) => sum + r.dft_average, 0) / readings.length;
+        const minDft = Math.min(...readings.map((r: any) => r.dft_average));
+        const maxDft = Math.max(...readings.map((r: any) => r.dft_average));
+        const stdDev = Math.sqrt(
+          readings.reduce((sum: number, r: any) => sum + Math.pow(r.dft_average - avgDft, 2), 0) / readings.length
+        );
+
+        doc.text(
+          `Total Readings: ${readings.length} | Required: ${member.required_dft_microns}µm | Avg: ${avgDft.toFixed(1)}µm | Min: ${minDft}µm | Max: ${maxDft}µm | Std Dev: ${stdDev.toFixed(1)}`,
+          20,
+          yPos
+        );
+        yPos += 7;
+
+        const readingData = readings.map((r: any) => [
+          r.generated_id,
+          `${r.dft_reading_1}µm`,
+          `${r.dft_reading_2}µm`,
+          `${r.dft_reading_3}µm`,
+          `${r.dft_average}µm`,
+          r.status.toUpperCase(),
+        ]);
+
+        autoTable(doc, {
+          head: [['ID', 'Reading 1', 'Reading 2', 'Reading 3', 'Average', 'Status']],
+          body: readingData,
+          startY: yPos,
+          theme: 'grid',
+          headStyles: { fillColor: [0, 40, 80], textColor: 255 },
+          styles: { fontSize: 8 },
+          margin: { bottom: 30 },
+          didParseCell: function (data) {
+            if (data.section === 'body' && data.column.index === 5) {
+              if (data.cell.text[0] === 'PASS') {
+                data.cell.styles.textColor = [0, 128, 0];
+              } else if (data.cell.text[0] === 'FAIL') {
+                data.cell.styles.textColor = [255, 0, 0];
+              }
             }
           },
         });
