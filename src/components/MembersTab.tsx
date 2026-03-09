@@ -1055,6 +1055,12 @@ function GenerateReadingsModal({
   );
 }
 
+interface MemberReadingParams {
+  lowestValue: number;
+  highestValue: number;
+  readingsCount: number;
+}
+
 function GenerateQuantityReadingsModal({
   projectId,
   selectedMembers,
@@ -1069,27 +1075,70 @@ function GenerateQuantityReadingsModal({
   const [generating, setGenerating] = useState(false);
   const [generatedData, setGeneratedData] = useState<Map<string, any[]>>(new Map());
   const [viewingMember, setViewingMember] = useState<string | null>(null);
-
-  // Generation parameters
-  const [lowestValue, setLowestValue] = useState<number>(400);
-  const [highestValue, setHighestValue] = useState<number>(550);
-  const [readingsPerMember, setReadingsPerMember] = useState<number>(100);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Check if members have different DFT requirements
+  const uniqueDftValues = new Set(selectedMembers.map(m => m.required_dft_microns));
+  const hasMultipleDftValues = uniqueDftValues.size > 1;
+
+  // Per-member parameters (used when members have different DFT values)
+  const [memberParams, setMemberParams] = useState<Map<string, MemberReadingParams>>(
+    new Map(
+      selectedMembers.map(m => [
+        m.id,
+        { lowestValue: 400, highestValue: 550, readingsCount: 100 }
+      ])
+    )
+  );
+
+  // Global parameters (used when all members have same DFT)
+  const [globalLowestValue, setGlobalLowestValue] = useState<number>(400);
+  const [globalHighestValue, setGlobalHighestValue] = useState<number>(550);
+  const [globalReadingsPerMember, setGlobalReadingsPerMember] = useState<number>(100);
+
+  const updateMemberParam = (memberId: string, field: keyof MemberReadingParams, value: number) => {
+    const newParams = new Map(memberParams);
+    const current = newParams.get(memberId) || { lowestValue: 400, highestValue: 550, readingsCount: 100 };
+    newParams.set(memberId, { ...current, [field]: value });
+    setMemberParams(newParams);
+  };
 
   const validateInputs = (): string[] => {
     const errs: string[] = [];
 
-    if (isNaN(lowestValue) || lowestValue <= 0) {
-      errs.push('Lowest Value must be a positive number');
-    }
-    if (isNaN(highestValue) || highestValue <= 0) {
-      errs.push('Highest Value must be a positive number');
-    }
-    if (lowestValue >= highestValue) {
-      errs.push('Lowest Value must be less than Highest Value');
-    }
-    if (isNaN(readingsPerMember) || readingsPerMember < 1) {
-      errs.push('Readings per Member must be at least 1');
+    if (hasMultipleDftValues) {
+      // Validate each member's parameters
+      for (const member of selectedMembers) {
+        const params = memberParams.get(member.id);
+        if (!params) continue;
+
+        if (isNaN(params.lowestValue) || params.lowestValue <= 0) {
+          errs.push(`${member.member_mark}: Lowest Value must be a positive number`);
+        }
+        if (isNaN(params.highestValue) || params.highestValue <= 0) {
+          errs.push(`${member.member_mark}: Highest Value must be a positive number`);
+        }
+        if (params.lowestValue >= params.highestValue) {
+          errs.push(`${member.member_mark}: Lowest Value must be less than Highest Value`);
+        }
+        if (isNaN(params.readingsCount) || params.readingsCount < 1) {
+          errs.push(`${member.member_mark}: Readings count must be at least 1`);
+        }
+      }
+    } else {
+      // Validate global parameters
+      if (isNaN(globalLowestValue) || globalLowestValue <= 0) {
+        errs.push('Lowest Value must be a positive number');
+      }
+      if (isNaN(globalHighestValue) || globalHighestValue <= 0) {
+        errs.push('Highest Value must be a positive number');
+      }
+      if (globalLowestValue >= globalHighestValue) {
+        errs.push('Lowest Value must be less than Highest Value');
+      }
+      if (isNaN(globalReadingsPerMember) || globalReadingsPerMember < 1) {
+        errs.push('Readings per Member must be at least 1');
+      }
     }
 
     return errs;
@@ -1108,11 +1157,26 @@ function GenerateQuantityReadingsModal({
 
     try {
       for (const member of selectedMembers) {
+        let lowestValue: number;
+        let highestValue: number;
+        let readingsCount: number;
+
+        if (hasMultipleDftValues) {
+          const params = memberParams.get(member.id)!;
+          lowestValue = params.lowestValue;
+          highestValue = params.highestValue;
+          readingsCount = params.readingsCount;
+        } else {
+          lowestValue = globalLowestValue;
+          highestValue = globalHighestValue;
+          readingsCount = globalReadingsPerMember;
+        }
+
         const config: QuantityReadingConfig = {
           memberId: member.id,
           memberMark: member.member_mark,
           projectId,
-          quantity: readingsPerMember,
+          quantity: readingsCount,
           requiredDftMicrons: member.required_dft_microns || 450,
           minValue: lowestValue,
           maxValue: highestValue,
@@ -1159,49 +1223,118 @@ function GenerateQuantityReadingsModal({
 
           {generatedData.size === 0 && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Lowest Value (µm) *
-                  </label>
-                  <input
-                    type="number"
-                    value={lowestValue}
-                    onChange={(e) => setLowestValue(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min="0"
-                    step="1"
-                  />
-                </div>
+              {hasMultipleDftValues ? (
+                <div className="mb-6">
+                  <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 mb-4">
+                    <div className="text-sm text-blue-200">
+                      <strong>Multiple DFT Requirements Detected</strong>
+                      <br />
+                      Members have different required DFT values. Configure parameters for each member individually.
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Highest Value (µm) *
-                  </label>
-                  <input
-                    type="number"
-                    value={highestValue}
-                    onChange={(e) => setHighestValue(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min="0"
-                    step="1"
-                  />
+                  <div className="space-y-4">
+                    {selectedMembers.map((member) => {
+                      const params = memberParams.get(member.id) || { lowestValue: 400, highestValue: 550, readingsCount: 100 };
+                      return (
+                        <div key={member.id} className="bg-slate-700/30 border border-slate-600 rounded-lg p-4">
+                          <div className="mb-3">
+                            <h4 className="text-white font-semibold">{member.member_mark}</h4>
+                            <p className="text-sm text-slate-400">
+                              Section: {member.section} | Required DFT: {member.required_dft_microns} µm
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-1">
+                                Lowest Value (µm) *
+                              </label>
+                              <input
+                                type="number"
+                                value={params.lowestValue}
+                                onChange={(e) => updateMemberParam(member.id, 'lowestValue', Number(e.target.value))}
+                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                min="0"
+                                step="1"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-1">
+                                Highest Value (µm) *
+                              </label>
+                              <input
+                                type="number"
+                                value={params.highestValue}
+                                onChange={(e) => updateMemberParam(member.id, 'highestValue', Number(e.target.value))}
+                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                min="0"
+                                step="1"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-1">
+                                Readings per Member *
+                              </label>
+                              <input
+                                type="number"
+                                value={params.readingsCount}
+                                onChange={(e) => updateMemberParam(member.id, 'readingsCount', Number(e.target.value))}
+                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                min="1"
+                                step="1"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Lowest Value (µm) *
+                    </label>
+                    <input
+                      type="number"
+                      value={globalLowestValue}
+                      onChange={(e) => setGlobalLowestValue(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      min="0"
+                      step="1"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Readings per Member *
-                  </label>
-                  <input
-                    type="number"
-                    value={readingsPerMember}
-                    onChange={(e) => setReadingsPerMember(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min="1"
-                    step="1"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Highest Value (µm) *
+                    </label>
+                    <input
+                      type="number"
+                      value={globalHighestValue}
+                      onChange={(e) => setGlobalHighestValue(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      min="0"
+                      step="1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Readings per Member *
+                    </label>
+                    <input
+                      type="number"
+                      value={globalReadingsPerMember}
+                      onChange={(e) => setGlobalReadingsPerMember(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      min="1"
+                      step="1"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {errors.length > 0 && (
                 <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 mb-4">
