@@ -193,125 +193,109 @@ Deno.serve(async (req: Request) => {
           errors: [],
         });
       } else if (importRecord.source_type === "pdf") {
-        console.log("Parsing PDF file - calling Python parser service");
-        console.log("Python parser URL:", PYTHON_PARSER_URL);
+        console.log("Parsing PDF file - calling Claude Vision parser");
 
         try {
-          const formData = new FormData();
-          formData.append("file", new Blob([fileData]), document.filename);
+          // Get public URL for the PDF
+          const { data: urlData } = await supabaseClient.storage
+            .from("documents")
+            .getPublicUrl(document.storage_path);
 
-          const parseResponse = await fetch(`${PYTHON_PARSER_URL}/parse-loading-schedule`, {
-            method: "POST",
-            body: formData,
-            signal: AbortSignal.timeout(60000),
-          });
+          if (!urlData?.publicUrl) {
+            throw new Error("Failed to get public URL for PDF");
+          }
 
-          if (!parseResponse.ok) {
-            const errorText = await parseResponse.text();
-            console.error("Python parser error:", errorText);
+          console.log("PDF URL:", urlData.publicUrl);
 
-            if (parseResponse.status === 404) {
-              parseErrorCode = "PYTHON_PARSER_NOT_DEPLOYED";
-              parseError = "Python parser service not deployed. Please deploy the service from python-parser/ directory to Render, Railway, or another platform. See PYTHON_PARSER_DEPLOYMENT.md for instructions.";
-            } else {
-              parseErrorCode = "PYTHON_PARSER_ERROR";
-              parseError = `Python parser returned ${parseResponse.status}: ${errorText}`;
+          // Call the vision parser edge function
+          const visionResponse = await supabaseClient.functions.invoke(
+            "parse-loading-schedule-vision",
+            {
+              body: {
+                pdfUrl: urlData.publicUrl,
+                projectId: importRecord.project_id,
+                scheduleReference: importRecord.schedule_reference,
+              },
             }
+          );
+
+          if (visionResponse.error) {
+            console.error("Vision parser error:", visionResponse.error);
+            parseErrorCode = "VISION_PARSER_ERROR";
+            parseError = visionResponse.error.message || "Vision parser failed";
 
             artifact.pages.push({
               pageNumber: 1,
-              method: "python_pdfplumber",
+              method: "claude_vision",
               confidence: 0.0,
               errors: [parseError],
             });
           } else {
-            const parseResult = await parseResponse.json();
-            console.log("Python parser result:", parseResult);
+            const parseResult = visionResponse.data;
+            console.log("Vision parser result:", parseResult);
 
-            if (parseResult.status === "failed") {
-              parseErrorCode = parseResult.error_code || "PARSER_FAILED";
-              parseError = parseResult.error_message || "Parser failed";
-
-              artifact.metadata = {
-                ...artifact.metadata,
-                ...parseResult.metadata,
-              };
+            if (!parseResult.success) {
+              parseErrorCode = "VISION_PARSER_FAILED";
+              parseError = parseResult.error || "Vision parser failed";
 
               artifact.pages.push({
                 pageNumber: 1,
-                method: "python_pdfplumber",
+                method: "claude_vision",
                 confidence: 0.0,
-                errors: parseResult.metadata?.errors || [parseError],
+                errors: [parseError],
               });
             } else {
               const items = parseResult.items || [];
-              console.log(`Python parser extracted ${items.length} items`);
-
-              // Helper function to extract FRR from member mark (e.g., R60 -> 60)
-              const extractFRRFromMemberMark = (memberMark: string | null): number | null => {
-                if (!memberMark) return null;
-                const match = memberMark.match(/R(\d{2,3})/i);
-                if (match) {
-                  const frr = parseInt(match[1]);
-                  // Validate it's a standard FRR rating
-                  if ([30, 45, 60, 90, 120, 180, 240].includes(frr)) {
-                    return frr;
-                  }
-                }
-                return null;
-              };
+              console.log(`Vision parser extracted ${items.length} items`);
 
               for (const item of items) {
-                // Extract FRR from member mark if available (e.g., R60 -> 60)
-                const frrFromMemberMark = extractFRRFromMemberMark(item.member_mark);
-                const finalFRR = frrFromMemberMark || item.frr_minutes;
-                const finalFRRFormat = frrFromMemberMark ? `${frrFromMemberMark}/-/-` : item.frr_format;
-
                 extractedItems.push({
                   import_id: importId,
                   project_id: importRecord.project_id,
-                  loading_schedule_ref: null,
+                  loading_schedule_ref: parseResult.schedule_reference || null,
                   member_mark: item.member_mark,
                   element_type: item.element_type,
                   section_size_raw: item.section_size_raw,
                   section_size_normalized: item.section_size_normalized,
-                  frr_minutes: finalFRR,
-                  frr_format: finalFRRFormat,
+                  frr_minutes: item.frr_minutes,
+                  frr_format: item.frr_minutes ? `${item.frr_minutes}/-/-` : null,
                   coating_product: item.coating_product,
                   dft_required_microns: item.dft_required_microns,
                   needs_review: item.needs_review,
                   confidence: item.confidence,
-                  cite_page: item.page,
-                  cite_line_start: item.line,
-                  cite_line_end: item.line,
+                  cite_page: 1,
+                  cite_line_start: 0,
+                  cite_line_end: 0,
                 });
               }
 
               artifact.metadata = {
                 ...artifact.metadata,
-                ...parseResult.metadata,
+                schedule_reference: parseResult.schedule_reference,
+                project_name: parseResult.project_name,
+                customer_name: parseResult.customer_name,
+                coating_product: parseResult.coating_product,
+                parser_type: parseResult.parser_type,
+                model: parseResult.model,
               };
 
-              for (let i = 1; i <= (parseResult.metadata?.total_pages || 1); i++) {
-                artifact.pages.push({
-                  pageNumber: i,
-                  method: "python_pdfplumber",
-                  confidence: 0.95,
-                  errors: parseResult.metadata?.errors || [],
-                });
-              }
+              artifact.pages.push({
+                pageNumber: 1,
+                method: "claude_vision",
+                confidence: 0.95,
+                lineCount: items.length,
+                errors: [],
+              });
             }
           }
         } catch (fetchError: any) {
-          console.error("Failed to call Python parser:", fetchError);
-          parseErrorCode = "PYTHON_PARSER_UNAVAILABLE";
-          parseError = fetchError.name === "TimeoutError"
-            ? "Python parser service timeout. Service may be cold-starting (takes 30-60s on first use) or unavailable."
-            : `Cannot connect to Python parser service. Please ensure it's deployed and accessible. Error: ${fetchError.message}`;
+          console.error("Failed to call vision parser:", fetchError);
+          parseErrorCode = "VISION_PARSER_UNAVAILABLE";
+          parseError = `Cannot connect to vision parser service. Error: ${fetchError.message}`;
 
           artifact.pages.push({
             pageNumber: 1,
-            method: "python_pdfplumber",
+            method: "claude_vision",
             confidence: 0.0,
             errors: [parseError],
           });
