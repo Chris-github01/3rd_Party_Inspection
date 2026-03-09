@@ -830,6 +830,235 @@ If FRR is in the header/title, apply it to all rows. If a value is missing, use 
             "metadata": {"errors": [str(e)], "parser": "openai_gpt4"}
         }
 
+def parse_altex_schedule(pdf_path: str) -> Dict[str, Any]:
+    """
+    Parse an Altex loading schedule PDF with specialized logic.
+
+    Altex schedules have:
+    - Header with Project, Customer, Date, Schedule Reference
+    - Product name in header (e.g., "NULLIFIRE SC902 FAST-TRACK INTUMESCENT - FIREPROOFING SCHEDULE")
+    - Table columns: ITEM CODE, ELEMENT NAME, CONFIGURATION, SIDES, Hp/A, LINEAL Metres, AREA, FRR Minutes, DFT Microns, SC902 LITRES, COMMENTS
+    - Element names are section designations (e.g., 150PFC, 200UB22, RB12)
+    - Configuration is element type (Beam, Column, etc.)
+    """
+    items = []
+    errors = []
+    document_metadata = {}
+
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            total_pages = len(pdf.pages)
+
+            # Extract full document text for metadata
+            full_text = ""
+            for page in pdf.pages:
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        full_text += page_text + "\n"
+                except:
+                    pass
+
+            # Extract document metadata
+            document_metadata = extract_document_metadata(full_text, "altex")
+
+            # Extract product name from title (e.g., "NULLIFIRE SC902")
+            product_name = None
+            product_match = re.search(r"(NULLIFIRE\s+[A-Z0-9]+)", full_text, re.I)
+            if product_match:
+                product_name = product_match.group(1).strip()
+
+            # Extract FRR from project description if present
+            header_frr = None
+            frr_match = re.search(r"(\d+)\s*min\s*FRR", full_text, re.I)
+            if frr_match:
+                header_frr = int(frr_match.group(1))
+
+            # Parse each page
+            for page_number, page in enumerate(pdf.pages, start=1):
+                try:
+                    # Extract tables
+                    tables = page.extract_tables()
+
+                    if not tables:
+                        continue
+
+                    for table in tables:
+                        # Find header row to determine column indices
+                        header_row = None
+                        header_idx = None
+                        for idx, row in enumerate(table):
+                            if row and any(cell and ("ELEMENT NAME" in str(cell).upper() or "DFT" in str(cell).upper()) for cell in row):
+                                header_row = row
+                                header_idx = idx
+                                break
+
+                        if not header_row:
+                            continue
+
+                        # Map column names to indices
+                        col_map = {}
+                        for idx, cell in enumerate(header_row):
+                            if not cell:
+                                continue
+                            cell_upper = str(cell).upper().strip()
+
+                            if "ELEMENT NAME" in cell_upper or "ELEMENT" in cell_upper:
+                                col_map["element_name"] = idx
+                            elif "CONFIGURATION" in cell_upper:
+                                col_map["configuration"] = idx
+                            elif "FRR" in cell_upper and "MINUTES" in cell_upper:
+                                col_map["frr"] = idx
+                            elif "DFT" in cell_upper and "MICRONS" in cell_upper:
+                                col_map["dft"] = idx
+                            elif "ITEM" in cell_upper and "CODE" in cell_upper:
+                                col_map["item_code"] = idx
+                            elif "SIDES" in cell_upper:
+                                col_map["sides"] = idx
+                            elif "HP/A" in cell_upper.replace(" ", ""):
+                                col_map["hp_a"] = idx
+
+                        # Validate we found the critical columns
+                        if "element_name" not in col_map or "dft" not in col_map:
+                            continue
+
+                        # Parse data rows (skip header)
+                        for row_idx, row in enumerate(table):
+                            if row_idx <= header_idx or not row:
+                                continue
+
+                            # Skip if no element name
+                            element_name = None
+                            if "element_name" in col_map and len(row) > col_map["element_name"]:
+                                element_name = str(row[col_map["element_name"]]).strip() if row[col_map["element_name"]] else None
+
+                            if not element_name:
+                                continue
+
+                            # Skip totals rows
+                            if "total" in element_name.lower():
+                                continue
+
+                            # Normalize element name (section size)
+                            section_normalized = normalize_section(element_name)
+
+                            # Extract configuration (element type)
+                            element_type = None
+                            if "configuration" in col_map and len(row) > col_map["configuration"]:
+                                config = str(row[col_map["configuration"]]).strip() if row[col_map["configuration"]] else None
+                                if config:
+                                    config_lower = config.lower()
+                                    if "beam" in config_lower:
+                                        element_type = "beam"
+                                    elif "column" in config_lower:
+                                        element_type = "column"
+                                    elif "brace" in config_lower:
+                                        element_type = "brace"
+
+                            # Extract FRR (from column or header)
+                            frr_minutes = header_frr
+                            if "frr" in col_map and len(row) > col_map["frr"]:
+                                frr_str = str(row[col_map["frr"]]).strip() if row[col_map["frr"]] else ""
+                                if frr_str and frr_str.isdigit():
+                                    frr_minutes = int(frr_str)
+
+                            # Extract DFT in microns (CRITICAL: get from DFT Microns column, NOT Hp/A)
+                            dft_microns = None
+                            if "dft" in col_map and len(row) > col_map["dft"]:
+                                dft_str = str(row[col_map["dft"]]).strip() if row[col_map["dft"]] else ""
+                                # Try to parse as integer
+                                try:
+                                    dft_microns = int(dft_str)
+                                except:
+                                    pass
+
+                            # Build row text for reference
+                            row_text = " | ".join(str(cell or "") for cell in row)
+
+                            # Calculate confidence
+                            missing_fields = 0
+                            if not frr_minutes: missing_fields += 1
+                            if not dft_microns: missing_fields += 1
+                            if not product_name: missing_fields += 0.5
+
+                            confidence = max(0.6, 1.0 - (missing_fields * 0.15))
+                            needs_review = missing_fields >= 1
+
+                            item = {
+                                "page": page_number,
+                                "line": 0,
+                                "raw_text": row_text.strip(),
+                                "member_mark": None,
+                                "section_size_raw": element_name,
+                                "section_size_normalized": section_normalized,
+                                "frr_minutes": frr_minutes,
+                                "frr_format": f"{frr_minutes}/-/-" if frr_minutes else None,
+                                "dft_required_microns": dft_microns,
+                                "coating_product": product_name,
+                                "element_type": element_type,
+                                "confidence": confidence,
+                                "needs_review": needs_review,
+                                "comments": None,
+                            }
+
+                            items.append(item)
+
+                except Exception as page_error:
+                    errors.append(f"Page {page_number}: {str(page_error)}")
+
+            if len(items) == 0:
+                error_msg = "No structural members detected in Altex schedule.\n\n"
+                error_msg += "Expected format:\n"
+                error_msg += "• ELEMENT NAME column with section designations (e.g., 150PFC, 200UB22)\n"
+                error_msg += "• CONFIGURATION column with element types (Beam, Column)\n"
+                error_msg += "• FRR Minutes column with fire ratings\n"
+                error_msg += "• DFT Microns column with thickness values\n\n"
+                error_msg += "Possible issues:\n"
+                error_msg += "1. PDF is scanned (text not selectable)\n"
+                error_msg += "2. Table structure not recognized\n"
+                error_msg += "3. Column headers don't match expected format\n"
+
+                return {
+                    "status": "failed",
+                    "error_code": "NO_STRUCTURAL_ROWS_DETECTED",
+                    "error_message": error_msg,
+                    "items_extracted": 0,
+                    "items": [],
+                    "metadata": {
+                        "total_pages": total_pages,
+                        "errors": errors,
+                        "document_format": "altex"
+                    }
+                }
+
+            return {
+                "status": "completed",
+                "items_extracted": len(items),
+                "items": items,
+                "metadata": {
+                    "total_pages": total_pages,
+                    "errors": errors if errors else [],
+                    "schedule_reference": document_metadata.get("schedule_reference"),
+                    "project_name": document_metadata.get("project_name"),
+                    "coating_system": product_name or document_metadata.get("coating_system"),
+                    "supplier": "Altex Coatings Limited",
+                    "document_format": "altex",
+                }
+            }
+
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error_code": "PARSER_ERROR",
+            "error_message": str(e),
+            "items_extracted": 0,
+            "items": [],
+            "metadata": {
+                "errors": [str(e)],
+                "document_format": "altex"
+            }
+        }
+
 def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
     """
     Parse a loading schedule PDF using OpenAI first, with fallback to format-specific parsers
@@ -864,8 +1093,10 @@ def parse_loading_schedule(pdf_path: str) -> Dict[str, Any]:
                 return parse_akzonobel_schedule(pdf_path)
             elif format_type == "jotun":
                 return parse_jotun_schedule(pdf_path)
+            elif format_type == "altex":
+                return parse_altex_schedule(pdf_path)
             else:
-                # Use generic parser for Altex and other formats
+                # Use generic parser for other formats
                 return parse_generic_schedule(pdf_path)
 
     except Exception as e:
