@@ -55,7 +55,7 @@ function SiteModeRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <BrowserRouter basename="/inspection">
+    <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
           <Routes>
