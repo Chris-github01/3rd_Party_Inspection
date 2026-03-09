@@ -14,6 +14,7 @@ import { ExecutiveSummaryPreview } from '../components/ExecutiveSummaryPreview';
 import { IntroductionPreview } from '../components/IntroductionPreview';
 import { SoftLockPanel } from '../components/SoftLockPanel';
 import { PinCorrectionsTab } from '../components/PinCorrectionsTab';
+import { WorkflowProgressIndicator } from '../components/WorkflowProgressIndicator';
 
 interface Project {
   id: string;
@@ -191,6 +192,7 @@ export function ProjectDetail() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <h1 className="text-2xl sm:text-3xl font-bold text-white">{project.name}</h1>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <WorkflowProgressIndicator projectId={project.id} />
                 {workflowState && (
                   <button
                     onClick={() => setShowStatusPanel(!showStatusPanel)}
