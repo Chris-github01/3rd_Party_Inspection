@@ -346,13 +346,33 @@ export function AddPinModal({
                     {quantityReadings.map((reading) => (
                       <option key={reading.reading_id} value={reading.reading_id}>
                         {reading.generated_id} | {reading.member_mark} - {reading.section_size || 'Unknown'}
-                        {reading.has_readings ? ' ✓' : ' (No data yet)'}
+                        {reading.has_readings ? ' ✓' : ''}
+                        {reading.remaining_quantity !== undefined && reading.member_quantity > 1
+                          ? ` (${reading.remaining_quantity}/${reading.member_quantity} available)`
+                          : ''}
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Showing {quantityReadings.length} member instances with quantity readings generated
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-slate-400">
+                      Showing {quantityReadings.length} available member instances
+                    </p>
+                    {selectedReadingId && selectedMember && (
+                      <>
+                        {selectedMember.member_quantity > 1 && (
+                          <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg p-2">
+                            <p className="text-xs text-blue-300">
+                              <span className="font-semibold">Quantity Tracking:</span> This member has a quantity of {selectedMember.member_quantity}.
+                              {selectedMember.pin_usage_count > 0 && (
+                                <> {selectedMember.pin_usage_count} pin{selectedMember.pin_usage_count !== 1 ? 's' : ''} already created.</>
+                              )}
+                              {' '}{selectedMember.remaining_quantity} more can be added.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
@@ -393,11 +413,33 @@ export function AddPinModal({
                       <span className="text-slate-400">Generated ID:</span>
                       <span className="text-white ml-2 font-semibold text-sm">{selectedMember.generated_id}</span>
                       <div className="text-slate-300 mt-1">
-                        Instance {selectedMember.sequence_number} |
-                        <span className={`ml-1 ${selectedMember.has_readings ? 'text-green-400' : 'text-yellow-400'}`}>
+                        Instance {selectedMember.sequence_number}
+                        {selectedMember.member_quantity > 1 && (
+                          <>
+                            {' | '}
+                            <span className="text-blue-400">
+                              Quantity: {selectedMember.member_quantity}
+                            </span>
+                          </>
+                        )}
+                        {' | '}
+                        <span className={`${selectedMember.has_readings ? 'text-green-400' : 'text-yellow-400'}`}>
                           {selectedMember.has_readings ? 'Has inspection data' : 'No inspection data yet'}
                         </span>
                       </div>
+                      {selectedMember.pin_usage_count > 0 && (
+                        <div className="text-slate-300 mt-1 pt-1 border-t border-primary-700/50">
+                          <span className="text-slate-400">Pin Usage:</span>
+                          <span className="text-white ml-2">
+                            {selectedMember.pin_usage_count} of {selectedMember.member_quantity} used
+                          </span>
+                          {selectedMember.remaining_quantity > 0 && (
+                            <span className="text-green-400 ml-2">
+                              ({selectedMember.remaining_quantity} remaining)
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
