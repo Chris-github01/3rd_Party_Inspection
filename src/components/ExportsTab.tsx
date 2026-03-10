@@ -8,8 +8,10 @@ import { format } from 'date-fns';
 import { PDFDocument } from 'pdf-lib';
 import { createDividerPage } from '../lib/pdfUtils';
 import { InspectedMemberSelector } from './InspectedMemberSelector';
+import { PhotoExportPinSelector } from './PhotoExportPinSelector';
 import { generateInspectionReportWithPhotos } from '../lib/pdfInspectionWithPhotos';
 import { generateEnhancedInspectionReportWithPhotos } from '../lib/pdfInspectionWithPhotosEnhanced';
+import { generateQuantityReadingsPhotoReport } from '../lib/pdfQuantityReadingsWithPhotos';
 import { generateIntroduction } from '../lib/introductionGenerator';
 import { generateExecutiveSummary } from '../lib/executiveSummaryGenerator';
 import { addIntroductionToPDF } from '../lib/pdfIntroduction';
@@ -40,6 +42,8 @@ export function ExportsTab({ project }: { project: Project }) {
   const [generatingMerged, setGeneratingMerged] = useState(false);
   const [generatingPhotoReport, setGeneratingPhotoReport] = useState(false);
   const [generatingEnhancedPhotoReport, setGeneratingEnhancedPhotoReport] = useState(false);
+  const [generatingQuantityPhotoReport, setGeneratingQuantityPhotoReport] = useState(false);
+  const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
 
@@ -1025,6 +1029,33 @@ export function ExportsTab({ project }: { project: Project }) {
     }
   };
 
+  const handleGenerateQuantityPhotoReport = async () => {
+    if (selectedPinIds.length === 0) {
+      alert('Please select at least one pin to include in the report');
+      return;
+    }
+
+    setGeneratingQuantityPhotoReport(true);
+    try {
+      const doc = await generateQuantityReadingsPhotoReport(
+        project.id,
+        project.name,
+        selectedPinIds
+      );
+      doc.save(
+        `Quantity_Readings_Photo_Report_${project.name.replace(/\s+/g, '_')}_${format(
+          new Date(),
+          'yyyyMMdd'
+        )}.pdf`
+      );
+    } catch (error: any) {
+      console.error('Error generating quantity photo report:', error);
+      alert('Error generating quantity photo report: ' + error.message);
+    } finally {
+      setGeneratingQuantityPhotoReport(false);
+    }
+  };
+
   const handleGenerateMergedPack = async () => {
     setGeneratingMerged(true);
     try {
@@ -1466,13 +1497,71 @@ export function ExportsTab({ project }: { project: Project }) {
         </div>
       </div>
 
+      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-lg p-6 shadow-md">
+        <div className="flex items-start">
+          <Camera className="w-12 h-12 text-emerald-600 mr-4 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Inspection Report with Photos
+              </h3>
+              <span className="px-2 py-0.5 bg-emerald-600 text-white text-xs font-semibold rounded">RECOMMENDED</span>
+            </div>
+            <p className="text-sm text-slate-700 mb-4">
+              Generate a detailed inspection report including all photos attached to selected pins. Select which inspected members to include in the report.
+            </p>
+
+            <div className="bg-emerald-100/50 border border-emerald-300 rounded-lg p-3 mb-4">
+              <h4 className="text-sm font-semibold text-emerald-900 mb-2">Features:</h4>
+              <ul className="text-sm text-emerald-800 space-y-1">
+                <li>• Select individual pins for export</li>
+                <li>• Upload multiple photos per pin location</li>
+                <li>• Photos organized by pin number in dedicated section</li>
+                <li>• Summary table of all inspected pins</li>
+                <li>• Professional formatting with organization branding</li>
+                <li>• Photo management: view, upload, and delete</li>
+              </ul>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border-2 border-emerald-200">
+              <PhotoExportPinSelector
+                projectId={project.id}
+                projectName={project.name}
+                onSelectionChange={setSelectedPinIds}
+              />
+
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <button
+                  onClick={handleGenerateQuantityPhotoReport}
+                  disabled={generatingQuantityPhotoReport || selectedPinIds.length === 0}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white rounded-lg font-medium transition-colors"
+                >
+                  <Download className="w-5 h-5" />
+                  {generatingQuantityPhotoReport
+                    ? 'Generating Report...'
+                    : `Generate Report (${selectedPinIds.length} pins selected)`}
+                </button>
+              </div>
+            </div>
+
+            {generatingQuantityPhotoReport && (
+              <div className="mt-4 flex items-center gap-2 text-emerald-600">
+                <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">Generating report with photos...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
         <h4 className="font-medium text-primary-900 mb-2">Export File Naming</h4>
         <p className="text-sm text-primary-800">
           <strong>Base Report:</strong> PRC_InspectionReport_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
           <strong>Merged Pack:</strong> PRC_AuditPack_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
           <strong>Photo Report:</strong> Inspection_Report_Photos_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
-          <strong>Enhanced Photo Report:</strong> Enhanced_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf
+          <strong>Enhanced Photo Report:</strong> Enhanced_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
+          <strong>Quantity Readings Photo Report:</strong> Quantity_Readings_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf
         </p>
       </div>
     </div>
