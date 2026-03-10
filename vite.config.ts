@@ -11,7 +11,7 @@ export default defineConfig({
     strictPort: false,
   },
   optimizeDeps: {
-    include: ['chart.js', 'recharts'],
+    include: ['recharts'],
     exclude: ['lucide-react'],
   },
   build: {
