@@ -165,8 +165,8 @@ export function ProjectDetail() {
   const tabs = [
     { id: 'documents' as TabType, label: 'Documents', icon: FileText },
     { id: 'loading-schedule' as TabType, label: 'Loading Schedule', icon: ListChecks },
-    { id: 'site-manager' as TabType, label: 'Site Manager', icon: Map },
     { id: 'members' as TabType, label: 'Member Register', icon: Users },
+    { id: 'site-manager' as TabType, label: 'Site Manager', icon: Map },
     { id: 'inspections' as TabType, label: 'Inspections', icon: ClipboardCheck },
     { id: 'ncrs' as TabType, label: 'NCRs', icon: AlertTriangle },
     { id: 'pin-corrections' as TabType, label: 'Pin Corrections', icon: MapPin },
