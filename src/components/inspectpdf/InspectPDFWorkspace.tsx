@@ -46,21 +46,35 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
     filename: string,
     operationType: string,
     operationId?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
+    pageCount?: number
   ) => {
-    if (!workspace) return;
+    if (!workspace) {
+      console.warn('No workspace available for saving file');
+      return false;
+    }
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const filePath = `${user.id}/${workspace.project_id}/${Date.now()}-${filename}`;
+      const timestamp = Date.now();
+      const filePath = `${user.id}/${workspace.project_id}/${timestamp}-${filename}`;
 
       const { error: uploadError } = await supabase.storage
         .from('pdf-generated-files')
         .upload(filePath, blob);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      const enrichedMetadata = {
+        ...(metadata || {}),
+        created_at: new Date().toISOString(),
+        timestamp,
+      };
 
       const { error: dbError } = await supabase
         .from('pdf_generated_files')
@@ -70,16 +84,21 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
           filename,
           file_path: filePath,
           file_size_bytes: blob.size,
-          page_count: 0,
+          page_count: pageCount || metadata?.pageCount || 0,
           operation_type: operationType,
-          metadata: metadata || {},
+          metadata: enrichedMetadata,
         });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw dbError;
+      }
 
       setRefreshFiles(prev => prev + 1);
+      return true;
     } catch (error) {
       console.error('Error saving generated file:', error);
+      return false;
     }
   };
 
@@ -127,7 +146,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
       await saveGeneratedFile(blob, mergedFilename, 'merge', undefined, {
         fileCount: files.length + 1,
         pageRanges: files.map(f => f.pageRange),
-      });
+      }, result.metadata?.pageCount);
 
       await updateWorkspacePDF(blob, 'merge', {
         fileCount: files.length + 1,
@@ -188,7 +207,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
           partNumber: i + 1,
           totalParts: results.length,
           method,
-        });
+        }, results[i].metadata?.pageCount);
       }
 
       const blob = new Blob([results[0].data!], { type: 'application/pdf' });
@@ -251,7 +270,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
           partNumber: i + 1,
           totalParts: results.length,
           method,
-        });
+        }, results[i].metadata?.pageCount);
       }
 
       setProgressStatus('completed');
@@ -298,7 +317,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         pages,
         degrees,
         affectedPages: pageNumbers.length,
-      });
+      }, result.metadata?.pageCount);
 
       await updateWorkspacePDF(blob, 'rotate', {
         pages,

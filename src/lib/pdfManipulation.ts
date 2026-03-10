@@ -252,6 +252,7 @@ export async function mergePDFs(
       mergedPdf.setCreator('InspectPDF - Fire Protection Inspection System');
       mergedPdf.setProducer('InspectPDF v1.0');
       mergedPdf.setCreationDate(new Date());
+      mergedPdf.setModificationDate(new Date());
     }
 
     onProgress?.({
@@ -360,6 +361,8 @@ export async function splitPDFByPages(
 
       segmentPdf.setTitle(filename);
       segmentPdf.setCreator('InspectPDF');
+      segmentPdf.setCreationDate(new Date());
+      segmentPdf.setModificationDate(new Date());
 
       const segmentBytes = await segmentPdf.save();
 
@@ -542,6 +545,8 @@ export async function extractPages(
 
       extractedPdf.setTitle(extraction.outputFilename);
       extractedPdf.setCreator('InspectPDF');
+      extractedPdf.setCreationDate(new Date());
+      extractedPdf.setModificationDate(new Date());
 
       const extractedBytes = await extractedPdf.save();
 
@@ -648,6 +653,8 @@ export async function mixPDFs(
 
     mixedPdf.setTitle(options.outputFilename);
     mixedPdf.setCreator('InspectPDF');
+    mixedPdf.setCreationDate(new Date());
+    mixedPdf.setModificationDate(new Date());
 
     onProgress?.({
       stage: 'Saving',
@@ -756,6 +763,8 @@ export async function insertPages(
     }
 
     resultPdf.setCreator('InspectPDF');
+    resultPdf.setCreationDate(new Date());
+    resultPdf.setModificationDate(new Date());
 
     onProgress?.({
       stage: 'Saving',
