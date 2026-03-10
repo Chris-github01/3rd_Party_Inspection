@@ -386,6 +386,10 @@ export async function addMarkupDrawingsSection(
       doc.addPage();
       yPos = 20;
 
+      // Get page dimensions at the start (needed for pagination checks later)
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
       // Drawing title
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
@@ -409,12 +413,22 @@ export async function addMarkupDrawingsSection(
       if (imageData) {
         console.log(`[addMarkupDrawingsSection] ✅ Drawing image loaded successfully`);
         // Calculate dimensions to fit on page
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
         const maxWidth = pageWidth - 40;
         const maxHeight = pageHeight - yPos - 60;
 
         try {
+          // Detect image format from dataURL
+          let imageFormat = 'JPEG'; // Default to JPEG
+          if (typeof imageData === 'string') {
+            if (imageData.startsWith('data:image/png')) {
+              imageFormat = 'PNG';
+            } else if (imageData.startsWith('data:image/jpeg') || imageData.startsWith('data:image/jpg')) {
+              imageFormat = 'JPEG';
+            } else if (imageData.startsWith('data:image/webp')) {
+              imageFormat = 'WEBP';
+            }
+          }
+
           const imgProps = doc.getImageProperties(imageData);
           const imgAspectRatio = imgProps.width / imgProps.height;
 
@@ -428,7 +442,7 @@ export async function addMarkupDrawingsSection(
 
           const xOffset = (pageWidth - drawWidth) / 2;
 
-          doc.addImage(imageData, 'PNG', xOffset, yPos, drawWidth, drawHeight);
+          doc.addImage(imageData, imageFormat, xOffset, yPos, drawWidth, drawHeight);
 
           // Draw pins on the image using normalized coordinates
           drawingPins.forEach((pin) => {

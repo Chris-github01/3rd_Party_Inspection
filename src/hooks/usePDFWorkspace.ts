@@ -99,7 +99,7 @@ export function usePDFWorkspace(workspaceId: string | null) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const fileName = `${projectId}/${Date.now()}-${pdfFile.name}`;
+      const fileName = `${user.id}/${projectId}/${Date.now()}-${pdfFile.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from('pdf-workspaces')
@@ -153,7 +153,7 @@ export function usePDFWorkspace(workspaceId: string | null) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const fileName = `${workspace.project_id}/${Date.now()}-updated.pdf`;
+      const fileName = `${user.id}/${workspace.project_id}/${Date.now()}-updated.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from('pdf-workspaces')

@@ -49,21 +49,69 @@ export function ExportsTab({ project }: { project: Project }) {
 
   const loadAttachments = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: attachmentsData, error } = await supabase
         .from('project_export_attachments')
-        .select(`
-          *,
-          documents(filename, storage_path),
-          converted_documents:converted_pdf_document_id(storage_path)
-        `)
+        .select('*')
         .eq('project_id', project.id)
         .eq('is_active', true)
         .order('sequence_no', { ascending: true});
 
       if (error) throw error;
-      setAttachments(data || []);
+
+      // Manually fetch related documents
+      if (attachmentsData && attachmentsData.length > 0) {
+        const documentIds = attachmentsData.map(a => a.document_id);
+        const { data: docs } = await supabase
+          .from('documents')
+          .select('id, filename, storage_path, size_bytes, mime_type')
+          .in('id', documentIds);
+
+        // Also fetch converted documents if they exist
+        const convertedIds = attachmentsData
+          .map(a => a.converted_pdf_document_id)
+          .filter(id => id != null);
+
+        let convertedDocs = [];
+        if (convertedIds.length > 0) {
+          const { data: converted } = await supabase
+            .from('documents')
+            .select('id, storage_path')
+            .in('id', convertedIds);
+          convertedDocs = converted || [];
+        }
+
+        // Also fetch user profiles
+        const userIds = [...new Set(attachmentsData.map(a => a.uploaded_by_user_id).filter(id => id != null))];
+        let userProfiles = [];
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('user_profiles')
+            .select('id, name')
+            .in('id', userIds);
+          userProfiles = profiles || [];
+        }
+
+        // Combine the data
+        const enrichedAttachments = attachmentsData.map(att => {
+          const doc = docs?.find(d => d.id === att.document_id);
+          const converted = convertedDocs.find(d => d.id === att.converted_pdf_document_id);
+          const user = userProfiles.find(u => u.id === att.uploaded_by_user_id);
+
+          return {
+            ...att,
+            documents: doc || { filename: 'Unknown', storage_path: '', size_bytes: 0, mime_type: '' },
+            converted_documents: converted || null,
+            user_profiles: user || null
+          };
+        });
+
+        setAttachments(enrichedAttachments);
+      } else {
+        setAttachments([]);
+      }
     } catch (error) {
       console.error('Error loading attachments:', error);
+      setAttachments([]);
     } finally {
       setLoadingAttachments(false);
     }
