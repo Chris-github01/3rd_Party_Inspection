@@ -82,55 +82,14 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
   doc.setFillColor(59, 130, 246);
   doc.rect(0, 0, pageWidth, 80, 'F');
 
-  // Add centered logo at the top of header, above company name
-  let logoYOffset = 0;
-  if (logoUrl) {
-    try {
-      let logoImage: string | null = null;
-
-      // Check if logoUrl is already a full URL (starts with http:// or https://)
-      if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
-        logoImage = await loadImageAsDataURL(logoUrl);
-      } else {
-        // Try to load from storage - check multiple possible buckets
-        const buckets = ['organization-logos', 'project-documents', 'documents'];
-        for (const bucket of buckets) {
-          try {
-            const { data } = await supabase.storage.from(bucket).getPublicUrl(logoUrl);
-            if (data?.publicUrl) {
-              logoImage = await loadImageAsDataURL(data.publicUrl);
-              if (logoImage) break;
-            }
-          } catch (err) {
-            // Try next bucket
-            continue;
-          }
-        }
-      }
-
-      if (logoImage) {
-        const logoHeight = 25;
-        const logoWidth = 75;
-        const logoX = (pageWidth - logoWidth) / 2;
-        const logoY = 12;
-        // Use JPEG format since blobToCleanDataURL converts to JPEG
-        doc.addImage(logoImage, 'JPEG', logoX, logoY, logoWidth, logoHeight);
-        console.log('[PDF Complete Report] ✓ Logo added centered above company name');
-        logoYOffset = 10;
-      }
-    } catch (error) {
-      console.error('Error loading logo:', error);
-    }
-  }
-
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(28);
   doc.setFont('helvetica', 'bold');
-  doc.text(companyName, pageWidth / 2, 48 + logoYOffset, { align: 'center' });
+  doc.text(companyName, pageWidth / 2, 40, { align: 'center' });
 
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, 63 + logoYOffset, {
+  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, 55, {
     align: 'center',
   });
 
