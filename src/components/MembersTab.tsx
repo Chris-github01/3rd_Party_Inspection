@@ -9,6 +9,8 @@ import { generateSimulatedReadings, calculateSummary, type MemberConfig } from '
 import { exportReadingsToFormattedExcel } from '../lib/excelExport';
 import { sanitizeCSVValue, validateFRRMinutes, validateDFTMicrons, validateThicknessMM } from '../lib/securityUtils';
 import { generateQuantityBasedReadings, saveGeneratedReadings, type QuantityReadingConfig } from '../lib/quantityReadingsGenerator';
+import { generateQuantityReadingsPDFWithStatistics } from '../lib/pdfQuantityReadingsWithStatistics';
+import { generateMemberReadingsPDF } from '../lib/pdfMemberReadings';
 
 interface Member {
   id: string;
@@ -233,8 +235,6 @@ export function MembersTab({ projectId }: { projectId: string }) {
         .limit(1);
 
       if (quantityReadingsCheck && quantityReadingsCheck.length > 0) {
-        const { generateQuantityReadingsPDFWithStatistics } = await import('../lib/pdfQuantityReadingsWithStatistics');
-
         const doc = await generateQuantityReadingsPDFWithStatistics(
           projectId,
           Array.from(selectedMembers)
@@ -252,9 +252,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
         return;
       }
 
-      const { generateMemberReadingsPDF } = await import('../lib/pdfMemberReadings');
-
-      const membersWithReadings = [];
+      const membersWithReadings: any[] = [];
 
       for (const member of selectedMembersList) {
         const { data: inspections } = await supabase
@@ -301,7 +299,10 @@ export function MembersTab({ projectId }: { projectId: string }) {
         .eq('id', projectId)
         .single();
 
-      await generateMemberReadingsPDF(project, membersWithReadings);
+      if (project) {
+        await generateMemberReadingsPDF(project, membersWithReadings);
+      }
+
     } catch (error: any) {
       console.error('Error exporting PDF:', error);
       alert('Failed to export PDF: ' + error.message);
