@@ -38,7 +38,10 @@ export function ReadingsHistogram({ bins, width = 800, height = 400 }: ReadingsH
             border: '1px solid #d1d5db',
             borderRadius: '6px'
           }}
-          formatter={(value: number) => [`${value} readings`, 'Count']}
+          formatter={(value) => {
+            const val = typeof value === 'number' ? value : 0;
+            return [`${val} readings`, 'Count'];
+          }}
           labelFormatter={(label) => `Range: ${label} µm`}
         />
         <Bar dataKey="count" name="Reading Count" radius={[4, 4, 0, 0]}>

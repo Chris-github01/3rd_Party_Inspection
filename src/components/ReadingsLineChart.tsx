@@ -32,7 +32,10 @@ export function ReadingsLineChart({ values, requiredDft, width = 800, height = 4
             border: '1px solid #d1d5db',
             borderRadius: '6px'
           }}
-          formatter={(value: number) => [`${value.toFixed(1)} µm`, 'DFT']}
+          formatter={(value) => {
+            const val = typeof value === 'number' ? value : 0;
+            return [`${val.toFixed(1)} µm`, 'DFT'];
+          }}
           labelFormatter={(label) => `Reading #${label}`}
         />
         <Legend
