@@ -330,7 +330,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
               <Plus className="w-5 h-5 mr-2" />
               Add Member
             </button>
-            <label className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer">
+            <label className="hidden flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer">
               <Upload className="w-5 h-5 mr-2" />
               Import CSV
               <input type="file" accept=".csv" onChange={handleCSVImport} className="hidden" />
@@ -338,7 +338,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
             {members.length > 0 && (
               <button
                 onClick={exportToCSV}
-                className="flex items-center px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+                className="hidden flex items-center px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
               >
                 <Download className="w-5 h-5 mr-2" />
                 Export CSV
@@ -370,7 +370,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
               }
               setShowGenerateModal(true);
             }}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="hidden flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             title={selectedMembers.size === 0 ? 'Select members first' : `Generate readings for ${selectedMembers.size} member(s)`}
           >
             <FlaskConical className="w-5 h-5 mr-2" />
@@ -384,7 +384,7 @@ export function MembersTab({ projectId }: { projectId: string }) {
               }
               exportReadingsToExcel();
             }}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="hidden flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             title={selectedMembers.size === 0 ? 'Select members first' : `Export formatted Excel with 100 readings for ${selectedMembers.size} member(s)`}
           >
             <Download className="w-5 h-5 mr-2" />
