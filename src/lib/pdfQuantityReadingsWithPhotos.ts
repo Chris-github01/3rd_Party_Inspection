@@ -57,27 +57,6 @@ export async function generateQuantityReadingsPhotoReport(
     .single();
 
   const org = orgData?.organizations;
-  const logoUrl = org?.logo_url;
-
-  // Add header with logo
-  if (logoUrl) {
-    try {
-      console.log('[PDF] Loading organization logo...');
-      const response = await fetch(logoUrl);
-      const blob = await response.blob();
-
-      // Use clean conversion to ensure jsPDF compatibility
-      const logoDataUrl = await blobToCleanDataURL(blob);
-      console.log('[PDF] Logo converted to clean JPEG format');
-
-      doc.addImage(logoDataUrl, 'JPEG', margin, yPos, 30, 15);
-      console.log('[PDF] ✓ Logo added to header');
-      yPos += 20;
-    } catch (error) {
-      console.error('[PDF] Error loading logo:', error);
-      yPos += 5;
-    }
-  }
 
   // Title
   doc.setFontSize(20);

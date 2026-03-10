@@ -75,27 +75,6 @@ export async function generateQuantityReadingsPDFWithStatistics(
 
   const org = projectData.organizations;
 
-  if (org?.logo_url) {
-    try {
-      const response = await fetch(org.logo_url);
-      const blob = await response.blob();
-      const reader = new FileReader();
-
-      await new Promise<void>((resolve) => {
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          doc.addImage(base64, 'JPEG', margin, yPos, 30, 15);
-          yPos += 20;
-          resolve();
-        };
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.error('Error loading logo:', error);
-      yPos += 5;
-    }
-  }
-
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.text('Quantity Readings Report with Statistical Analysis', pageWidth / 2, yPos, { align: 'center' });
