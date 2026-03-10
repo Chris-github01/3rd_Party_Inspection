@@ -29,8 +29,21 @@ export function ConfirmDialog({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape' && !loading) {
+      e.preventDefault();
       onCancel();
     }
+  };
+
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await onConfirm();
+  };
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCancel();
   };
 
   const variantStyles = {
@@ -67,7 +80,8 @@ export function ConfirmDialog({
               <p id="dialog-description" className="text-blue-100 text-sm leading-relaxed">{message}</p>
             </div>
             <button
-              onClick={onCancel}
+              type="button"
+              onClick={handleCancel}
               disabled={loading}
               className="flex-shrink-0 p-1 hover:bg-white/10 rounded transition-colors disabled:opacity-50"
               aria-label="Close dialog"
@@ -79,7 +93,8 @@ export function ConfirmDialog({
 
         <div className="border-t border-white/10 p-4 flex justify-end gap-3">
           <button
-            onClick={onCancel}
+            type="button"
+            onClick={handleCancel}
             disabled={loading}
             className="px-4 py-2 min-h-[44px] text-white hover:bg-white/10 rounded-lg transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label={cancelLabel}
@@ -87,7 +102,8 @@ export function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
-            onClick={onConfirm}
+            type="button"
+            onClick={handleConfirm}
             disabled={loading}
             className={`px-6 py-2 min-h-[44px] ${variantStyles[variant]} text-white rounded-lg transition-colors font-semibold shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`}
             aria-label={confirmLabel}

@@ -185,33 +185,55 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
     setDeletingDrawing(true);
 
     try {
+      // Call the soft delete function
       const { data, error } = await supabase.rpc('soft_delete_drawing', {
         p_drawing_id: drawingToDelete.id,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase RPC error:', error);
+        throw error;
+      }
 
-      if (data?.success) {
+      // Check if the function returned success
+      if (data && typeof data === 'object' && 'success' in data) {
+        if (data.success) {
+          showToast('Drawing moved to trash. It can be restored within 30 days.', 'success');
+
+          // Close the drawing viewer if this drawing was selected
+          if (selectedDrawing?.id === drawingToDelete.id) {
+            setSelectedDrawing(null);
+            setSelectedDrawingContext(null);
+          }
+
+          // Close the dialog first
+          setShowDeleteDialog(false);
+          setDrawingToDelete(null);
+
+          // Reload the site structure to reflect changes
+          await loadSiteStructure();
+        } else {
+          throw new Error(data.message || 'Failed to delete drawing');
+        }
+      } else {
+        // If data format is unexpected, still try to reload
+        console.warn('Unexpected response format:', data);
         showToast('Drawing moved to trash. It can be restored within 30 days.', 'success');
 
-        // Close the drawing viewer if this drawing was selected
         if (selectedDrawing?.id === drawingToDelete.id) {
           setSelectedDrawing(null);
           setSelectedDrawingContext(null);
         }
 
-        // Reload the site structure to reflect changes
+        setShowDeleteDialog(false);
+        setDrawingToDelete(null);
         await loadSiteStructure();
-      } else {
-        throw new Error(data?.message || 'Failed to delete drawing');
       }
     } catch (error: any) {
       console.error('Error deleting drawing:', error);
-      showToast(error.message || 'Failed to delete drawing', 'error');
+      showToast(error.message || 'Failed to delete drawing. Please try again.', 'error');
     } finally {
       setDeletingDrawing(false);
-      setShowDeleteDialog(false);
-      setDrawingToDelete(null);
     }
   };
 
@@ -333,6 +355,7 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
                                       </button>
                                       {canManageStructure() && (
                                         <button
+                                          type="button"
                                           onClick={(e) => handleDeleteClick(drawing, e)}
                                           className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                                           title="Delete drawing"
