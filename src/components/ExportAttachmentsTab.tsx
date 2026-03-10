@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Upload, Trash2, FileText, ArrowUp, ArrowDown, AlertCircle, Eye, Image as ImageIcon, Download, Edit, Save, X, CheckSquare, Square } from 'lucide-react';
+import { Upload, Trash2, FileText, ArrowUp, ArrowDown, AlertCircle, Eye, Image as ImageIcon, Download, CreditCard as Edit, Save, X, CheckSquare, Square } from 'lucide-react';
 import { format } from 'date-fns';
 import { convertImageToPdf } from '../lib/pdfUtils';
 
