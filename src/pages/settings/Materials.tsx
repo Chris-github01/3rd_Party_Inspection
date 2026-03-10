@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, Edit, Trash2, Package, X, Upload, Download, Filter } from 'lucide-react';
+import { Plus, CreditCard as Edit, Trash2, Package, X, Upload, Download, Filter } from 'lucide-react';
 import Papa from 'papaparse';
 
 interface Material {
