@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Upload, FileText } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
+import { pdfjsLib } from '../../lib/pdfjs';
 
 interface SplitModalProps {
   isOpen: boolean;
@@ -23,22 +23,51 @@ export function SplitModal({ isOpen, onClose, pageCount, onSplit, onImportAndSpl
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || file.type !== 'application/pdf') {
+    if (!file) {
+      return;
+    }
+
+    if (file.type !== 'application/pdf') {
       alert('Please select a valid PDF file');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      alert('PDF file is too large. Maximum size is 50MB.');
+      event.target.value = '';
       return;
     }
 
     setIsLoadingFile(true);
+    setImportedFile(null);
+    setImportedPageCount(null);
+
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        useSystemFonts: true,
+      });
+
+      const pdf = await loadingTask.promise;
+
+      if (pdf.numPages === 0) {
+        throw new Error('PDF has no pages');
+      }
+
       setImportedFile(file);
       setImportedPageCount(pdf.numPages);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading PDF:', error);
-      alert('Failed to load PDF. Please try again.');
+      const errorMessage = error?.message || 'Unknown error';
+      alert(`Failed to load PDF: ${errorMessage}\n\nPlease ensure the file is a valid, non-corrupted PDF.`);
       setImportedFile(null);
       setImportedPageCount(null);
+      event.target.value = '';
     } finally {
       setIsLoadingFile(false);
     }
@@ -195,7 +224,7 @@ export function SplitModal({ isOpen, onClose, pageCount, onSplit, onImportAndSpl
                     <input
                       type="number"
                       min="1"
-                      max={pageCount}
+                      max={importedPageCount || pageCount}
                       value={everyNPages}
                       onChange={(e) => setEveryNPages(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -248,12 +277,15 @@ export function SplitModal({ isOpen, onClose, pageCount, onSplit, onImportAndSpl
             onClick={handleSplit}
             disabled={
               isSplitting ||
+              isLoadingFile ||
+              (importedFile && !importedPageCount) ||
+              (!importedFile && pageCount === 0) ||
               (splitMethod === 'pages' && !splitPages.trim()) ||
               (splitMethod === 'every-n' && !everyNPages)
             }
             className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isSplitting ? 'Splitting...' : 'Split PDF'}
+            {isSplitting ? 'Splitting...' : isLoadingFile ? 'Loading...' : 'Split PDF'}
           </button>
         </div>
       </div>
