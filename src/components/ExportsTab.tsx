@@ -17,6 +17,7 @@ import { generateExecutiveSummary } from '../lib/executiveSummaryGenerator';
 import { addIntroductionToPDF } from '../lib/pdfIntroduction';
 import { addExecutiveSummaryToPDF } from '../lib/pdfExecutiveSummary';
 import { addMarkupDrawingsSection } from '../lib/pdfMarkupDrawings';
+import { blobToCleanDataURL } from '../lib/pinPhotoUtils';
 
 interface Project {
   id: string;
@@ -27,14 +28,6 @@ interface Project {
   project_ref: string;
 }
 
-function blobToDataURL(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
 
 export function ExportsTab({ project }: { project: Project }) {
   const navigate = useNavigate();
@@ -254,13 +247,18 @@ export function ExportsTab({ project }: { project: Project }) {
     // Load organization logo with multi-bucket fallback
     if (orgSettings?.logo_url) {
       try {
+        console.log('[Audit Report] Loading organization logo:', orgSettings.logo_url.substring(0, 100));
         let logoDataUrl = null;
 
         // Check if full URL
         if (orgSettings.logo_url.startsWith('http://') || orgSettings.logo_url.startsWith('https://')) {
           const response = await fetch(orgSettings.logo_url);
           const logoBlob = await response.blob();
-          logoDataUrl = await blobToDataURL(logoBlob);
+          console.log('[Audit Report] Logo blob loaded:', logoBlob.size, 'bytes, type:', logoBlob.type);
+
+          // Use canvas-based conversion to ensure jsPDF compatibility
+          logoDataUrl = await blobToCleanDataURL(logoBlob);
+          console.log('[Audit Report] ✓ Logo converted to clean JPEG format');
         } else {
           // Try multiple buckets
           const buckets = ['organization-logos', 'project-documents', 'documents'];
@@ -273,20 +271,29 @@ export function ExportsTab({ project }: { project: Project }) {
               if (logoData?.publicUrl) {
                 const response = await fetch(logoData.publicUrl);
                 const logoBlob = await response.blob();
-                logoDataUrl = await blobToDataURL(logoBlob);
+                console.log(`[Audit Report] Logo loaded from ${bucket}:`, logoBlob.size, 'bytes');
+
+                // Use canvas-based conversion to ensure jsPDF compatibility
+                logoDataUrl = await blobToCleanDataURL(logoBlob);
+                console.log('[Audit Report] ✓ Logo converted to clean JPEG format');
                 if (logoDataUrl) break;
               }
             } catch (err) {
+              console.log(`[Audit Report] Failed to load from ${bucket}, trying next...`);
               continue;
             }
           }
         }
 
         if (logoDataUrl) {
-          doc.addImage(logoDataUrl, 'PNG', 15, yPos - 5, 40, 20);
+          // Use JPEG format since blobToCleanDataURL converts to JPEG
+          doc.addImage(logoDataUrl, 'JPEG', 15, yPos - 5, 40, 20);
+          console.log('[Audit Report] ✓ Logo added to page 1 header at position (15, ' + (yPos - 5) + ')');
+        } else {
+          console.warn('[Audit Report] ✗ Could not load logo from any bucket');
         }
       } catch (error) {
-        console.warn('Could not load organization logo:', error);
+        console.error('[Audit Report] ✗ Error loading organization logo:', error);
       }
     }
 
