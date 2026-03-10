@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, ChevronDown, ChevronRight, Upload, FileImage } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Upload, FileImage, Trash2, MoreVertical } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { AddBlockModal } from './site-manager/AddBlockModal';
 import { AddLevelModal } from './site-manager/AddLevelModal';
 import { UploadDrawingModal } from './site-manager/UploadDrawingModal';
 import { DrawingViewer } from './site-manager/DrawingViewer';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface Block {
   id: string;
@@ -39,6 +41,7 @@ interface SiteManagerTabProps {
 
 export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
   const { canManageStructure } = useAuth();
+  const { showToast } = useToast();
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -53,6 +56,10 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
     levelName: string;
   } | null>(null);
   const [projectName, setProjectName] = useState<string>('');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [drawingToDelete, setDrawingToDelete] = useState<Drawing | null>(null);
+  const [deletingDrawing, setDeletingDrawing] = useState(false);
+  const [openMenuDrawingId, setOpenMenuDrawingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadProjectInfo();
@@ -165,6 +172,54 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
     setSelectedDrawingContext({ blockName, levelName });
   };
 
+  const handleDeleteClick = (drawing: Drawing, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDrawingToDelete(drawing);
+    setShowDeleteDialog(true);
+    setOpenMenuDrawingId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!drawingToDelete) return;
+
+    setDeletingDrawing(true);
+
+    try {
+      const { data, error } = await supabase.rpc('soft_delete_drawing', {
+        p_drawing_id: drawingToDelete.id,
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        showToast('Drawing moved to trash. It can be restored within 30 days.', 'success');
+
+        // Close the drawing viewer if this drawing was selected
+        if (selectedDrawing?.id === drawingToDelete.id) {
+          setSelectedDrawing(null);
+          setSelectedDrawingContext(null);
+        }
+
+        // Reload the site structure to reflect changes
+        await loadSiteStructure();
+      } else {
+        throw new Error(data?.message || 'Failed to delete drawing');
+      }
+    } catch (error: any) {
+      console.error('Error deleting drawing:', error);
+      showToast(error.message || 'Failed to delete drawing', 'error');
+    } finally {
+      setDeletingDrawing(false);
+      setShowDeleteDialog(false);
+      setDrawingToDelete(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteDialog(false);
+    setDrawingToDelete(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -266,16 +321,27 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
                               {level.drawings.length > 0 && (
                                 <div className="mt-2 space-y-1">
                                   {level.drawings.map((drawing) => (
-                                    <button
-                                      key={drawing.id}
-                                      onClick={() => handleDrawingClick(drawing, block.name, level.name)}
-                                      className="flex items-center gap-2 w-full p-2 text-left hover:bg-white/10 rounded text-xs"
-                                    >
-                                      <FileImage className="w-3 h-3 text-blue-300" />
-                                      <span className="text-white">
-                                        Drawing {drawing.page_number || 1}
-                                      </span>
-                                    </button>
+                                    <div key={drawing.id} className="relative group">
+                                      <button
+                                        onClick={() => handleDrawingClick(drawing, block.name, level.name)}
+                                        className="flex items-center gap-2 w-full p-2 text-left hover:bg-white/10 rounded text-xs"
+                                      >
+                                        <FileImage className="w-3 h-3 text-blue-300" />
+                                        <span className="text-white flex-1">
+                                          Drawing {drawing.page_number || 1}
+                                        </span>
+                                      </button>
+                                      {canManageStructure() && (
+                                        <button
+                                          onClick={(e) => handleDeleteClick(drawing, e)}
+                                          className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                          title="Delete drawing"
+                                          aria-label="Delete drawing"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
                                   ))}
                                 </div>
                               )}
@@ -354,6 +420,19 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
           setSelectedLevelId('');
           loadSiteStructure();
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title="Delete Drawing?"
+        message="This drawing will be moved to trash and can be restored within 30 days. All pins on this drawing will be preserved."
+        confirmLabel="Move to Trash"
+        cancelLabel="Cancel"
+        variant="danger"
+        icon="trash"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        loading={deletingDrawing}
       />
     </div>
   );
