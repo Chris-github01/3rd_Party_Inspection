@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, FileText, Users, ClipboardCheck, AlertTriangle, Download, Paperclip, Map, Smartphone, FileCheck, BookOpen, ListChecks, CheckCircle2, Circle, AlertCircle, MapPin } from 'lucide-react';
+import { ArrowLeft, FileText, Users, ClipboardCheck, AlertTriangle, Download, Paperclip, Map, Smartphone, FileCheck, BookOpen, ListChecks, CheckCircle2, Circle, AlertCircle, MapPin, Settings } from 'lucide-react';
 import { DocumentsTab } from '../components/DocumentsTab';
 import { LoadingScheduleTab } from '../components/LoadingScheduleTab';
 import { MembersTab } from '../components/MembersTab';
@@ -52,7 +52,7 @@ interface BlockingInfo {
   state: WorkflowState;
 }
 
-type TabType = 'documents' | 'loading-schedule' | 'members' | 'inspections' | 'ncrs' | 'attachments' | 'exports' | 'site-manager' | 'executive-summary' | 'introduction' | 'pin-corrections';
+type TabType = 'documents' | 'loading-schedule' | 'members' | 'inspections' | 'ncrs' | 'attachments' | 'exports' | 'site-manager' | 'executive-summary' | 'introduction' | 'pin-corrections' | 'setup';
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -63,6 +63,7 @@ export function ProjectDetail() {
   const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
   const [blockingInfo, setBlockingInfo] = useState<Record<string, BlockingInfo>>({});
   const [showStatusPanel, setShowStatusPanel] = useState(false);
+  const [setupSubTab, setSetupSubTab] = useState<'inspections' | 'ncrs' | 'pin-corrections'>('inspections');
 
   useEffect(() => {
     if (id) {
@@ -162,18 +163,21 @@ export function ProjectDetail() {
     );
   }
 
-  const tabs = [
+  // Main Display UI Workflows (Top Level)
+  const mainTabs = [
     { id: 'documents' as TabType, label: 'Documents', icon: FileText },
     { id: 'loading-schedule' as TabType, label: 'Loading Schedule', icon: ListChecks },
     { id: 'members' as TabType, label: 'Member Register', icon: Users },
     { id: 'site-manager' as TabType, label: 'Site Manager', icon: Map },
-    { id: 'inspections' as TabType, label: 'Inspections', icon: ClipboardCheck },
-    { id: 'ncrs' as TabType, label: 'NCRs', icon: AlertTriangle },
-    { id: 'pin-corrections' as TabType, label: 'Pin Corrections', icon: MapPin },
-    { id: 'attachments' as TabType, label: 'Export Attachments', icon: Paperclip },
-    { id: 'introduction' as TabType, label: 'Introduction', icon: BookOpen },
-    { id: 'executive-summary' as TabType, label: 'Executive Summary', icon: FileCheck },
     { id: 'exports' as TabType, label: 'Exports', icon: Download },
+    { id: 'setup' as TabType, label: 'Setup', icon: Settings },
+  ];
+
+  // Setup Sub-tabs (Inspections, NCRs, Pin Corrections)
+  const setupTabs = [
+    { id: 'inspections', label: 'Inspections', icon: ClipboardCheck },
+    { id: 'ncrs', label: 'NCRs', icon: AlertTriangle },
+    { id: 'pin-corrections', label: 'Pin Corrections', icon: MapPin },
   ];
 
   return (
@@ -288,8 +292,9 @@ export function ProjectDetail() {
             )}
           </div>
 
+          {/* Main Navigation Tabs */}
           <div className="flex space-x-1 border-b border-white/10 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-            {tabs.map((tab) => {
+            {mainTabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
@@ -308,6 +313,29 @@ export function ProjectDetail() {
               );
             })}
           </div>
+
+          {/* Setup Sub-Navigation (shown when Setup tab is active) */}
+          {activeTab === 'setup' && (
+            <div className="flex space-x-1 border-b border-white/5 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 mt-2 bg-white/5">
+              {setupTabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSetupSubTab(tab.id as 'inspections' | 'ncrs' | 'pin-corrections')}
+                    className={`flex items-center px-3 sm:px-4 py-2.5 min-h-[44px] border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
+                      setupSubTab === tab.id
+                        ? 'border-blue-400 text-blue-300'
+                        : 'border-transparent text-blue-200 hover:text-white hover:border-white/10'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 mr-1.5 sm:mr-2 flex-shrink-0" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -359,7 +387,7 @@ export function ProjectDetail() {
                 )
               )}
 
-              {activeTab === 'inspections' && (
+              {activeTab === 'setup' && setupSubTab === 'inspections' && (
                 blockingInfo['inspections']?.is_blocked ? (
                   <SoftLockPanel
                     title="Inspection Module Unavailable"
@@ -371,7 +399,7 @@ export function ProjectDetail() {
                 )
               )}
 
-              {activeTab === 'ncrs' && (
+              {activeTab === 'setup' && setupSubTab === 'ncrs' && (
                 blockingInfo['ncrs']?.is_blocked ? (
                   <SoftLockPanel
                     title="NCR Module Unavailable"
@@ -383,10 +411,10 @@ export function ProjectDetail() {
                 )
               )}
 
-              {activeTab === 'attachments' && <ExportAttachmentsTab projectId={project.id} />}
-              {activeTab === 'pin-corrections' && <PinCorrectionsTab project={project} />}
-              {activeTab === 'introduction' && <IntroductionPreview projectId={project.id} />}
-              {activeTab === 'executive-summary' && <ExecutiveSummaryPreview projectId={project.id} />}
+              {activeTab === 'setup' && setupSubTab === 'pin-corrections' && (
+                <PinCorrectionsTab project={project} />
+              )}
+
               {activeTab === 'exports' && <ExportsTab project={project} />}
             </div>          </div>
         </div>
