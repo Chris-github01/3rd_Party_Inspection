@@ -29,7 +29,7 @@ export async function exportOnboardingPackPdf(organization: Organization): Promi
   let currentPage = 1;
 
   if (config.includeCoverPage !== false) {
-    addCoverPage(doc, organization, config, logoDataUrl, pageWidth, pageHeight, margin);
+    await addCoverPage(doc, organization, config, logoDataUrl, pageWidth, pageHeight, margin);
     currentPage++;
   }
 
@@ -60,7 +60,7 @@ export async function exportOnboardingPackPdf(organization: Organization): Promi
   doc.save(filename);
 }
 
-function addCoverPage(
+async function addCoverPage(
   doc: jsPDF,
   organization: Organization,
   config: any,
@@ -73,8 +73,27 @@ function addCoverPage(
 
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, 'PNG', margin, yPos, 60, 20);
-      yPos += 30;
+      const img = new Image();
+      img.src = logoDataUrl;
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+
+      const maxWidth = 60;
+      const maxHeight = 30;
+      const aspectRatio = img.width / img.height;
+
+      let logoWidth = maxWidth;
+      let logoHeight = maxWidth / aspectRatio;
+
+      if (logoHeight > maxHeight) {
+        logoHeight = maxHeight;
+        logoWidth = maxHeight * aspectRatio;
+      }
+
+      const xPos = margin;
+      doc.addImage(logoDataUrl, 'PNG', xPos, yPos, logoWidth, logoHeight);
+      yPos += logoHeight + 10;
     } catch (error) {
       console.warn('Failed to add logo to PDF:', error);
       yPos += 10;
