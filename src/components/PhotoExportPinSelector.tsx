@@ -92,45 +92,106 @@ export function PhotoExportPinSelector({
 
     try {
       setUploadingFor(pinId);
+      let uploadedCount = 0;
+      let failedCount = 0;
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
         if (!file.type.startsWith('image/')) {
-          alert('Only image files are allowed');
+          console.warn(`Skipping non-image file: ${file.name} (${file.type})`);
+          alert(`Skipped "${file.name}" - Only image files are allowed`);
+          failedCount++;
           continue;
         }
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${pinId}_${Date.now()}_${i}.${fileExt}`;
-        const filePath = `${projectId}/${pinId}/${fileName}`;
+        if (file.size > 10 * 1024 * 1024) {
+          console.warn(`File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+          alert(`Skipped "${file.name}" - File size must be less than 10MB`);
+          failedCount++;
+          continue;
+        }
 
-        const { error: uploadError } = await supabase.storage
-          .from('pin-photos')
-          .upload(filePath, file);
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${pinId}_${Date.now()}_${i}.${fileExt}`;
+          const filePath = `${projectId}/${pinId}/${fileName}`;
 
-        if (uploadError) throw uploadError;
+          console.log(`[Upload] Uploading ${file.name} to ${filePath}`);
 
-        const { error: dbError } = await supabase
-          .from('pin_photos')
-          .insert({
-            pin_id: pinId,
-            file_path: filePath,
-            file_name: file.name,
-            caption: '',
-            sort_order: i
-          });
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('pin-photos')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
 
-        if (dbError) throw dbError;
+          if (uploadError) {
+            console.error(`[Upload] Storage error for ${file.name}:`, uploadError);
+            throw new Error(`Storage upload failed: ${uploadError.message}`);
+          }
+
+          console.log(`[Upload] Storage upload successful:`, uploadData);
+
+          const { data: { user } } = await supabase.auth.getUser();
+
+          if (!user) {
+            throw new Error('User not authenticated');
+          }
+
+          const { data: dbData, error: dbError } = await supabase
+            .from('pin_photos')
+            .insert({
+              pin_id: pinId,
+              project_id: projectId,
+              file_path: filePath,
+              file_name: file.name,
+              file_size: file.size,
+              mime_type: file.type,
+              caption: '',
+              sort_order: i,
+              uploaded_by: user.id
+            })
+            .select();
+
+          if (dbError) {
+            console.error(`[Upload] Database error for ${file.name}:`, dbError);
+
+            await supabase.storage
+              .from('pin-photos')
+              .remove([filePath]);
+
+            throw new Error(`Database insert failed: ${dbError.message}`);
+          }
+
+          console.log(`[Upload] Database insert successful:`, dbData);
+          uploadedCount++;
+
+        } catch (fileError: any) {
+          console.error(`[Upload] Failed to upload ${file.name}:`, fileError);
+          alert(`Failed to upload "${file.name}": ${fileError.message}`);
+          failedCount++;
+        }
       }
 
-      await loadPins();
-      if (expandedPinId === pinId) {
-        await loadPinPhotos(pinId);
+      if (uploadedCount > 0) {
+        await loadPins();
+        if (expandedPinId === pinId) {
+          await loadPinPhotos(pinId);
+        }
       }
-    } catch (error) {
-      console.error('Error uploading photos:', error);
-      alert('Failed to upload photos. Please try again.');
+
+      if (uploadedCount > 0 && failedCount === 0) {
+        alert(`Successfully uploaded ${uploadedCount} photo${uploadedCount > 1 ? 's' : ''}`);
+      } else if (uploadedCount > 0 && failedCount > 0) {
+        alert(`Uploaded ${uploadedCount} photo(s), but ${failedCount} failed`);
+      } else if (failedCount > 0) {
+        alert(`All uploads failed. Please check the console for details.`);
+      }
+
+    } catch (error: any) {
+      console.error('[Upload] Unexpected error:', error);
+      alert(`Upload error: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setUploadingFor(null);
     }
