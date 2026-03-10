@@ -18,6 +18,7 @@ import { ProjectTemplates } from './pages/settings/ProjectTemplates';
 import { ProjectTemplateDetail } from './pages/settings/ProjectTemplateDetail';
 import { Organization } from './pages/settings/Organization';
 import { Organizations } from './pages/settings/Organizations';
+import { Onboarding } from './pages/settings/Onboarding';
 import { SiteMode } from './pages/SiteMode';
 import { InspectionPackages } from './pages/site/InspectionPackages';
 import { DrawingsView } from './pages/site/DrawingsView';
@@ -200,6 +201,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Organizations />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/settings/onboarding"
+            element={
+              <PrivateRoute>
+                <Onboarding />
               </PrivateRoute>
             }
           />
