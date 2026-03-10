@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
-import { getPinPhotosWithBlobs, getPhotoDataURL, PinPhoto } from './pinPhotoUtils';
+import { getPinPhotosWithBlobs, getPhotoDataURL, PinPhoto, blobToCleanDataURL } from './pinPhotoUtils';
 import { supabase } from './supabase';
 
 interface PinData {
@@ -62,18 +62,19 @@ export async function generateQuantityReadingsPhotoReport(
   // Add header with logo
   if (logoUrl) {
     try {
+      console.log('[PDF] Loading organization logo...');
       const response = await fetch(logoUrl);
       const blob = await response.blob();
-      const reader = new FileReader();
-      const logoDataUrl = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
 
-      doc.addImage(logoDataUrl, 'PNG', margin, yPos, 30, 15);
+      // Use clean conversion to ensure jsPDF compatibility
+      const logoDataUrl = await blobToCleanDataURL(blob);
+      console.log('[PDF] Logo converted to clean JPEG format');
+
+      doc.addImage(logoDataUrl, 'JPEG', margin, yPos, 30, 15);
+      console.log('[PDF] ✓ Logo added to header');
       yPos += 20;
     } catch (error) {
-      console.error('Error loading logo:', error);
+      console.error('[PDF] Error loading logo:', error);
       yPos += 5;
     }
   }
@@ -266,23 +267,22 @@ export async function generateQuantityReadingsPhotoReport(
         const dataURL = await getPhotoDataURL(photo);
 
         if (dataURL) {
-          console.log(`[PDF] Data URL obtained, length: ${dataURL.length}, format: ${dataURL.substring(0, 30)}...`);
+          console.log(`[PDF] Data URL obtained, length: ${dataURL.length}`);
           console.log(`[PDF] Adding image at (${xPos.toFixed(1)}, ${photoYPos.toFixed(1)}) size (${photoWidth.toFixed(1)} x ${photoHeight.toFixed(1)})`);
 
-          // Detect image format from data URL
-          let imageFormat = 'JPEG';
-          if (dataURL.startsWith('data:image/png')) {
-            imageFormat = 'PNG';
-          } else if (dataURL.startsWith('data:image/jpeg') || dataURL.startsWith('data:image/jpg')) {
-            imageFormat = 'JPEG';
-          } else if (dataURL.startsWith('data:image/webp')) {
-            imageFormat = 'WEBP';
-          }
-          console.log(`[PDF] Detected format: ${imageFormat}`);
+          // All images are now converted to JPEG by blobToCleanDataURL
+          // This ensures maximum compatibility with jsPDF
+          const imageFormat = 'JPEG';
+          console.log(`[PDF] Using format: ${imageFormat} (standardized)`);
 
-          // Add photo
-          doc.addImage(dataURL, imageFormat, xPos, photoYPos, photoWidth, photoHeight);
-          console.log(`[PDF] ✓ Image added`);
+          // Add photo with error handling
+          try {
+            doc.addImage(dataURL, imageFormat, xPos, photoYPos, photoWidth, photoHeight);
+            console.log(`[PDF] ✓ Image successfully embedded`);
+          } catch (addError) {
+            console.error(`[PDF] ✗ addImage failed for ${photo.file_name}:`, addError);
+            throw addError; // Re-throw to be caught by outer try-catch
+          }
 
           // Add caption below photo
           doc.setFontSize(7);
