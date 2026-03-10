@@ -507,14 +507,11 @@ export async function generatePinCorrectionsReport(
         yPos += drawHeight + 10;
       } catch (error) {
         console.error('Error rendering drawing:', error);
-        doc.setTextColor(200, 0, 0);
-        doc.text('(Drawing could not be rendered)', 20, yPos);
-        yPos += 10;
+        // Skip this drawing silently - don't add error text to PDF
       }
     } else {
-      doc.setTextColor(150, 150, 150);
-      doc.text('(Drawing preview not available)', 20, yPos);
-      yPos += 10;
+      console.warn('Drawing preview not available for drawing');
+      // Skip this drawing silently - don't add error text to PDF
     }
 
     doc.setFontSize(11);

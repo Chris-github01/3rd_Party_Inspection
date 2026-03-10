@@ -484,19 +484,11 @@ export async function addMarkupDrawingsSection(
 
         } catch (imgError) {
           console.error('[addMarkupDrawingsSection] ❌ Error adding image to PDF:', imgError);
-          doc.setFontSize(10);
-          doc.setTextColor(200, 0, 0);
-          doc.text('(Drawing image could not be rendered - see console for details)', 20, yPos);
-          yPos += 5;
-          doc.setFontSize(8);
-          doc.text(`Error: ${imgError instanceof Error ? imgError.message : String(imgError)}`, 20, yPos);
-          yPos += 10;
+          // Skip this drawing silently - don't add error text to PDF
         }
       } else {
         console.error('[addMarkupDrawingsSection] ❌ No image data returned for drawing');
-        doc.setFontSize(10);
-        doc.setTextColor(150, 150, 150);
-        doc.text('(Drawing preview not available - image data is null)', 20, yPos);
+        // Skip this drawing silently - don't add error text to PDF
         yPos += 5;
         doc.setFontSize(8);
         doc.text(`File path: ${drawing.file_path}`, 20, yPos);
