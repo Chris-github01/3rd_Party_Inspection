@@ -286,7 +286,7 @@ export function Organizations() {
         isOpen={showDeleteDialog}
         title="Delete Organization"
         message={`Are you sure you want to delete "${selectedOrg?.name}"? This action cannot be undone. Organizations with existing projects cannot be deleted.`}
-        confirmText="Delete"
+        confirmLabel="Delete"
         onConfirm={handleDeleteOrg}
         onCancel={() => {
           setShowDeleteDialog(false);

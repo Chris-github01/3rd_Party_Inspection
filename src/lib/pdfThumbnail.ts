@@ -88,6 +88,7 @@ export async function generatePDFThumbnail(
   canvas.height = height || viewport.height;
 
   const renderContext = {
+    canvas: canvas,
     canvasContext: context,
     viewport: width || height
       ? page.getViewport({

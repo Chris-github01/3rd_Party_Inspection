@@ -192,7 +192,7 @@ export function DrawingsView() {
     setPinForm({
       member_name: '',
       steel_member_id: '',
-      package_id: packages.find((p) => p.is_default)?.id || '',
+      package_id: packages[0]?.id || '',
       label: ''
     });
     loadPins(selectedDrawing.id);

@@ -640,8 +640,8 @@ function MaterialModal({
                   <input
                     type="number"
                     step="0.1"
-                    value={formData.min_temp_c || ''}
-                    onChange={(e) => setFormData({ ...formData, min_temp_c: parseFloat(e.target.value) || null })}
+                    value={formData.min_temp_c ?? ''}
+                    onChange={(e) => setFormData({ ...formData, min_temp_c: e.target.value ? parseFloat(e.target.value) : null })}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -650,8 +650,8 @@ function MaterialModal({
                   <input
                     type="number"
                     step="0.1"
-                    value={formData.max_temp_c || ''}
-                    onChange={(e) => setFormData({ ...formData, max_temp_c: parseFloat(e.target.value) || null })}
+                    value={formData.max_temp_c ?? ''}
+                    onChange={(e) => setFormData({ ...formData, max_temp_c: e.target.value ? parseFloat(e.target.value) : null })}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -660,8 +660,8 @@ function MaterialModal({
                   <input
                     type="number"
                     step="1"
-                    value={formData.max_rh_percent || ''}
-                    onChange={(e) => setFormData({ ...formData, max_rh_percent: parseFloat(e.target.value) || null })}
+                    value={formData.max_rh_percent ?? ''}
+                    onChange={(e) => setFormData({ ...formData, max_rh_percent: e.target.value ? parseFloat(e.target.value) : null })}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>

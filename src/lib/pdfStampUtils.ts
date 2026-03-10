@@ -80,7 +80,8 @@ function drawCircularStamp(params: CircularStampParams): any[] {
 
   operators.push(['q']);
   operators.push(['cm', 1, 0, 0, 1, centerX, centerY]);
-  operators.push(['cm', Math.cos(degrees(-12)), Math.sin(degrees(-12)), -Math.sin(degrees(-12)), Math.cos(degrees(-12)), 0, 0]);
+  const rotationAngle = degrees(-12) as unknown as number;
+  operators.push(['cm', Math.cos(rotationAngle), Math.sin(rotationAngle), -Math.sin(rotationAngle), Math.cos(rotationAngle), 0, 0]);
 
   operators.push(['w', 2]);
   operators.push(['RG', color.r, color.g, color.b]);

@@ -50,6 +50,7 @@ interface EnvironmentReading {
   rh_percent: number;
   dew_point_c: number;
   dew_point_spread_c: number;
+  conforms?: boolean;
 }
 
 interface Photo {
