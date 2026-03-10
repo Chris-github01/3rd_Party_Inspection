@@ -131,6 +131,14 @@ export function ExportsTab({ project }: { project: Project }) {
     const projectDetails = projectDetailsRes.data;
     const orgSettings = projectDetails?.organizations || companySettingsFallback;
 
+    // Debug: Log organization settings
+    console.log('🏢 Organization Settings:', {
+      projectDetails: projectDetails,
+      organizations: projectDetails?.organizations,
+      orgSettings: orgSettings,
+      fallback: companySettingsFallback
+    });
+
     // Group quantity readings by member_id
     const readingsByMember = quantityReadings.reduce((acc: Record<string, any[]>, reading: any) => {
       if (!acc[reading.member_id]) {
