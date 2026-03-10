@@ -265,10 +265,27 @@ export async function generateQuantityReadingsPhotoReport(
       }
 
       try {
+        console.log(`[PDF] Processing photo ${i + 1}/${pin.photos.length}: ${photo.file_name}`);
         const dataURL = await getPhotoDataURL(photo);
+
         if (dataURL) {
+          console.log(`[PDF] Data URL obtained, length: ${dataURL.length}, format: ${dataURL.substring(0, 30)}...`);
+          console.log(`[PDF] Adding image at position (${xPos}, ${yPos}) with size (${photoWidth} x ${photoHeight})`);
+
+          // Detect image format from data URL
+          let imageFormat = 'JPEG';
+          if (dataURL.startsWith('data:image/png')) {
+            imageFormat = 'PNG';
+          } else if (dataURL.startsWith('data:image/jpeg') || dataURL.startsWith('data:image/jpg')) {
+            imageFormat = 'JPEG';
+          } else if (dataURL.startsWith('data:image/webp')) {
+            imageFormat = 'WEBP';
+          }
+          console.log(`[PDF] Detected image format: ${imageFormat}`);
+
           // Add photo
-          doc.addImage(dataURL, 'JPEG', xPos, yPos, photoWidth, photoHeight);
+          doc.addImage(dataURL, imageFormat, xPos, yPos, photoWidth, photoHeight);
+          console.log(`[PDF] Image added successfully`);
 
           // Add caption below photo
           doc.setFontSize(7);
@@ -277,11 +294,22 @@ export async function generateQuantityReadingsPhotoReport(
           const captionLines = doc.splitTextToSize(caption, photoWidth);
           doc.text(captionLines[0], xPos, yPos + photoHeight + 3);
           doc.setTextColor(0, 0, 0);
+          console.log(`[PDF] Caption added: ${caption}`);
         } else {
           console.warn(`[PDF] No data URL for photo: ${photo.file_name}`);
+          // Still add caption to show what's missing
+          doc.setFontSize(7);
+          doc.setTextColor(200, 0, 0);
+          doc.text(`[Missing: ${photo.file_name}]`, xPos, yPos + 10);
+          doc.setTextColor(0, 0, 0);
         }
       } catch (error) {
         console.error(`[PDF] Error adding photo ${photo.file_name}:`, error);
+        // Add error indicator
+        doc.setFontSize(7);
+        doc.setTextColor(200, 0, 0);
+        doc.text(`[Error: ${photo.file_name}]`, xPos, yPos + 10);
+        doc.setTextColor(0, 0, 0);
       }
 
       // Move to next row after last column
