@@ -71,6 +71,19 @@
 /* Header and Footer */
 .report-header {
   margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.report-header > div:first-child {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.report-header h1 {
+  text-align: center;
 }
 
 .report-footer {
