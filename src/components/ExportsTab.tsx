@@ -286,23 +286,31 @@ export function ExportsTab({ project }: { project: Project }) {
         }
 
         if (logoDataUrl) {
-          // Use JPEG format since blobToCleanDataURL converts to JPEG
-          doc.addImage(logoDataUrl, 'JPEG', 15, yPos - 5, 40, 20);
-          console.log('[Audit Report] ✓ Logo added to page 1 header at position (15, ' + (yPos - 5) + ')');
+          const logoWidth = 40;
+          const logoHeight = 20;
+          const logoX = (210 - logoWidth) / 2;
+          doc.addImage(logoDataUrl, 'JPEG', logoX, yPos, logoWidth, logoHeight);
+          console.log('[Audit Report] ✓ Logo added centered at position (' + logoX + ', ' + yPos + ')');
+          yPos += logoHeight + 10;
         } else {
           console.warn('[Audit Report] ✗ Could not load logo from any bucket');
+          const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
+          doc.setFontSize(22);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(0, 40, 80);
+          doc.text(orgName, 105, yPos, { align: 'center' });
+          yPos += 12;
         }
       } catch (error) {
         console.error('[Audit Report] ✗ Error loading organization logo:', error);
+        const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 40, 80);
+        doc.text(orgName, 105, yPos, { align: 'center' });
+        yPos += 12;
       }
     }
-
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 40, 80);
-    const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
-    doc.text(orgName, 105, yPos, { align: 'center' });
-    yPos += 12;
 
     doc.setFontSize(16);
     doc.setTextColor(0, 0, 0);
