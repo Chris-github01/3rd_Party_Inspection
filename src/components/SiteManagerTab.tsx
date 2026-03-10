@@ -111,6 +111,7 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
                   documents!inner(storage_path, filename)
                 `)
                 .eq('level_id', level.id)
+                .is('deleted_at', null)
                 .order('created_at');
 
               if (drawingsError) throw drawingsError;
@@ -198,7 +199,7 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
       // Check if the function returned success
       if (data && typeof data === 'object' && 'success' in data) {
         if (data.success) {
-          showToast('Drawing moved to trash. It can be restored within 30 days.', 'success');
+          showToast('success', 'Drawing moved to trash. It can be restored within 30 days.');
 
           // Close the drawing viewer if this drawing was selected
           if (selectedDrawing?.id === drawingToDelete.id) {
@@ -218,7 +219,7 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
       } else {
         // If data format is unexpected, still try to reload
         console.warn('Unexpected response format:', data);
-        showToast('Drawing moved to trash. It can be restored within 30 days.', 'success');
+        showToast('success', 'Drawing moved to trash. It can be restored within 30 days.');
 
         if (selectedDrawing?.id === drawingToDelete.id) {
           setSelectedDrawing(null);
@@ -231,7 +232,7 @@ export function SiteManagerTab({ projectId }: SiteManagerTabProps) {
       }
     } catch (error: any) {
       console.error('Error deleting drawing:', error);
-      showToast(error.message || 'Failed to delete drawing. Please try again.', 'error');
+      showToast('error', error.message || 'Failed to delete drawing. Please try again.');
     } finally {
       setDeletingDrawing(false);
     }
