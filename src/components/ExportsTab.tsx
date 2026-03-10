@@ -1561,6 +1561,51 @@ export function ExportsTab({ project }: { project: Project }) {
         </div>
       </div>
 
+      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-lg p-6 shadow-md">
+        <div className="flex items-start">
+          <FileText className="w-12 h-12 text-purple-600 mr-4 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Professional DFT Inspection Report
+              </h3>
+              <span className="px-2 py-0.5 bg-purple-600 text-white text-xs font-semibold rounded">NEW</span>
+            </div>
+            <p className="text-sm text-slate-700 mb-4">
+              Generate a professional Elcometer-style inspection report with charts, metadata panels, and detailed readings tables. Each member gets a 2-page layout with visual charts and comprehensive statistics.
+            </p>
+
+            <div className="bg-purple-100/50 border border-purple-300 rounded-lg p-3 mb-4">
+              <h4 className="text-sm font-semibold text-purple-900 mb-2">Features:</h4>
+              <ul className="text-sm text-purple-800 space-y-1">
+                <li>• Page 1: Line chart + histogram with metadata panels (Project, Gauge, Probe, Batch, Calibration, Statistics)</li>
+                <li>• Page 2: Clean readings table with Date/Time, Reading #, Thickness, Type</li>
+                <li>• Professional A4 portrait layout with company branding</li>
+                <li>• Print-friendly design with controlled page breaks</li>
+                <li>• Interactive charts rendered using Recharts</li>
+                <li>• View in browser, then print/save as PDF</li>
+              </ul>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border-2 border-purple-200">
+              <InspectedMemberSelector
+                projectId={project.id}
+                onGeneratePDF={(memberIds) => {
+                  const params = new URLSearchParams({
+                    projectId: project.id,
+                    memberIds: memberIds.join(','),
+                    batchName: project.name,
+                  });
+                  navigate(`/inspection-report?${params.toString()}`);
+                }}
+                buttonLabel="View Professional Report"
+                buttonIcon={<FileText className="w-5 h-5" />}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
         <h4 className="font-medium text-primary-900 mb-2">Export File Naming</h4>
         <p className="text-sm text-primary-800">
@@ -1568,7 +1613,8 @@ export function ExportsTab({ project }: { project: Project }) {
           <strong>Merged Pack:</strong> PRC_AuditPack_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
           <strong>Photo Report:</strong> Inspection_Report_Photos_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
           <strong>Enhanced Photo Report:</strong> Enhanced_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
-          <strong>Quantity Readings Photo Report:</strong> Quantity_Readings_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf
+          <strong>Quantity Readings Photo Report:</strong> Quantity_Readings_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
+          <strong>Professional DFT Report:</strong> View in browser, use browser Print to save as PDF
         </p>
       </div>
     </div>

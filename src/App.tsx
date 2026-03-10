@@ -24,6 +24,7 @@ import { DrawingsView } from './pages/site/DrawingsView';
 import { PinsList } from './pages/site/PinsList';
 import { PinInspection } from './pages/site/PinInspection';
 import InspectPDF from './pages/InspectPDF';
+import InspectionReport from './pages/InspectionReport';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -98,6 +99,14 @@ function App() {
             element={
               <PrivateRoute>
                 <InspectPDF />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/inspection-report"
+            element={
+              <PrivateRoute>
+                <InspectionReport />
               </PrivateRoute>
             }
           />
