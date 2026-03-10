@@ -1299,7 +1299,7 @@ export function ExportsTab({ project }: { project: Project }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-6 hidden">
         <div className="flex items-start justify-between">
           <div className="flex items-start w-full">
             <Layers className="w-12 h-12 text-accent-600 mr-4 flex-shrink-0" />
@@ -1431,7 +1431,7 @@ export function ExportsTab({ project }: { project: Project }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-6 hidden">
         <div className="flex items-start">
           <Camera className="w-12 h-12 text-green-600 mr-4 flex-shrink-0" />
           <div className="flex-1">
@@ -1460,7 +1460,7 @@ export function ExportsTab({ project }: { project: Project }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-blue-200 p-6 border-2">
+      <div className="bg-white rounded-lg border border-blue-200 p-6 border-2 hidden">
         <div className="flex items-start">
           <Camera className="w-12 h-12 text-blue-600 mr-4 flex-shrink-0" />
           <div className="flex-1">
