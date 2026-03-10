@@ -47,8 +47,10 @@ export function AddPinModal({
     'not_started'
   );
   const [members, setMembers] = useState<any[]>([]);
+  const [quantityReadings, setQuantityReadings] = useState<any[]>([]);
   const [inspections, setInspections] = useState<any[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [selectedReadingId, setSelectedReadingId] = useState('');
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedInspectionId, setSelectedInspectionId] = useState('');
   const [blockId, setBlockId] = useState('');
@@ -70,13 +72,19 @@ export function AddPinModal({
   }, [pinNumber, steelType]);
 
   useEffect(() => {
-    if (selectedMemberId && members.length > 0) {
+    if (selectedReadingId && quantityReadings.length > 0) {
+      const reading = quantityReadings.find((r) => r.reading_id === selectedReadingId);
+      setSelectedMember(reading || null);
+      if (reading) {
+        setSelectedMemberId(reading.member_id);
+      }
+    } else if (selectedMemberId && members.length > 0) {
       const member = members.find((m) => m.member_id === selectedMemberId);
       setSelectedMember(member || null);
     } else {
       setSelectedMember(null);
     }
-  }, [selectedMemberId, members]);
+  }, [selectedReadingId, selectedMemberId, quantityReadings, members]);
 
   const loadNextPinNumber = async () => {
     try {
@@ -96,7 +104,7 @@ export function AddPinModal({
 
   const loadData = async () => {
     try {
-      const [levelData, drawingData, membersResult, inspectionsResult] = await Promise.all([
+      const [levelData, drawingData, quantityReadingsResult, membersResult, inspectionsResult] = await Promise.all([
         supabase
           .from('levels')
           .select('block_id')
@@ -107,6 +115,7 @@ export function AddPinModal({
           .select('document_id')
           .eq('id', drawingId)
           .single(),
+        supabase.rpc('get_quantity_readings_for_pin_selection', { p_project_id: projectId }),
         supabase.rpc('get_project_members_for_dropdown', { p_project_id: projectId }),
         supabase
           .from('inspections')
@@ -123,6 +132,7 @@ export function AddPinModal({
         setDocumentId(drawingData.data.document_id);
       }
 
+      if (quantityReadingsResult.data) setQuantityReadings(quantityReadingsResult.data);
       if (membersResult.data) setMembers(membersResult.data);
       if (inspectionsResult.data) setInspections(inspectionsResult.data);
     } catch (error) {
@@ -148,8 +158,8 @@ export function AddPinModal({
       return;
     }
 
-    if ((pinType === 'inspection' || pinType === 'member') && !selectedMemberId) {
-      setError('Member selection is required for inspection and member pins');
+    if ((pinType === 'inspection' || pinType === 'member') && !selectedMemberId && !selectedReadingId) {
+      setError('Member or member instance selection is required for inspection and member pins');
       return;
     }
 
@@ -182,6 +192,7 @@ export function AddPinModal({
           pin_type: pinType,
           status,
           member_id: selectedMemberId || null,
+          inspection_reading_id: selectedReadingId || null,
           inspection_id: selectedInspectionId || null,
           page_number: pageNumber,
         },
@@ -320,34 +331,80 @@ export function AddPinModal({
           {(pinType === 'member' || pinType === 'inspection') && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Select Member <span className="text-red-500">*</span>
+                Select Member Instance <span className="text-red-500">*</span>
               </label>
-              <select
-                value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                disabled={creating}
-              >
-                <option value="">-- Select Member --</option>
-                {members.map((member) => (
-                  <option key={member.member_id} value={member.member_id}>
-                    {member.member_mark || 'No Mark'} - {member.section_size || 'Unknown'}
-                    {member.loading_schedule_ref && ` (${member.loading_schedule_ref})`}
-                  </option>
-                ))}
-              </select>
-              {members.length === 0 && (
-                <p className="text-xs text-yellow-400 mt-1">
-                  No members found. Please upload a loading schedule or add members manually.
-                </p>
+
+              {quantityReadings.length > 0 ? (
+                <>
+                  <select
+                    value={selectedReadingId}
+                    onChange={(e) => setSelectedReadingId(e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={creating}
+                  >
+                    <option value="">-- Select Member Instance --</option>
+                    {quantityReadings.map((reading) => (
+                      <option key={reading.reading_id} value={reading.reading_id}>
+                        {reading.generated_id} | {reading.member_mark} - {reading.section_size || 'Unknown'}
+                        {reading.has_readings ? ' ✓' : ' (No data yet)'}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Showing {quantityReadings.length} member instances with quantity readings generated
+                  </p>
+                </>
+              ) : (
+                <>
+                  <select
+                    value={selectedMemberId}
+                    onChange={(e) => setSelectedMemberId(e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={creating}
+                  >
+                    <option value="">-- Select Member --</option>
+                    {members.map((member) => (
+                      <option key={member.member_id} value={member.member_id}>
+                        {member.member_mark || 'No Mark'} - {member.section_size || 'Unknown'}
+                        {member.loading_schedule_ref && ` (${member.loading_schedule_ref})`}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-3 mt-2">
+                    <p className="text-xs text-yellow-300 font-medium mb-1">No Quantity Readings Available</p>
+                    <p className="text-xs text-yellow-200">
+                      Go to Member Register tab and click "Generate Quantity Readings" to create member instances before assigning pins.
+                    </p>
+                  </div>
+                </>
               )}
             </div>
           )}
 
           {selectedMember && (pinType === 'member' || pinType === 'inspection') && (
             <div className="bg-primary-900/30 border border-primary-700/50 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-primary-300 mb-2">Member Details</h4>
+              <h4 className="text-sm font-semibold text-primary-300 mb-2">
+                {selectedReadingId ? 'Member Instance Details' : 'Member Details'}
+              </h4>
               <div className="grid grid-cols-2 gap-2 text-xs">
+                {selectedReadingId && (
+                  <>
+                    <div className="col-span-2 bg-primary-800/40 rounded p-2 mb-1">
+                      <span className="text-slate-400">Generated ID:</span>
+                      <span className="text-white ml-2 font-semibold text-sm">{selectedMember.generated_id}</span>
+                      <div className="text-slate-300 mt-1">
+                        Instance {selectedMember.sequence_number} |
+                        <span className={`ml-1 ${selectedMember.has_readings ? 'text-green-400' : 'text-yellow-400'}`}>
+                          {selectedMember.has_readings ? 'Has inspection data' : 'No inspection data yet'}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div>
+                  <span className="text-slate-400">Member Mark:</span>
+                  <span className="text-white ml-2">{selectedMember.member_mark || 'N/A'}</span>
+                </div>
                 <div>
                   <span className="text-slate-400">Section:</span>
                   <span className="text-white ml-2">{selectedMember.section_size || 'N/A'}</span>
@@ -360,7 +417,7 @@ export function AddPinModal({
                   <span className="text-slate-400">FRR:</span>
                   <span className="text-white ml-2">{selectedMember.frr_format || 'N/A'}</span>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <span className="text-slate-400">Required DFT:</span>
                   <span className="text-white ml-2">
                     {selectedMember.dft_required_microns ? `${selectedMember.dft_required_microns} µm` : 'N/A'}
