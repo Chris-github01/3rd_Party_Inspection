@@ -82,8 +82,22 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
   doc.setFillColor(59, 130, 246);
   doc.rect(0, 0, pageWidth, 80, 'F');
 
-  // Add logo if available
-  let logoYOffset = 0;
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(28);
+  doc.setFont('helvetica', 'bold');
+  doc.text(companyName, pageWidth / 2, 40, { align: 'center' });
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, 55, {
+    align: 'center',
+  });
+
+  doc.setTextColor(0, 0, 0);
+
+  let yPos = 100;
+
+  // Add centered logo below header
   if (logoUrl) {
     try {
       let logoImage: string | null = null;
@@ -109,34 +123,19 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
       }
 
       if (logoImage) {
-        const logoHeight = 30;
-        const logoWidth = 90;
+        const logoHeight = 40;
+        const logoWidth = 120;
         const logoX = (pageWidth - logoWidth) / 2;
-        const logoY = 15;
+        const logoY = yPos;
         // Use JPEG format since blobToCleanDataURL converts to JPEG
         doc.addImage(logoImage, 'JPEG', logoX, logoY, logoWidth, logoHeight);
-        console.log('[PDF Complete Report] ✓ Logo added to cover page');
-        logoYOffset = 20;
+        console.log('[PDF Complete Report] ✓ Logo added centered below header');
+        yPos += logoHeight + 15;
       }
     } catch (error) {
       console.error('Error loading logo:', error);
     }
   }
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(28);
-  doc.setFont('helvetica', 'bold');
-  doc.text(companyName, pageWidth / 2, 40 + logoYOffset, { align: 'center' });
-
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, 55 + logoYOffset, {
-    align: 'center',
-  });
-
-  doc.setTextColor(0, 0, 0);
-
-  let yPos = 120;
 
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
