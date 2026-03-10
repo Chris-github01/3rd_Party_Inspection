@@ -209,11 +209,28 @@ function addSubscriptionAgreement(
   doc.text(description, margin, yPos);
   yPos += description.length * 5 + 10;
 
+  const address = config.registeredAddress || {};
+  const addressText = address.line1
+    ? [
+        address.line1,
+        address.line2,
+        address.suburb,
+        address.city,
+        address.postcode,
+        address.country
+      ].filter(Boolean).join(', ')
+    : '';
+
+  const rep = config.authorisedRepresentative || {};
+  const repText = rep.name
+    ? `${rep.name}${rep.title ? ' (' + rep.title + ')' : ''}`
+    : '';
+
   const fields = [
-    { label: 'Client Organisation Name', width: contentWidth },
-    { label: 'Trading Name', width: contentWidth },
-    { label: 'Registered Address', width: contentWidth },
-    { label: 'Authorised Representative', width: contentWidth }
+    { label: 'Client Organisation Name', width: contentWidth, value: '' },
+    { label: 'Trading Name', width: contentWidth, value: '' },
+    { label: 'Registered Address', width: contentWidth, value: addressText },
+    { label: 'Authorised Representative', width: contentWidth, value: repText }
   ];
 
   fields.forEach(field => {
@@ -222,8 +239,18 @@ function addSubscriptionAgreement(
     doc.text(field.label + ':', margin, yPos);
     yPos += 5;
 
+    if (field.value) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(55, 65, 81);
+      const valueLines = doc.splitTextToSize(field.value, contentWidth - 5);
+      doc.text(valueLines, margin + 2, yPos);
+      yPos += valueLines.length * 4;
+    }
+
     doc.setDrawColor(200, 200, 200);
     doc.line(margin, yPos, margin + field.width, yPos);
+    doc.setTextColor(75, 85, 99);
     yPos += 8;
   });
 
@@ -470,6 +497,63 @@ function addOrganisationSetup(
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.text(field.label + ':', margin, yPos);
+      yPos += 5;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, yPos, margin + field.width, yPos);
+      yPos += 8;
+    }
+  });
+
+  yPos += 8;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(31, 41, 55);
+  doc.text('Platform Administrator', margin, yPos);
+  yPos += 7;
+
+  const admin = config.platformAdministrator || {};
+  const platformAdminFields = [
+    { label: 'Platform Administrator Full Name', width: contentWidth, value: admin.fullName || '' },
+    { label: 'Platform Administrator Email', width: contentWidth / 2 - 5, value: admin.email || '' },
+    { label: 'Platform Administrator Phone', width: contentWidth / 2 - 5, value: admin.phone || '' }
+  ];
+
+  platformAdminFields.forEach((field, index) => {
+    if (index === 1) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text(field.label + ':', margin, yPos);
+      if (field.value) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(55, 65, 81);
+        doc.text(field.value, margin, yPos + 4);
+      }
+      yPos += 5;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, yPos, margin + field.width, yPos);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(31, 41, 55);
+      doc.text(platformAdminFields[2].label + ':', margin + field.width + 10, yPos - 5);
+      if (platformAdminFields[2].value) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(55, 65, 81);
+        doc.text(platformAdminFields[2].value, margin + field.width + 10, yPos - 1);
+      }
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin + field.width + 10, yPos, pageWidth - margin, yPos);
+      yPos += 8;
+    } else if (index === 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(31, 41, 55);
+      doc.text(field.label + ':', margin, yPos);
+      if (field.value) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(55, 65, 81);
+        doc.text(field.value, margin, yPos + 4);
+      }
       yPos += 5;
       doc.setDrawColor(200, 200, 200);
       doc.line(margin, yPos, margin + field.width, yPos);

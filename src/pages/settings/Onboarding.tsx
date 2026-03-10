@@ -3,6 +3,9 @@ import { ClipboardList, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { OnboardingBrandingCard } from '../../components/settings/OnboardingBrandingCard';
 import { OnboardingPackDefaultsForm } from '../../components/settings/OnboardingPackDefaultsForm';
+import { OnboardingRegisteredAddressCard } from '../../components/settings/OnboardingRegisteredAddressCard';
+import { OnboardingAuthorisedRepCard } from '../../components/settings/OnboardingAuthorisedRepCard';
+import { OnboardingPlatformAdminCard } from '../../components/settings/OnboardingPlatformAdminCard';
 import { OnboardingSectionsCard } from '../../components/settings/OnboardingSectionsCard';
 import { OnboardingExportCard } from '../../components/settings/OnboardingExportCard';
 
@@ -128,6 +131,24 @@ export function Onboarding() {
 
                   {/* Pack Defaults Section */}
                   <OnboardingPackDefaultsForm
+                    organization={selectedOrg}
+                    onUpdate={handleConfigUpdate}
+                  />
+
+                  {/* Registered Address */}
+                  <OnboardingRegisteredAddressCard
+                    organization={selectedOrg}
+                    onUpdate={handleConfigUpdate}
+                  />
+
+                  {/* Authorised Representative */}
+                  <OnboardingAuthorisedRepCard
+                    organization={selectedOrg}
+                    onUpdate={handleConfigUpdate}
+                  />
+
+                  {/* Platform Administrator */}
+                  <OnboardingPlatformAdminCard
                     organization={selectedOrg}
                     onUpdate={handleConfigUpdate}
                   />

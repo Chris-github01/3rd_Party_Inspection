@@ -237,10 +237,10 @@ function generateSubscriptionAgreement(organization: Organization, config: any):
     <div class="field-line"></div>
 
     <div class="field-label">Registered Address:</div>
-    <div class="field-line"></div>
+    <div class="field-line">${formatRegisteredAddress(config)}</div>
 
     <div class="field-label">Authorised Representative:</div>
-    <div class="field-line"></div>
+    <div class="field-line">${formatAuthorisedRep(config)}</div>
 
     <h3>Subscription Details</h3>
     <p><strong>Package:</strong> ${config.packageName || 'VerifyTrade Full Package - 5 Users'}</p>
@@ -321,6 +321,17 @@ function generateOrganisationSetup(organization: Organization, config: any): str
     <div class="field-label">Phone:</div>
     <div class="field-line"></div>
 
+    <h3>Platform Administrator</h3>
+
+    <div class="field-label">Platform Administrator Full Name:</div>
+    <div class="field-line">${formatPlatformAdmin(config)}</div>
+
+    <div class="field-label">Platform Administrator Email:</div>
+    <div class="field-line">${config.platformAdministrator?.email || ''}</div>
+
+    <div class="field-label">Platform Administrator Phone:</div>
+    <div class="field-line">${config.platformAdministrator?.phone || ''}</div>
+
     <div class="note-box">
       <div class="note-title">Note:</div>
       <div>Please also provide your company logo (PNG or SVG format) to be included in your organisation workspace.</div>
@@ -354,6 +365,40 @@ function generateAuthorisedSignatory(organization: Organization, config: any): s
 
     <div class="footer">${config.footerLine || 'VerifyTrade | Commercial Compliance Platform | Operated by P&R Consulting Limited'}</div>
   `;
+}
+
+function formatRegisteredAddress(config: any): string {
+  const address = config.registeredAddress || {};
+  if (!address.line1) return '';
+
+  const parts = [
+    address.line1,
+    address.line2,
+    address.suburb,
+    address.city,
+    address.postcode,
+    address.country
+  ].filter(Boolean);
+
+  return parts.join(', ');
+}
+
+function formatAuthorisedRep(config: any): string {
+  const rep = config.authorisedRepresentative || {};
+  if (!rep.name) return '';
+
+  let text = rep.name;
+  if (rep.title) text += ` (${rep.title})`;
+  if (rep.email) text += ` - ${rep.email}`;
+
+  return text;
+}
+
+function formatPlatformAdmin(config: any): string {
+  const admin = config.platformAdministrator || {};
+  if (!admin.fullName) return '';
+
+  return admin.fullName;
 }
 
 function slugify(text: string): string {
