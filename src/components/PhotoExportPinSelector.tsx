@@ -249,11 +249,19 @@ export function PhotoExportPinSelector({
     );
   }
 
+  const selectedPinsWithPhotos = pins.filter(p => selectedPinIds.has(p.pin_id) && p.photo_count > 0).length;
+  const selectedPinsWithoutPhotos = pins.filter(p => selectedPinIds.has(p.pin_id) && p.photo_count === 0).length;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-slate-400">
-          {selectedPinIds.size} selected for report
+        <div className="text-sm">
+          <span className="text-slate-400">{selectedPinIds.size} selected for report</span>
+          {selectedPinIds.size > 0 && (
+            <span className="ml-2 text-slate-500">
+              ({selectedPinsWithPhotos} with photos, {selectedPinsWithoutPhotos} without)
+            </span>
+          )}
         </div>
         <button
           onClick={toggleAll}
@@ -263,6 +271,23 @@ export function PhotoExportPinSelector({
           {selectedPinIds.size === pins.length ? 'Deselect All' : 'Select All'}
         </button>
       </div>
+
+      {selectedPinsWithoutPhotos > 0 && selectedPinIds.size > 0 && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <Camera className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="text-yellow-200 font-medium">
+                {selectedPinsWithoutPhotos} selected pin{selectedPinsWithoutPhotos > 1 ? 's have' : ' has'} no photos
+              </p>
+              <p className="text-yellow-300/80 text-xs mt-1">
+                These pins will appear in the summary table but won't have photos in the report.
+                Upload photos using the "Add Photos" button below.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-h-96 overflow-y-auto space-y-2 bg-slate-800/50 rounded-lg p-4">
         {pins.map((pin) => {
@@ -320,8 +345,13 @@ export function PhotoExportPinSelector({
                         <span className="text-white ml-2">{pin.section_size || 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Camera className="w-3 h-3 text-slate-400" />
-                        <span className="text-white">{pin.photo_count} photos</span>
+                        <Camera className={`w-3 h-3 ${pin.photo_count > 0 ? 'text-green-400' : 'text-slate-500'}`} />
+                        <span className={`${pin.photo_count > 0 ? 'text-green-300 font-medium' : 'text-slate-400'}`}>
+                          {pin.photo_count} photo{pin.photo_count !== 1 ? 's' : ''}
+                        </span>
+                        {pin.photo_count === 0 && (
+                          <span className="text-xs text-yellow-400 ml-1">(upload required)</span>
+                        )}
                       </div>
                     </div>
 
