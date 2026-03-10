@@ -215,7 +215,7 @@ export async function generateQuantityReadingsPhotoReport(
       `Steel Type: ${pin.steel_type || 'N/A'}`,
       `Status: ${pin.status?.toUpperCase() || 'N/A'}`,
       `FRR: ${pin.frr_format || 'N/A'}`,
-      `DFT: ${pin.dft_required_microns ? `${pin.dft_required_microns} µm` : 'N/A'}`
+      `DFT: ${pin.dft_required_microns ? `${pin.dft_required_microns} um` : 'N/A'}`
     ];
 
     doc.setFontSize(8);

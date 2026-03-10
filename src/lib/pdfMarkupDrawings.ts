@@ -143,7 +143,7 @@ async function getDrawingImageData(
             height: drawing.preview_height || 1200,
           };
         }
-        console.log(`[getDrawingImageData] ⚠️ Preview download returned null, falling back to live render`);
+        console.log(`[getDrawingImageData] WARNING: Preview download returned null, falling back to live render`);
       }
     } else {
       console.log(`[getDrawingImageData] No preview paths available, using live render`);
@@ -152,7 +152,7 @@ async function getDrawingImageData(
     const filePath = drawing.file_path;
 
     if (!filePath || filePath.trim() === '') {
-      console.error('[getDrawingImageData] ❌ filePath is empty or null');
+      console.error('[getDrawingImageData] ERROR: filePath is empty or null');
       return { imageData: null, width: 0, height: 0 };
     }
 
@@ -167,7 +167,7 @@ async function getDrawingImageData(
         .download(filePath);
 
       if (downloadError || !fileData) {
-        console.error('[getDrawingImageData] ❌ Step 1 FAILED - Error downloading PDF:', downloadError);
+        console.error('[getDrawingImageData] ERROR: Step 1 FAILED - Error downloading PDF:', downloadError);
         return { imageData: null, width: 0, height: 0 };
       }
 
@@ -193,7 +193,7 @@ async function getDrawingImageData(
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) {
-        console.error('[getDrawingImageData] ❌ Step 6 FAILED - Could not get 2D context');
+        console.error('[getDrawingImageData] ERROR: Step 6 FAILED - Could not get 2D context');
         return { imageData: null, width: 0, height: 0 };
       }
 
@@ -226,7 +226,7 @@ async function getDrawingImageData(
         .download(filePath);
 
       if (downloadError || !imageBlob) {
-        console.error('[getDrawingImageData] ❌ Error downloading image:', downloadError);
+        console.error('[getDrawingImageData] ERROR: Error downloading image:', downloadError);
         return { imageData: null, width: 0, height: 0 };
       }
 
@@ -251,7 +251,7 @@ async function getDrawingImageData(
       };
     }
   } catch (error) {
-    console.error('[getDrawingImageData] ❌ EXCEPTION CAUGHT:', error);
+    console.error('[getDrawingImageData] ERROR: EXCEPTION CAUGHT:', error);
     console.error('[getDrawingImageData] Error type:', error instanceof Error ? error.constructor.name : typeof error);
     console.error('[getDrawingImageData] Error message:', error instanceof Error ? error.message : String(error));
     console.error('[getDrawingImageData] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
@@ -483,11 +483,11 @@ export async function addMarkupDrawingsSection(
           yPos += drawHeight + 10;
 
         } catch (imgError) {
-          console.error('[addMarkupDrawingsSection] ❌ Error adding image to PDF:', imgError);
+          console.error('[addMarkupDrawingsSection] ERROR: Error adding image to PDF:', imgError);
           // Skip this drawing silently - don't add error text to PDF
         }
       } else {
-        console.error('[addMarkupDrawingsSection] ❌ No image data returned for drawing');
+        console.error('[addMarkupDrawingsSection] ERROR: No image data returned for drawing');
         // Skip this drawing silently - don't add error text to PDF
         yPos += 5;
         doc.setFontSize(8);

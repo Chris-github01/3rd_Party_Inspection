@@ -429,7 +429,7 @@ export async function runPhotoDiagnostics(projectId: string, pinId?: string): Pr
     console.log('Running Test 6: PDF Generation...');
     results.push(await testPDFGeneration(testPinId));
   } else {
-    console.warn('⚠ No pins found - skipping storage and photo tests');
+    console.warn('WARNING: No pins found - skipping storage and photo tests');
   }
 
   // Print results
@@ -440,7 +440,7 @@ export async function runPhotoDiagnostics(projectId: string, pinId?: string): Pr
   console.log('');
 
   for (const result of results) {
-    const icon = result.status === 'pass' ? '✅' : result.status === 'warning' ? '⚠️' : '❌';
+    const icon = result.status === 'pass' ? '[PASS]' : result.status === 'warning' ? '[WARN]' : '[FAIL]';
     console.log(`${icon} ${result.step}: ${result.message}`);
     if (result.details) {
       console.log('   Details:', result.details);
@@ -459,7 +459,7 @@ export async function runPhotoDiagnostics(projectId: string, pinId?: string): Pr
 
   if (failed > 0) {
     console.log('');
-    console.log('❌ FAILURES DETECTED');
+    console.log('[FAIL] FAILURES DETECTED');
     console.log('Review the failed tests above and check:');
     console.log('  1. RLS policies on pin_photos and storage bucket');
     console.log('  2. Photo files exist in Supabase Storage');
@@ -467,7 +467,7 @@ export async function runPhotoDiagnostics(projectId: string, pinId?: string): Pr
     console.log('  4. Browser console for detailed error messages');
   } else if (warnings > 0) {
     console.log('');
-    console.log('⚠️ WARNINGS PRESENT');
+    console.log('[WARN] WARNINGS PRESENT');
     console.log('System is working but some issues detected.');
     console.log('Review warnings above for details.');
   } else {

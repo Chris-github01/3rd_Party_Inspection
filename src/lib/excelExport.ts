@@ -8,9 +8,9 @@ interface ReadingData {
   'Block': string;
   'FRR (min)': number;
   'Coating System': string;
-  'Required DFT (µm)': number;
+  'Required DFT (um)': number;
   'Reading Number': number;
-  'DFT Value (µm)': number;
+  'DFT Value (um)': number;
   'Date': string;
 }
 
@@ -63,7 +63,7 @@ function groupReadingsByMember(data: ReadingData[]): MemberReadingsGroup[] {
         block: row['Block'],
         frrMinutes: row['FRR (min)'],
         coatingSystem: row['Coating System'],
-        requiredDft: row['Required DFT (µm)'],
+        requiredDft: row['Required DFT (um)'],
         date: row['Date'],
         readings: [],
       });
@@ -71,7 +71,7 @@ function groupReadingsByMember(data: ReadingData[]): MemberReadingsGroup[] {
 
     grouped.get(key)!.readings.push({
       number: row['Reading Number'],
-      value: row['DFT Value (µm)'],
+      value: row['DFT Value (um)'],
     });
   });
 
@@ -93,7 +93,7 @@ function createFormattedWorksheet(group: MemberReadingsGroup): XLSX.WorkSheet {
   data.push(['Block:', group.block]);
   data.push(['FRR Rating:', `${group.frrMinutes} minutes`]);
   data.push(['Coating System:', group.coatingSystem]);
-  data.push(['Required DFT:', `${group.requiredDft} µm`]);
+  data.push(['Required DFT:', `${group.requiredDft} um`]);
   data.push(['Inspection Date:', group.date]);
   data.push([]);
 
@@ -105,10 +105,10 @@ function createFormattedWorksheet(group: MemberReadingsGroup): XLSX.WorkSheet {
 
   data.push(['STATISTICS SUMMARY']);
   data.push(['Total Readings:', totalReadings]);
-  data.push(['Average DFT:', `${avgDft.toFixed(1)} µm`]);
-  data.push(['Minimum DFT:', `${minDft} µm`]);
-  data.push(['Maximum DFT:', `${maxDft} µm`]);
-  data.push(['Required DFT:', `${group.requiredDft} µm`]);
+  data.push(['Average DFT:', `${avgDft.toFixed(1)} um`]);
+  data.push(['Minimum DFT:', `${minDft} um`]);
+  data.push(['Maximum DFT:', `${maxDft} um`]);
+  data.push(['Required DFT:', `${group.requiredDft} um`]);
   data.push(['Compliance Status:', avgDft >= group.requiredDft ? 'PASS' : 'FAIL']);
   data.push([]);
 

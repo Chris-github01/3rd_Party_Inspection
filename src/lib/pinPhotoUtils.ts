@@ -221,7 +221,7 @@ export async function getPhotoDataURL(photo: PinPhoto): Promise<string | null> {
     // Use canvas-based conversion for cleaner, jsPDF-compatible output
     console.log(`[Photo Data URL] Converting blob to clean JPEG format via canvas...`);
     const dataURL = await blobToCleanDataURL(blob);
-    console.log(`[Photo Data URL] ✓ Clean JPEG data URL created, length: ${dataURL.length} characters`);
+    console.log(`[Photo Data URL] Clean JPEG data URL created, length: ${dataURL.length} characters`);
 
     return dataURL;
   } catch (error) {
@@ -233,7 +233,7 @@ export async function getPhotoDataURL(photo: PinPhoto): Promise<string | null> {
       const blob = photo.blob || (photo.url ? await downloadPhotoAsBlob(photo.url) : null);
       if (blob) {
         const dataURL = await blobToDataURL(blob);
-        console.log(`[Photo Data URL] ⚠ Fallback conversion succeeded, length: ${dataURL.length}`);
+        console.log(`[Photo Data URL] WARNING: Fallback conversion succeeded, length: ${dataURL.length}`);
         return dataURL;
       }
     } catch (fallbackError) {

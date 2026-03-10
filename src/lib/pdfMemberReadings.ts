@@ -100,7 +100,7 @@ export async function generateMemberReadingsPDF(
       ['Block:', member.block],
       ['FRR:', `${member.frr_minutes} minutes`],
       ['Coating System:', member.coating_system],
-      ['Required DFT:', `${member.required_dft_microns} µm`],
+      ['Required DFT:', `${member.required_dft_microns} um`],
       ['Inspection Date:', inspectionDate.toLocaleDateString()],
     ];
 
@@ -129,10 +129,10 @@ export async function generateMemberReadingsPDF(
       doc.setFont('helvetica', 'normal');
 
       const statsInfo = [
-        ['Average:', `${summary.average?.toFixed(2) || 'N/A'} µm`],
-        ['Minimum:', `${summary.minimum?.toFixed(2) || 'N/A'} µm`],
-        ['Maximum:', `${summary.maximum?.toFixed(2) || 'N/A'} µm`],
-        ['Std Deviation:', `${summary.stdDev?.toFixed(2) || 'N/A'} µm`],
+        ['Average:', `${summary.average?.toFixed(2) || 'N/A'} um`],
+        ['Minimum:', `${summary.minimum?.toFixed(2) || 'N/A'} um`],
+        ['Maximum:', `${summary.maximum?.toFixed(2) || 'N/A'} um`],
+        ['Std Deviation:', `${summary.stdDev?.toFixed(2) || 'N/A'} um`],
         ['Compliance:', summary.compliance || 'N/A'],
       ];
 
@@ -170,7 +170,7 @@ export async function generateMemberReadingsPDF(
 
     for (let j = 0; j < sortedReadings.length; j += readingsPerRow) {
       const row = sortedReadings.slice(j, j + readingsPerRow).map(r =>
-        `${r.reading_no}: ${r.dft_microns}µm`
+        `${r.reading_no}: ${r.dft_microns}um`
       );
       readingsRows.push(row);
     }

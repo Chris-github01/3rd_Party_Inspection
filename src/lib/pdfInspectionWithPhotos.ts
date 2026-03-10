@@ -107,7 +107,7 @@ export async function generateInspectionReportWithPhotos(
       ['Section Size:', member?.section_size || 'N/A'],
       ['FRR:', member?.frr_format || 'N/A'],
       ['Coating Product:', member?.coating_system || 'N/A'],
-      ['Required DFT:', member?.required_dft_microns ? `${member.required_dft_microns} µm` : 'N/A'],
+      ['Required DFT:', member?.required_dft_microns ? `${member.required_dft_microns} um` : 'N/A'],
       ['Status:', pin.status?.replace('_', ' ').toUpperCase() || 'N/A'],
     ];
 

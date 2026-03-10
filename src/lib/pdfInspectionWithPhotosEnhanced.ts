@@ -204,7 +204,7 @@ export async function generateEnhancedInspectionReportWithPhotos(
       ['Section Size:', pin.section_size],
       ['FRR Rating:', pin.frr],
       ['Coating Product:', pin.coating_product],
-      ['Required DFT:', pin.dft_required ? `${pin.dft_required} µm` : 'N/A'],
+      ['Required DFT:', pin.dft_required ? `${pin.dft_required} um` : 'N/A'],
     ];
 
     memberSpecs.forEach(([label, value]) => {

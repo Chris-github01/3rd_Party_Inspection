@@ -183,7 +183,7 @@ export async function generateQuantityReadingsPDFWithStatistics(
       ['Block', member.block],
       ['FRR', `${member.frr_minutes} minutes`],
       ['Coating System', member.coating_system],
-      ['Required DFT', `${member.required_dft_microns} µm`],
+      ['Required DFT', `${member.required_dft_microns} um`],
       ['Total Readings', readings.length.toString()],
     ];
 
@@ -212,7 +212,7 @@ export async function generateQuantityReadingsPDFWithStatistics(
 
     for (let j = 0; j < readings.length; j += readingsPerRow) {
       const row = readings.slice(j, j + readingsPerRow).map(r =>
-        `${r.sequence_number}: ${r.dft_average}µm`
+        `${r.sequence_number}: ${r.dft_average}um`
       );
       readingsRows.push(row);
     }
@@ -254,12 +254,12 @@ export async function generateQuantityReadingsPDFWithStatistics(
 
     const statsData = [
       ['Number of Readings', stats.count.toString()],
-      ['Mean (Average)', `${stats.mean.toFixed(1)} µm`],
-      ['Maximum', `${stats.max} µm`],
-      ['Minimum', `${stats.min} µm`],
-      ['Range', `${stats.range} µm`],
-      ['Standard Deviation (σ)', `${stats.standardDeviation.toFixed(1)} µm`],
-      ['Mean - 3σ', `${stats.meanMinus3Sigma.toFixed(1)} µm`],
+      ['Mean (Average)', `${stats.mean.toFixed(1)} um`],
+      ['Maximum', `${stats.max} um`],
+      ['Minimum', `${stats.min} um`],
+      ['Range', `${stats.range} um`],
+      ['Standard Deviation (SD)', `${stats.standardDeviation.toFixed(1)} um`],
+      ['Mean - 3SD', `${stats.meanMinus3Sigma.toFixed(1)} um`],
       ['Coefficient of Variation (COV)', `${stats.covPercent.toFixed(1)}%`],
     ];
 
@@ -291,11 +291,11 @@ export async function generateQuantityReadingsPDFWithStatistics(
       yPos += 6;
 
       const complianceData = [
-        ['Required DFT', `${compliance.requiredDft} µm`],
-        ['Mean ≥ Required', compliance.meanPass ? '✓ PASS' : '✗ FAIL'],
-        ['Min ≥ 90% Required', compliance.minPass ? '✓ PASS' : '✗ FAIL'],
-        ['Mean - 3σ ≥ 90% Required', compliance.meanMinus3SigmaPass ? '✓ PASS' : '✗ FAIL'],
-        ['Overall Status', compliance.overallPass ? '✓ COMPLIANT' : '✗ NON-COMPLIANT'],
+        ['Required DFT', `${compliance.requiredDft} um`],
+        ['Mean >= Required', compliance.meanPass ? 'PASS' : 'FAIL'],
+        ['Min >= 90% Required', compliance.minPass ? 'PASS' : 'FAIL'],
+        ['Mean - 3SD >= 90% Required', compliance.meanMinus3SigmaPass ? 'PASS' : 'FAIL'],
+        ['Overall Status', compliance.overallPass ? 'COMPLIANT' : 'NON-COMPLIANT'],
       ];
 
       autoTable(doc, {

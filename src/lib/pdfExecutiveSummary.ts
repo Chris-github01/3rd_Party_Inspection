@@ -114,7 +114,7 @@ function addShortSummaryPage(doc: jsPDF, summary: any, pageNumber: number) {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('✓ INSPECTION PASSED', pageWidth / 2, pageHeight - 30, { align: 'center' });
+    doc.text('INSPECTION PASSED', pageWidth / 2, pageHeight - 30, { align: 'center' });
     doc.setTextColor(0, 0, 0);
   } else {
     doc.setFillColor(239, 68, 68);
@@ -122,7 +122,7 @@ function addShortSummaryPage(doc: jsPDF, summary: any, pageNumber: number) {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('⚠ NON-COMPLIANT', pageWidth / 2, pageHeight - 30, { align: 'center' });
+    doc.text('NON-COMPLIANT', pageWidth / 2, pageHeight - 30, { align: 'center' });
     doc.setTextColor(0, 0, 0);
   }
 }

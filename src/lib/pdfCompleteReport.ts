@@ -180,7 +180,7 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
   doc.text(
-    isCompliant ? '✓ COMPLIANT' : '⚠ NON-COMPLIANT',
+    isCompliant ? 'COMPLIANT' : 'NON-COMPLIANT',
     pageWidth / 2,
     statusY + 25,
     { align: 'center' }
