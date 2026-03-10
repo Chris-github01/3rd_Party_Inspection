@@ -116,7 +116,7 @@ export function ExportsTab({ project }: { project: Project }) {
       supabase.from('company_settings').select('*').limit(1).maybeSingle(),
       supabase.from('projects').select(`
         *,
-        clients(logo_path),
+        clients(name, company),
         organizations(id, name, logo_url, address, phone, email, website)
       `).eq('id', project.id).single(),
     ]);
@@ -249,20 +249,6 @@ export function ExportsTab({ project }: { project: Project }) {
     doc.setTextColor(0, 0, 0);
     doc.text('Third Party Coatings Inspection Report', 105, yPos, { align: 'center' });
     yPos += 20;
-
-    if (projectDetails?.clients?.logo_path) {
-      try {
-        const { data: clientLogoBlob } = await supabase.storage
-          .from('documents')
-          .download(projectDetails.clients.logo_path);
-        if (clientLogoBlob) {
-          const clientLogoDataUrl = await blobToDataURL(clientLogoBlob);
-          doc.addImage(clientLogoDataUrl, 'PNG', 160, yPos - 10, 35, 17);
-        }
-      } catch (error) {
-        console.warn('Could not load client logo:', error);
-      }
-    }
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
