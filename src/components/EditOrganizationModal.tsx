@@ -36,13 +36,27 @@ export function EditOrganizationModal({ isOpen, onClose, organization, onSuccess
 
   useEffect(() => {
     if (organization) {
+      let logoPath = organization.logo_url || '';
+
+      if (logoPath && logoPath.startsWith('http')) {
+        try {
+          const url = new URL(logoPath);
+          const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)$/);
+          if (pathMatch) {
+            logoPath = pathMatch[1];
+          }
+        } catch (e) {
+          console.error('Error parsing logo URL:', e);
+        }
+      }
+
       setFormData({
         name: organization.name,
         address: organization.address || '',
         phone: organization.phone || '',
         email: organization.email || '',
         website: organization.website || '',
-        logo_url: organization.logo_url || '',
+        logo_url: logoPath,
         is_active: organization.is_active,
       });
     }

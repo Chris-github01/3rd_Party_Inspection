@@ -53,8 +53,19 @@ export function Organizations() {
         .order('name');
 
       if (error) throw error;
-      setOrganizations(data || []);
-      setFilteredOrgs(data || []);
+
+      const orgsWithUrls = (data || []).map(org => {
+        if (org.logo_url && !org.logo_url.startsWith('http')) {
+          const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(org.logo_url);
+          return { ...org, logo_url: urlData.publicUrl };
+        }
+        return org;
+      });
+
+      setOrganizations(orgsWithUrls);
+      setFilteredOrgs(orgsWithUrls);
     } catch (error) {
       console.error('Error loading organizations:', error);
       showMessage('Failed to load organizations', 'error');
