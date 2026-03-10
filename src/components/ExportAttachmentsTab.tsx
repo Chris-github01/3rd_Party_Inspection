@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Upload, Trash2, FileText, ArrowUp, ArrowDown, AlertCircle, Eye, Image as ImageIcon, Download, Edit, Save, X } from 'lucide-react';
+import { Upload, Trash2, FileText, ArrowUp, ArrowDown, AlertCircle, Eye, Image as ImageIcon, Download, Edit, Save, X, CheckSquare, Square } from 'lucide-react';
 import { format } from 'date-fns';
 import { convertImageToPdf } from '../lib/pdfUtils';
 
@@ -54,10 +54,44 @@ export function ExportAttachmentsTab({ projectId }: ExportAttachmentsTabProps) {
     display_title: '',
     appendix_category: '',
   });
+  const [selectedAttachments, setSelectedAttachments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadAttachments();
   }, [projectId]);
+
+  // Load selection from localStorage or select all by default
+  useEffect(() => {
+    if (attachments.length > 0) {
+      const storageKey = `export-attachments-selection-${projectId}`;
+      const saved = localStorage.getItem(storageKey);
+
+      if (saved) {
+        try {
+          const savedIds = JSON.parse(saved);
+          // Only select items that still exist
+          const validIds = savedIds.filter((id: string) =>
+            attachments.some(a => a.id === id)
+          );
+          setSelectedAttachments(new Set(validIds));
+        } catch (e) {
+          // If parsing fails, select all
+          setSelectedAttachments(new Set(attachments.map(a => a.id)));
+        }
+      } else if (selectedAttachments.size === 0) {
+        // First load - select all by default
+        setSelectedAttachments(new Set(attachments.map(a => a.id)));
+      }
+    }
+  }, [attachments, projectId]);
+
+  // Save selection to localStorage whenever it changes
+  useEffect(() => {
+    if (attachments.length > 0) {
+      const storageKey = `export-attachments-selection-${projectId}`;
+      localStorage.setItem(storageKey, JSON.stringify([...selectedAttachments]));
+    }
+  }, [selectedAttachments, projectId]);
 
   const loadAttachments = async () => {
     try {
@@ -330,6 +364,24 @@ export function ExportAttachmentsTab({ projectId }: ExportAttachmentsTabProps) {
     setEditValues({ display_title: '', appendix_category: '' });
   };
 
+  const handleToggleAttachment = (attachmentId: string) => {
+    const newSelected = new Set(selectedAttachments);
+    if (newSelected.has(attachmentId)) {
+      newSelected.delete(attachmentId);
+    } else {
+      newSelected.add(attachmentId);
+    }
+    setSelectedAttachments(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    setSelectedAttachments(new Set(attachments.map(a => a.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedAttachments(new Set());
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -418,16 +470,52 @@ export function ExportAttachmentsTab({ projectId }: ExportAttachmentsTabProps) {
       ) : (
         <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
           <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
-            <h3 className="font-semibold text-slate-900">
-              Preview Order ({attachments.length} {attachments.length === 1 ? 'attachment' : 'attachments'})
-            </h3>
-            <p className="text-xs text-slate-600 mt-1">
-              Top to bottom = first to last in merged PDF
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-900">
+                  Preview Order ({attachments.length} {attachments.length === 1 ? 'attachment' : 'attachments'})
+                </h3>
+                <p className="text-xs text-slate-600 mt-1">
+                  Top to bottom = first to last in merged PDF
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-600">
+                  {selectedAttachments.size} of {attachments.length} selected for export
+                </span>
+                <button
+                  onClick={handleSelectAll}
+                  className="px-3 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={handleDeselectAll}
+                  className="px-3 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300 transition-colors"
+                >
+                  Deselect All
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="divide-y divide-slate-200">
             <div className="px-6 py-3 bg-slate-100 flex items-center text-xs font-medium text-slate-700 uppercase">
+              <div className="w-12">
+                <input
+                  type="checkbox"
+                  checked={selectedAttachments.size === attachments.length && attachments.length > 0}
+                  onChange={() => {
+                    if (selectedAttachments.size === attachments.length) {
+                      handleDeselectAll();
+                    } else {
+                      handleSelectAll();
+                    }
+                  }}
+                  className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
+                  title="Toggle all"
+                />
+              </div>
               <div className="w-10">#</div>
               <div className="w-14">Type</div>
               <div className="flex-1 min-w-0">Filename / Title</div>
@@ -438,11 +526,29 @@ export function ExportAttachmentsTab({ projectId }: ExportAttachmentsTabProps) {
               <div className="w-48">Actions</div>
             </div>
 
-            {attachments.map((attachment, index) => (
-              <div key={attachment.id} className="hover:bg-slate-50">
+            {attachments.map((attachment, index) => {
+              const isSelected = selectedAttachments.has(attachment.id);
+              return (
+              <div
+                key={attachment.id}
+                className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-primary-50/30' : ''}`}
+              >
                 <div className="px-6 py-4 flex items-center">
+                  <div className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleAttachment(attachment.id)}
+                      className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
+                      title={isSelected ? 'Exclude from export' : 'Include in export'}
+                    />
+                  </div>
                   <div className="w-10">
-                    <span className="inline-flex items-center justify-center w-8 h-8 bg-accent-100 text-accent-700 rounded-full text-xs font-bold">
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${
+                      isSelected
+                        ? 'bg-accent-100 text-accent-700'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}>
                       {String.fromCharCode(65 + index)}
                     </span>
                   </div>
@@ -568,16 +674,30 @@ export function ExportAttachmentsTab({ projectId }: ExportAttachmentsTabProps) {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
             <div className="flex items-center text-sm text-slate-600">
-              <Eye className="w-4 h-4 mr-2" />
-              <span className="font-medium">Final merge order:</span>
-              <span className="ml-2">
-                [Generated Report] → {attachments.map((a, i) => `[${i + 1}]`).join(' → ')}
-              </span>
+              <Eye className="w-4 h-4 mr-2 flex-shrink-0" />
+              <div>
+                <div className="font-medium mb-1">Final merge order for selected files:</div>
+                <div className="text-xs">
+                  <span className="font-medium">[Generated Report]</span>
+                  {attachments
+                    .filter(a => selectedAttachments.has(a.id))
+                    .map((a, i) => (
+                      <span key={a.id}>
+                        {' → '}
+                        <span className="font-medium">[{i + 1}. {a.display_title || a.documents.filename.replace(/\.[^/.]+$/, '')}]</span>
+                      </span>
+                    ))}
+                  {selectedAttachments.size === 0 && (
+                    <span className="text-amber-600 ml-2">(No attachments selected - report only)</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

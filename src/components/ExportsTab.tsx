@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Download, FileText, Layers, AlertCircle, Camera, CreditCard as Edit3 } from 'lucide-react';
+import { Download, FileText, Layers, AlertCircle, Camera, CreditCard as Edit3, CheckSquare } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
@@ -980,6 +980,39 @@ export function ExportsTab({ project }: { project: Project }) {
   const handleGenerateMergedPack = async () => {
     setGeneratingMerged(true);
     try {
+      // Get selected attachment IDs from localStorage
+      const storageKey = `export-attachments-selection-${project.id}`;
+      const savedSelection = localStorage.getItem(storageKey);
+      let selectedIds: Set<string> = new Set();
+
+      if (savedSelection) {
+        try {
+          const ids = JSON.parse(savedSelection);
+          selectedIds = new Set(ids);
+        } catch (e) {
+          console.error('Failed to parse selection, using all attachments', e);
+          selectedIds = new Set(attachments.map(a => a.id));
+        }
+      } else {
+        // Default to all attachments if no selection saved
+        selectedIds = new Set(attachments.map(a => a.id));
+      }
+
+      // Filter attachments to only include selected ones
+      const selectedAttachments = attachments.filter(a => selectedIds.has(a.id));
+
+      if (selectedAttachments.length === 0) {
+        const proceed = confirm(
+          'No attachments are currently selected for export.\n\n' +
+          'The merged pack will only contain the base inspection report.\n\n' +
+          'Do you want to continue?'
+        );
+        if (!proceed) {
+          setGeneratingMerged(false);
+          return;
+        }
+      }
+
       // Get organization settings
       const { data: projectDetails } = await supabase.from('projects').select(`
         *,
@@ -994,8 +1027,8 @@ export function ExportsTab({ project }: { project: Project }) {
       const basePdfBytes = baseDoc.output('arraybuffer');
       const mergedPdf = await PDFDocument.load(basePdfBytes);
 
-      for (let i = 0; i < attachments.length; i++) {
-        const attachment = attachments[i];
+      for (let i = 0; i < selectedAttachments.length; i++) {
+        const attachment = selectedAttachments[i];
         try {
           const appendixLetter = String.fromCharCode(65 + i);
           const displayTitle = attachment.display_title || attachment.documents.filename.replace(/\.[^/.]+$/, '');
@@ -1198,7 +1231,9 @@ export function ExportsTab({ project }: { project: Project }) {
               ) : (
                 <>
                   <div className="bg-slate-50 rounded-lg p-4 mb-4 border border-slate-200">
-                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Merge Order:</h4>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">
+                      Merge Order (Selected Files Only):
+                    </h4>
                     <ol className="text-sm text-slate-700 space-y-1">
                       <li className="flex items-center">
                         <span className="inline-flex items-center justify-center w-6 h-6 bg-primary-600 text-white rounded-full text-xs font-medium mr-2">
@@ -1206,22 +1241,82 @@ export function ExportsTab({ project }: { project: Project }) {
                         </span>
                         <span className="font-medium">Generated Inspection Report (P&R Consulting)</span>
                       </li>
-                      {attachments.length === 0 ? (
-                        <li className="text-slate-500 ml-8 italic">No attachments configured</li>
-                      ) : (
-                        attachments.map((att, idx) => (
+                      {(() => {
+                        const storageKey = `export-attachments-selection-${project.id}`;
+                        const savedSelection = localStorage.getItem(storageKey);
+                        let selectedIds: Set<string> = new Set(attachments.map(a => a.id));
+
+                        if (savedSelection) {
+                          try {
+                            selectedIds = new Set(JSON.parse(savedSelection));
+                          } catch (e) {
+                            // Use all if parsing fails
+                          }
+                        }
+
+                        const selectedAttachments = attachments.filter(a => selectedIds.has(a.id));
+
+                        if (attachments.length === 0) {
+                          return <li className="text-slate-500 ml-8 italic">No attachments configured</li>;
+                        }
+
+                        if (selectedAttachments.length === 0) {
+                          return (
+                            <li className="text-amber-600 ml-8 italic font-medium">
+                              No attachments selected - only base report will be included
+                            </li>
+                          );
+                        }
+
+                        return selectedAttachments.map((att, idx) => (
                           <li key={att.id} className="flex items-center">
                             <span className="inline-flex items-center justify-center w-6 h-6 bg-accent-600 text-white rounded-full text-xs font-medium mr-2">
                               {idx + 2}
                             </span>
-                            <span>{att.documents.filename}</span>
+                            <span>{att.display_title || att.documents.filename.replace(/\.[^/.]+$/, '')}</span>
                             {att.source_type === 'image' && (
                               <span className="ml-2 text-xs text-green-600">(auto-converted to PDF)</span>
                             )}
                           </li>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </ol>
+                    {attachments.length > 0 && (() => {
+                      const storageKey = `export-attachments-selection-${project.id}`;
+                      const savedSelection = localStorage.getItem(storageKey);
+                      let selectedIds: Set<string> = new Set(attachments.map(a => a.id));
+
+                      if (savedSelection) {
+                        try {
+                          selectedIds = new Set(JSON.parse(savedSelection));
+                        } catch (e) {}
+                      }
+
+                      const selectedCount = attachments.filter(a => selectedIds.has(a.id)).length;
+
+                      if (selectedCount < attachments.length) {
+                        return (
+                          <div className="mt-3 pt-3 border-t border-slate-300">
+                            <p className="text-xs text-slate-600">
+                              <CheckSquare className="w-3 h-3 inline mr-1" />
+                              {selectedCount} of {attachments.length} attachments selected.
+                              <a
+                                href="#export-attachments"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  const tab = document.querySelector('[data-tab="export-attachments"]');
+                                  if (tab) (tab as HTMLElement).click();
+                                }}
+                                className="ml-1 text-primary-600 hover:underline"
+                              >
+                                Manage selection →
+                              </a>
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
                   {attachments.length > 0 ? (
