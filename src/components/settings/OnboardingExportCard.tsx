@@ -51,7 +51,7 @@ export function OnboardingExportCard({ organization }: OnboardingExportCardProps
     <div className="bg-white rounded-lg shadow-sm border border-primary-200 p-6">
       <div className="flex items-center mb-4">
         <FileDown className="w-5 h-5 text-primary-600 mr-2" />
-        <h2 className="text-lg font-semibold text-primary-900">Export Actions</h2>
+        <h2 className="text-lg font-semibold text-primary-900">Export Onboarding Pack</h2>
       </div>
 
       {message && (
@@ -72,7 +72,7 @@ export function OnboardingExportCard({ organization }: OnboardingExportCardProps
       )}
 
       <p className="text-sm text-primary-600 mb-6">
-        Generate a professional VerifyTrade Client Onboarding Pack using the current organisation branding and defaults.
+        Generate a professional VerifyTrade Client Onboarding Pack including subscription agreement, direct debit authority and organisation setup forms.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
