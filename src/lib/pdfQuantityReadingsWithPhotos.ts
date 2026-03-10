@@ -231,19 +231,20 @@ export async function generateQuantityReadingsPhotoReport(
     yPos += 12;
     doc.setTextColor(0, 0, 0);
 
-    // Add photos for this pin
+    // Add photos for this pin in a 2-column grid
     const photosPerRow = 2;
     const photoSpacing = 5;
     const photoWidth = (contentWidth - photoSpacing) / photosPerRow;
     const photoHeight = photoWidth * 0.75; // 4:3 aspect ratio
+    const rowHeight = photoHeight + 15; // Photo + caption + spacing
 
     for (let i = 0; i < pin.photos.length; i++) {
       const photo = pin.photos[i];
       const col = i % photosPerRow;
       const row = Math.floor(i / photosPerRow);
 
-      // Check if we need a new page
-      if (yPos + photoHeight + 10 > pageHeight - margin) {
+      // Check if we need a new page before starting a new row
+      if (col === 0 && yPos + rowHeight > pageHeight - margin) {
         doc.addPage();
         yPos = margin;
 
@@ -256,13 +257,9 @@ export async function generateQuantityReadingsPhotoReport(
         yPos += 8;
       }
 
+      // Calculate position for this photo
       const xPos = margin + (col * (photoWidth + photoSpacing));
-      const currentYPos = yPos + (row * (photoHeight + 15));
-
-      // Only process if this is a new row or first column
-      if (col === 0) {
-        yPos = currentYPos;
-      }
+      const photoYPos = yPos;
 
       try {
         console.log(`[PDF] Processing photo ${i + 1}/${pin.photos.length}: ${photo.file_name}`);
@@ -270,7 +267,7 @@ export async function generateQuantityReadingsPhotoReport(
 
         if (dataURL) {
           console.log(`[PDF] Data URL obtained, length: ${dataURL.length}, format: ${dataURL.substring(0, 30)}...`);
-          console.log(`[PDF] Adding image at position (${xPos}, ${yPos}) with size (${photoWidth} x ${photoHeight})`);
+          console.log(`[PDF] Adding image at (${xPos.toFixed(1)}, ${photoYPos.toFixed(1)}) size (${photoWidth.toFixed(1)} x ${photoHeight.toFixed(1)})`);
 
           // Detect image format from data URL
           let imageFormat = 'JPEG';
@@ -281,40 +278,40 @@ export async function generateQuantityReadingsPhotoReport(
           } else if (dataURL.startsWith('data:image/webp')) {
             imageFormat = 'WEBP';
           }
-          console.log(`[PDF] Detected image format: ${imageFormat}`);
+          console.log(`[PDF] Detected format: ${imageFormat}`);
 
           // Add photo
-          doc.addImage(dataURL, imageFormat, xPos, yPos, photoWidth, photoHeight);
-          console.log(`[PDF] Image added successfully`);
+          doc.addImage(dataURL, imageFormat, xPos, photoYPos, photoWidth, photoHeight);
+          console.log(`[PDF] ✓ Image added`);
 
           // Add caption below photo
           doc.setFontSize(7);
           doc.setTextColor(100, 100, 100);
           const caption = photo.caption || photo.file_name || 'Photo';
           const captionLines = doc.splitTextToSize(caption, photoWidth);
-          doc.text(captionLines[0], xPos, yPos + photoHeight + 3);
+          doc.text(captionLines[0], xPos, photoYPos + photoHeight + 3);
           doc.setTextColor(0, 0, 0);
-          console.log(`[PDF] Caption added: ${caption}`);
+          console.log(`[PDF] ✓ Caption added: ${caption}`);
         } else {
-          console.warn(`[PDF] No data URL for photo: ${photo.file_name}`);
-          // Still add caption to show what's missing
+          console.warn(`[PDF] ✗ No data URL for: ${photo.file_name}`);
+          // Add error indicator
           doc.setFontSize(7);
           doc.setTextColor(200, 0, 0);
-          doc.text(`[Missing: ${photo.file_name}]`, xPos, yPos + 10);
+          doc.text(`[Missing: ${photo.file_name}]`, xPos, photoYPos + 10);
           doc.setTextColor(0, 0, 0);
         }
       } catch (error) {
-        console.error(`[PDF] Error adding photo ${photo.file_name}:`, error);
+        console.error(`[PDF] ✗ Error adding photo ${photo.file_name}:`, error);
         // Add error indicator
         doc.setFontSize(7);
         doc.setTextColor(200, 0, 0);
-        doc.text(`[Error: ${photo.file_name}]`, xPos, yPos + 10);
+        doc.text(`[Error: ${photo.file_name}]`, xPos, photoYPos + 10);
         doc.setTextColor(0, 0, 0);
       }
 
-      // Move to next row after last column
+      // Move to next row after processing second column or last photo
       if (col === photosPerRow - 1 || i === pin.photos.length - 1) {
-        yPos += photoHeight + 15;
+        yPos += rowHeight;
       }
     }
 
