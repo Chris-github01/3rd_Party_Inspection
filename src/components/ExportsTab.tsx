@@ -1079,7 +1079,7 @@ export function ExportsTab({ project }: { project: Project }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const fileName = `${project.id}/${Date.now()}-${name}.pdf`;
+      const fileName = `${user.id}/${project.id}/${Date.now()}-${name}.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from('pdf-workspaces')
