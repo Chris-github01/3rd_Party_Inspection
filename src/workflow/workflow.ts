@@ -135,6 +135,30 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
   },
 
   {
+    id: 'members',
+    title: 'Member Register',
+    description: 'Manage structural members',
+    isAccessible: () => true, // Always accessible but may warn
+    isReady: (state) => state.members_count > 0,
+    getWarnings: (state) => {
+      const warnings: string[] = [];
+      if (state.members_count === 0) {
+        warnings.push('No members in register - import loading schedule or add manually');
+      }
+      return warnings;
+    },
+    getActions: (state) => {
+      if (state.members_count === 0) {
+        return [
+          { label: 'Import Loading Schedule', target: 'loading-schedule' },
+          { label: 'Add Members Manually', target: null }
+        ];
+      }
+      return [];
+    }
+  },
+
+  {
     id: 'site-manager',
     title: 'Site Manager',
     description: 'Configure blocks, levels, and pin members to drawings',
@@ -162,30 +186,6 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
         actions.push({ label: 'Import Loading Schedule', target: 'loading-schedule' });
       }
       return actions;
-    }
-  },
-
-  {
-    id: 'members',
-    title: 'Member Register',
-    description: 'Manage structural members',
-    isAccessible: () => true, // Always accessible but may warn
-    isReady: (state) => state.members_count > 0,
-    getWarnings: (state) => {
-      const warnings: string[] = [];
-      if (state.members_count === 0) {
-        warnings.push('No members in register - import loading schedule or add manually');
-      }
-      return warnings;
-    },
-    getActions: (state) => {
-      if (state.members_count === 0) {
-        return [
-          { label: 'Import Loading Schedule', target: 'loading-schedule' },
-          { label: 'Add Members Manually', target: null }
-        ];
-      }
-      return [];
     }
   },
 
