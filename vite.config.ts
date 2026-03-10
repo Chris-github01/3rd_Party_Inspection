@@ -6,7 +6,7 @@ export default defineConfig({
   base: '/',
   plugins: [react()],
   optimizeDeps: {
-    include: ['chart.js'],
+    include: ['chart.js', 'recharts'],
     exclude: ['lucide-react'],
   },
   build: {
