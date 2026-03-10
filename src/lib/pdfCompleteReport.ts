@@ -82,22 +82,8 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
   doc.setFillColor(59, 130, 246);
   doc.rect(0, 0, pageWidth, 80, 'F');
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(28);
-  doc.setFont('helvetica', 'bold');
-  doc.text(companyName, pageWidth / 2, 40, { align: 'center' });
-
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, 55, {
-    align: 'center',
-  });
-
-  doc.setTextColor(0, 0, 0);
-
-  let yPos = 100;
-
-  // Add centered logo below header
+  // Add centered logo at the top of header, above company name
+  let logoYOffset = 0;
   if (logoUrl) {
     try {
       let logoImage: string | null = null;
@@ -123,19 +109,34 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
       }
 
       if (logoImage) {
-        const logoHeight = 40;
-        const logoWidth = 120;
+        const logoHeight = 25;
+        const logoWidth = 75;
         const logoX = (pageWidth - logoWidth) / 2;
-        const logoY = yPos;
+        const logoY = 12;
         // Use JPEG format since blobToCleanDataURL converts to JPEG
         doc.addImage(logoImage, 'JPEG', logoX, logoY, logoWidth, logoHeight);
-        console.log('[PDF Complete Report] ✓ Logo added centered below header');
-        yPos += logoHeight + 15;
+        console.log('[PDF Complete Report] ✓ Logo added centered above company name');
+        logoYOffset = 10;
       }
     } catch (error) {
       console.error('Error loading logo:', error);
     }
   }
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(28);
+  doc.setFont('helvetica', 'bold');
+  doc.text(companyName, pageWidth / 2, 48 + logoYOffset, { align: 'center' });
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, 63 + logoYOffset, {
+    align: 'center',
+  });
+
+  doc.setTextColor(0, 0, 0);
+
+  let yPos = 100;
 
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
