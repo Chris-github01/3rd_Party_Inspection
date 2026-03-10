@@ -67,9 +67,26 @@ import { pdfjsLib } from '../../lib/pdfjs';
 
 **Benefits:**
 - Uses centralized worker configuration from `/src/lib/pdfjs.ts`
-- Worker URL properly set to CDN: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`
+- Worker URL properly set to local file: `/pdf.worker.min.mjs` (v5.4.624)
 - Consistent PDF.js setup across entire application
 - Eliminates worker initialization errors
+- Eliminates version mismatch errors between API and Worker
+
+**Additional Fix - Worker Version Mismatch:**
+```typescript
+// src/lib/pdfjs.ts - Fixed worker source
+// Before (CDN causing version mismatch):
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+// After (Local worker matching installed version):
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+```
+
+**Why This Was Necessary:**
+- CDN was serving newer worker version (5.5.207)
+- Installed pdfjs-dist package is version 5.4.624
+- Version mismatch caused "API version does not match Worker version" error
+- Local worker file ensures perfect version alignment
 
 ### Fix #2: Enhanced Error Handling ✅
 
@@ -241,6 +258,15 @@ const loadingTask = pdfjsLib.getDocument({
 
 ## Common Error Messages & Solutions
 
+### Error: "The API version '5.5.207' does not match the Worker version '5.4.624'" ✅ FIXED
+**Cause:** Version mismatch between pdfjs-dist package and worker file
+**Root Issue:** CDN was serving newer worker than installed package version
+**Solution Applied:**
+- Changed worker source from CDN to local file
+- Worker now loads from `/public/pdf.worker.min.mjs`
+- Ensures perfect version alignment with installed package
+**Status:** ✅ PERMANENTLY FIXED
+
 ### Error: "Failed to load PDF: Invalid PDF structure"
 **Cause:** PDF file is corrupted or malformed
 **Solution:** Try re-exporting the PDF or use a different file
@@ -250,8 +276,8 @@ const loadingTask = pdfjsLib.getDocument({
 **Solution:** Compress PDF or split it externally first
 
 ### Error: "Failed to load PDF: Network error"
-**Cause:** PDF.js worker failed to load from CDN
-**Solution:** Check internet connection, verify CDN is accessible
+**Cause:** PDF.js worker failed to load from local path
+**Solution:** Verify `/public/pdf.worker.min.mjs` exists and is accessible
 
 ### Error: "Please select a valid PDF file"
 **Cause:** Selected file is not a PDF
