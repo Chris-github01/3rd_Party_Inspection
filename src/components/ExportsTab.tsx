@@ -902,7 +902,7 @@ export function ExportsTab({ project }: { project: Project }) {
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
     const pageCount = doc.getNumberOfPages();
-    const footerOrgName = orgSettings?.organization_name || 'P&R Consulting Limited';
+    const footerOrgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.text(`Prepared by ${footerOrgName}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 15, {
@@ -986,6 +986,16 @@ export function ExportsTab({ project }: { project: Project }) {
   const handleGenerateMergedPack = async () => {
     setGeneratingMerged(true);
     try {
+      // Get organization settings
+      const { data: projectDetails } = await supabase.from('projects').select(`
+        *,
+        organizations(id, name, logo_url)
+      `).eq('id', project.id).single();
+
+      const { data: companySettingsFallback } = await supabase.from('company_settings').select('*').limit(1).maybeSingle();
+      const orgSettings = projectDetails?.organizations || companySettingsFallback;
+      const organizationName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
+
       const baseDoc = await generateAuditReport();
       const basePdfBytes = baseDoc.output('arraybuffer');
       const mergedPdf = await PDFDocument.load(basePdfBytes);
@@ -1004,6 +1014,7 @@ export function ExportsTab({ project }: { project: Project }) {
             projectName: project.name,
             clientName: project.client_name,
             siteAddress: project.site_address || undefined,
+            organizationName: organizationName,
           });
 
           const dividerBytes = await dividerBlob.arrayBuffer();

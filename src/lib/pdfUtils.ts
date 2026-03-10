@@ -113,8 +113,9 @@ export async function generateReportPdfBlob(
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595, 842]);
 
+  const organizationName = inspectionStatus?.organizationName || 'P&R Consulting Limited';
   const fontSize = 24;
-  page.drawText('P&R Consulting Limited', {
+  page.drawText(organizationName, {
     x: 50,
     y: 792,
     size: fontSize,
@@ -142,7 +143,7 @@ export async function generateReportPdfBlob(
     color: rgb(0, 0, 0),
   });
 
-  page.drawText('Prepared by P&R Consulting Limited', {
+  page.drawText(`Prepared by ${organizationName}`, {
     x: 50,
     y: 50,
     size: 10,
@@ -169,6 +170,7 @@ export async function createDividerPage(
     projectName: string;
     clientName: string;
     siteAddress?: string;
+    organizationName?: string;
   }
 ): Promise<Blob> {
   const pdfDoc = await PDFDocument.create();
@@ -181,7 +183,8 @@ export async function createDividerPage(
 
   let yPos = 792;
 
-  page.drawText('P&R Consulting Limited', {
+  const organizationName = metadata.organizationName || 'P&R Consulting Limited';
+  page.drawText(organizationName, {
     x: 50,
     y: yPos,
     size: 18,
