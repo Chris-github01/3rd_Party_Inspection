@@ -132,25 +132,91 @@ export async function generateQuantityBasedReadings(
 
 /**
  * Save generated readings to database
+ * Creates member instances based on quantity and assigns readings to each
  */
 export async function saveGeneratedReadings(
   config: QuantityReadingConfig,
   readings: GeneratedReading[]
 ): Promise<void> {
-  const readingsToInsert = readings.map((reading) => {
-    let notes = `Auto-generated reading ${reading.sequenceNumber} of ${config.quantity}`;
+  // Get the original member data to clone
+  const { data: originalMember, error: fetchError } = await supabase
+    .from('members')
+    .select('*')
+    .eq('id', config.memberId)
+    .single();
 
-    // Add set information if available
-    if (reading.setNumber && reading.readingWithinSet && config.readingsPerSet) {
-      const totalSets = Math.ceil(config.quantity / config.readingsPerSet);
-      notes = `Set ${reading.setNumber}/${totalSets}: Reading ${reading.readingWithinSet}/${config.readingsPerSet}`;
-    }
+  if (fetchError) throw fetchError;
+  if (!originalMember) throw new Error('Member not found');
 
-    return {
+  // Delete existing readings for this member first
+  await supabase
+    .from('inspection_readings')
+    .delete()
+    .eq('member_id', config.memberId);
+
+  // Calculate how many member instances we need based on quantity
+  const memberQuantity = originalMember.quantity || 1;
+  const readingsPerInstance = config.readingsPerSet || config.quantity;
+
+  // If quantity is 1, just update the existing member
+  if (memberQuantity === 1) {
+    const readingsToInsert = readings.map((reading) => {
+      const notes = config.readingsPerSet
+        ? `Reading ${reading.sequenceNumber}/${config.readingsPerSet}`
+        : `Auto-generated reading ${reading.sequenceNumber} of ${config.quantity}`;
+
+      return {
+        member_id: config.memberId,
+        project_id: config.projectId,
+        sequence_number: reading.sequenceNumber,
+        generated_id: reading.generatedId,
+        dft_reading_1: reading.dftReading1,
+        dft_reading_2: reading.dftReading2,
+        dft_reading_3: reading.dftReading3,
+        dft_average: reading.dftAverage,
+        status: reading.status,
+        temperature_c: reading.temperatureC,
+        humidity_percent: reading.humidityPercent,
+        reading_type: 'full_measurement',
+        notes,
+      };
+    });
+
+    // Insert readings
+    const { error } = await supabase
+      .from('inspection_readings')
+      .insert(readingsToInsert);
+
+    if (error) throw error;
+
+    // Update member with auto_generated_base_id
+    const baseId = generateAutoId(config.memberMark, 1, config.baseIdPrefix);
+    await supabase
+      .from('members')
+      .update({
+        auto_generated_base_id: baseId,
+      })
+      .eq('id', config.memberId);
+  } else {
+    // Quantity > 1: Create multiple member instances
+    // First, update the original member to be instance 1
+    const baseId1 = `${config.memberMark}-1`;
+    await supabase
+      .from('members')
+      .update({
+        member_mark: baseId1,
+        quantity: 1, // Each instance represents 1 piece
+        auto_generated_base_id: baseId1,
+      })
+      .eq('id', config.memberId);
+
+    // Get readings for instance 1
+    const instance1Readings = readings.slice(0, readingsPerInstance);
+    const readingsToInsert1 = instance1Readings.map((reading, index) => ({
       member_id: config.memberId,
       project_id: config.projectId,
-      sequence_number: reading.sequenceNumber,
-      generated_id: reading.generatedId,
+      sequence_number: index + 1,
+      generated_id: `${baseId1}-${String(index + 1).padStart(3, '0')}`,
       dft_reading_1: reading.dftReading1,
       dft_reading_2: reading.dftReading2,
       dft_reading_3: reading.dftReading3,
@@ -159,31 +225,67 @@ export async function saveGeneratedReadings(
       temperature_c: reading.temperatureC,
       humidity_percent: reading.humidityPercent,
       reading_type: 'full_measurement',
-      notes,
-    };
-  });
+      notes: `Instance 1: Reading ${index + 1}/${readingsPerInstance}`,
+    }));
 
-  // Delete existing readings for this member first
-  await supabase
-    .from('inspection_readings')
-    .delete()
-    .eq('member_id', config.memberId);
+    await supabase
+      .from('inspection_readings')
+      .insert(readingsToInsert1);
 
-  // Insert new readings
-  const { error } = await supabase
-    .from('inspection_readings')
-    .insert(readingsToInsert);
+    // Create additional member instances (2 through N)
+    for (let instanceNum = 2; instanceNum <= memberQuantity; instanceNum++) {
+      const instanceMark = `${config.memberMark}-${instanceNum}`;
+      const startIdx = (instanceNum - 1) * readingsPerInstance;
+      const endIdx = Math.min(startIdx + readingsPerInstance, readings.length);
+      const instanceReadings = readings.slice(startIdx, endIdx);
 
-  if (error) throw error;
+      // Create new member instance
+      const { data: newMember, error: insertError } = await supabase
+        .from('members')
+        .insert({
+          project_id: originalMember.project_id,
+          member_mark: instanceMark,
+          element_type: originalMember.element_type,
+          section: originalMember.section,
+          level: originalMember.level,
+          block: originalMember.block,
+          frr_minutes: originalMember.frr_minutes,
+          coating_system: originalMember.coating_system,
+          required_dft_microns: originalMember.required_dft_microns,
+          required_thickness_mm: originalMember.required_thickness_mm,
+          status: 'not_started',
+          notes: `Auto-generated instance ${instanceNum} of ${memberQuantity}`,
+          quantity: 1, // Each instance represents 1 piece
+          auto_generated_base_id: instanceMark,
+          is_spot_check: originalMember.is_spot_check || false,
+        })
+        .select()
+        .single();
 
-  // Update member with auto_generated_base_id
-  const baseId = generateAutoId(config.memberMark, 1, config.baseIdPrefix);
-  await supabase
-    .from('members')
-    .update({
-      auto_generated_base_id: baseId,
-    })
-    .eq('id', config.memberId);
+      if (insertError) throw insertError;
+
+      // Create readings for this instance
+      const readingsToInsert = instanceReadings.map((reading, index) => ({
+        member_id: newMember.id,
+        project_id: config.projectId,
+        sequence_number: index + 1,
+        generated_id: `${instanceMark}-${String(index + 1).padStart(3, '0')}`,
+        dft_reading_1: reading.dftReading1,
+        dft_reading_2: reading.dftReading2,
+        dft_reading_3: reading.dftReading3,
+        dft_average: reading.dftAverage,
+        status: reading.status,
+        temperature_c: reading.temperatureC,
+        humidity_percent: reading.humidityPercent,
+        reading_type: 'full_measurement',
+        notes: `Instance ${instanceNum}: Reading ${index + 1}/${readingsPerInstance}`,
+      }));
+
+      await supabase
+        .from('inspection_readings')
+        .insert(readingsToInsert);
+    }
+  }
 }
 
 /**
