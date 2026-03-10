@@ -108,37 +108,80 @@ export async function generateReportPdfBlob(
     inspectorName: string;
     approvalDate: Date;
     organizationName?: string;
+    logoUrl?: string;
   }
 ): Promise<Blob> {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595, 842]);
 
-  const organizationName = inspectionStatus?.organizationName || 'P&R Consulting Limited';
-  const fontSize = 24;
-  page.drawText(organizationName, {
-    x: 50,
-    y: 792,
-    size: fontSize,
-    color: rgb(0, 0.4, 0.6),
-  });
+  let yPos = 792;
 
-  page.drawText('Third Party Coatings Inspection Report', {
-    x: 50,
-    y: 750,
-    size: 18,
+  if (inspectionStatus?.logoUrl) {
+    try {
+      const logoResponse = await fetch(inspectionStatus.logoUrl);
+      const logoBytes = await logoResponse.arrayBuffer();
+
+      let logoImage;
+      if (inspectionStatus.logoUrl.toLowerCase().endsWith('.png')) {
+        logoImage = await pdfDoc.embedPng(logoBytes);
+      } else {
+        logoImage = await pdfDoc.embedJpg(logoBytes);
+      }
+
+      const logoDims = logoImage.scale(1);
+      const logoHeight = 50;
+      const logoWidth = (logoDims.width / logoDims.height) * logoHeight;
+      const logoX = (595 - logoWidth) / 2;
+
+      page.drawImage(logoImage, {
+        x: logoX,
+        y: yPos - logoHeight,
+        width: logoWidth,
+        height: logoHeight,
+      });
+
+      yPos -= (logoHeight + 30);
+    } catch (error) {
+      console.error('Error embedding logo:', error);
+    }
+  }
+
+  const organizationName = inspectionStatus?.organizationName || 'P&R Consulting Limited';
+
+  if (!inspectionStatus?.logoUrl) {
+    const fontSize = 24;
+    const textWidth = organizationName.length * fontSize * 0.6;
+    page.drawText(organizationName, {
+      x: (595 - textWidth) / 2,
+      y: yPos,
+      size: fontSize,
+      color: rgb(0, 0.4, 0.6),
+    });
+    yPos -= 50;
+  }
+
+  const titleText = 'Third Party Coatings Inspection Report';
+  const titleSize = 18;
+  const titleWidth = titleText.length * titleSize * 0.6;
+  page.drawText(titleText, {
+    x: (595 - titleWidth) / 2,
+    y: yPos,
+    size: titleSize,
     color: rgb(0, 0, 0),
   });
+  yPos -= 40;
 
   page.drawText(projectName, {
     x: 50,
-    y: 710,
+    y: yPos,
     size: 14,
     color: rgb(0, 0, 0),
   });
+  yPos -= 30;
 
   page.drawText(`Client: ${clientName}`, {
     x: 50,
-    y: 680,
+    y: yPos,
     size: 12,
     color: rgb(0, 0, 0),
   });

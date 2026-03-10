@@ -77,18 +77,41 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
   const companyName = introduction?.data.company.company_name || executiveSummary?.data?.company?.company_name || 'P&R Consulting Limited';
   const projectName = executiveSummary.data.project.project_name;
   const clientName = executiveSummary.data.client.name;
+  const logoUrl = introduction?.data.company.logo_url || executiveSummary?.data?.company?.logo_url;
 
   doc.setFillColor(59, 130, 246);
   doc.rect(0, 0, pageWidth, 80, 'F');
 
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(28);
-  doc.setFont('helvetica', 'bold');
-  doc.text(companyName, pageWidth / 2, 40, { align: 'center' });
+
+  let textYPos = 40;
+
+  if (logoUrl) {
+    try {
+      const cleanLogoUrl = await blobToCleanDataURL(logoUrl);
+      const imgProps = doc.getImageProperties(cleanLogoUrl);
+      const imgWidth = 50;
+      const imgHeight = (imgProps.height / imgProps.width) * imgWidth;
+      const imgX = (pageWidth - imgWidth) / 2;
+      doc.addImage(cleanLogoUrl, 'PNG', imgX, 15, imgWidth, imgHeight);
+      textYPos = 15 + imgHeight + 10;
+    } catch (error) {
+      console.error('Error adding logo to cover page:', error);
+      doc.setFontSize(28);
+      doc.setFont('helvetica', 'bold');
+      doc.text(companyName, pageWidth / 2, textYPos, { align: 'center' });
+      textYPos += 15;
+    }
+  } else {
+    doc.setFontSize(28);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companyName, pageWidth / 2, textYPos, { align: 'center' });
+    textYPos += 15;
+  }
 
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, 55, {
+  doc.text('Third Party Coatings Inspection Report', pageWidth / 2, textYPos, {
     align: 'center',
   });
 
