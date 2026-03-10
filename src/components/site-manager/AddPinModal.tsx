@@ -343,19 +343,30 @@ export function AddPinModal({
                     disabled={creating}
                   >
                     <option value="">-- Select Member Instance --</option>
-                    {quantityReadings.map((reading) => (
-                      <option key={reading.reading_id} value={reading.reading_id}>
-                        {reading.generated_id} | {reading.member_mark} - {reading.section_size || 'Unknown'}
-                        {reading.has_readings ? ' ✓' : ''}
-                        {reading.remaining_quantity !== undefined && reading.member_quantity > 1
-                          ? ` (${reading.remaining_quantity}/${reading.member_quantity} available)`
-                          : ''}
-                      </option>
-                    ))}
+                    {quantityReadings
+                      .filter((reading) => reading.is_available && reading.remaining_quantity > 0)
+                      .map((reading) => (
+                        <option key={reading.reading_id} value={reading.reading_id}>
+                          {reading.generated_id} | {reading.member_mark} - {reading.section_size || 'Unknown'}
+                          {reading.has_readings ? ' ✓' : ''}
+                          {reading.member_quantity > 1
+                            ? ` (${reading.remaining_quantity}/${reading.member_quantity} available)`
+                            : ''}
+                        </option>
+                      ))}
                   </select>
                   <div className="mt-2 space-y-1">
+                    {quantityReadings.length > 100 && (
+                      <div className="bg-amber-900/30 border border-amber-700/50 rounded-lg p-3 mb-2">
+                        <p className="text-xs text-amber-300 font-medium mb-1">⚠️ Old Data Detected</p>
+                        <p className="text-xs text-amber-200">
+                          This project has {quantityReadings.length} readings which suggests old quantity data format.
+                          Please delete the member(s) and regenerate quantity readings for proper instance separation.
+                        </p>
+                      </div>
+                    )}
                     <p className="text-xs text-slate-400">
-                      Showing {quantityReadings.length} available member instances
+                      Showing {quantityReadings.filter((r) => r.is_available && r.remaining_quantity > 0).length} available member instances
                     </p>
                     {selectedReadingId && selectedMember && (
                       <>
