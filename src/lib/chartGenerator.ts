@@ -5,7 +5,14 @@
 import { Chart, registerables } from 'chart.js';
 import type { HistogramBin } from './readingStatistics';
 
-Chart.register(...registerables);
+let chartRegistered = false;
+
+function ensureChartRegistered() {
+  if (!chartRegistered) {
+    Chart.register(...registerables);
+    chartRegistered = true;
+  }
+}
 
 /**
  * Generate a line chart canvas showing DFT readings by sequence number
@@ -15,6 +22,8 @@ export async function generateLineChart(
   values: number[],
   requiredDft?: number
 ): Promise<string> {
+  ensureChartRegistered();
+
   const canvas = document.createElement('canvas');
   canvas.width = 800;
   canvas.height = 400;
@@ -113,6 +122,8 @@ export async function generateLineChart(
  * Returns a base64 data URL suitable for embedding in PDF
  */
 export async function generateHistogram(bins: HistogramBin[]): Promise<string> {
+  ensureChartRegistered();
+
   const canvas = document.createElement('canvas');
   canvas.width = 800;
   canvas.height = 400;
