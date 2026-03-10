@@ -4,10 +4,8 @@ import { format } from 'date-fns';
 import { supabase } from './supabase';
 import {
   calculateReadingStats,
-  buildHistogram,
   evaluateCompliance,
 } from './readingStatistics';
-import { generateLineChart, generateHistogram } from './chartGenerator';
 
 interface Member {
   id: string;
@@ -328,50 +326,18 @@ export async function generateQuantityReadingsPDFWithStatistics(
       yPos = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    try {
-      const lineChartImage = await generateLineChart(dftAverages, member.required_dft_microns);
-
-      if (yPos > 180) {
-        doc.addPage();
-        yPos = margin;
-      }
-
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('DFT Readings Trend', margin, yPos);
-      yPos += 6;
-
-      const chartWidth = contentWidth;
-      const chartHeight = (chartWidth * 400) / 800;
-
-      doc.addImage(lineChartImage, 'PNG', margin, yPos, chartWidth, chartHeight);
-      yPos += chartHeight + 10;
-    } catch (error) {
-      console.error('Error generating line chart:', error);
+    // Add note about charts in web view
+    if (yPos > pageHeight - 40) {
+      doc.addPage();
+      yPos = margin;
     }
 
-    try {
-      const histogram = buildHistogram(dftAverages, 8);
-      const histogramImage = await generateHistogram(histogram);
-
-      if (yPos > pageHeight - 100) {
-        doc.addPage();
-        yPos = margin;
-      }
-
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Reading Distribution', margin, yPos);
-      yPos += 6;
-
-      const chartWidth = contentWidth;
-      const chartHeight = (chartWidth * 400) / 800;
-
-      doc.addImage(histogramImage, 'PNG', margin, yPos, chartWidth, chartHeight);
-      yPos += chartHeight + 10;
-    } catch (error) {
-      console.error('Error generating histogram:', error);
-    }
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 100, 100);
+    doc.text('Note: Interactive charts and visualizations are available in the web application.', margin, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 10;
   }
 
   const totalPages = doc.getNumberOfPages();
