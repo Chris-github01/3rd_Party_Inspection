@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import { generateIntroduction } from './introductionGenerator';
 import { generateExecutiveSummary } from './executiveSummaryGenerator';
 import { supabase } from './supabase';
+import { blobToCleanDataURL } from './pinPhotoUtils';
 
 export interface CompleteReportOptions {
   includeIntroduction?: boolean;
@@ -112,7 +113,9 @@ async function addCoverPage(doc: jsPDF, executiveSummary: any, introduction: any
         const logoWidth = 90;
         const logoX = (pageWidth - logoWidth) / 2;
         const logoY = 15;
-        doc.addImage(logoImage, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        // Use JPEG format since blobToCleanDataURL converts to JPEG
+        doc.addImage(logoImage, 'JPEG', logoX, logoY, logoWidth, logoHeight);
+        console.log('[PDF Complete Report] ✓ Logo added to cover page');
         logoYOffset = 20;
       }
     } catch (error) {
@@ -395,16 +398,19 @@ function addComplianceWatermarkToAllPages(doc: jsPDF) {
 
 async function loadImageAsDataURL(url: string): Promise<string | null> {
   try {
+    console.log('[PDF Complete Report] Loading image from:', url.substring(0, 100));
     const response = await fetch(url);
     const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    console.log('[PDF Complete Report] Blob loaded:', blob.size, 'bytes, type:', blob.type);
+
+    // Use canvas-based conversion to ensure jsPDF compatibility
+    // This prevents Adobe Acrobat "An error exists on this page" errors
+    const dataURL = await blobToCleanDataURL(blob);
+    console.log('[PDF Complete Report] ✓ Image converted to clean JPEG format');
+
+    return dataURL;
   } catch (error) {
-    console.error('Error loading image:', error);
+    console.error('[PDF Complete Report] ✗ Error loading image:', error);
     return null;
   }
 }
