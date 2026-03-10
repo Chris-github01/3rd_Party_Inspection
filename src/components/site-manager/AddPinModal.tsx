@@ -47,10 +47,9 @@ export function AddPinModal({
     'not_started'
   );
   const [members, setMembers] = useState<any[]>([]);
-  const [quantityReadings, setQuantityReadings] = useState<any[]>([]);
+  const [memberInstances, setMemberInstances] = useState<any[]>([]);
   const [inspections, setInspections] = useState<any[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState('');
-  const [selectedReadingId, setSelectedReadingId] = useState('');
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedInspectionId, setSelectedInspectionId] = useState('');
   const [blockId, setBlockId] = useState('');
@@ -72,19 +71,16 @@ export function AddPinModal({
   }, [pinNumber, steelType]);
 
   useEffect(() => {
-    if (selectedReadingId && quantityReadings.length > 0) {
-      const reading = quantityReadings.find((r) => r.reading_id === selectedReadingId);
-      setSelectedMember(reading || null);
-      if (reading) {
-        setSelectedMemberId(reading.member_id);
-      }
+    if (selectedMemberId && memberInstances.length > 0) {
+      const member = memberInstances.find((m) => m.member_id === selectedMemberId);
+      setSelectedMember(member || null);
     } else if (selectedMemberId && members.length > 0) {
       const member = members.find((m) => m.member_id === selectedMemberId);
       setSelectedMember(member || null);
     } else {
       setSelectedMember(null);
     }
-  }, [selectedReadingId, selectedMemberId, quantityReadings, members]);
+  }, [selectedMemberId, memberInstances, members]);
 
   const loadNextPinNumber = async () => {
     try {
@@ -104,7 +100,7 @@ export function AddPinModal({
 
   const loadData = async () => {
     try {
-      const [levelData, drawingData, quantityReadingsResult, membersResult, inspectionsResult] = await Promise.all([
+      const [levelData, drawingData, memberInstancesResult, membersResult, inspectionsResult] = await Promise.all([
         supabase
           .from('levels')
           .select('block_id')
@@ -115,7 +111,7 @@ export function AddPinModal({
           .select('document_id')
           .eq('id', drawingId)
           .single(),
-        supabase.rpc('get_quantity_readings_for_pin_selection', { p_project_id: projectId }),
+        supabase.rpc('get_member_instances_for_pin_selection', { p_project_id: projectId }),
         supabase.rpc('get_project_members_for_dropdown', { p_project_id: projectId }),
         supabase
           .from('inspections')
@@ -132,7 +128,7 @@ export function AddPinModal({
         setDocumentId(drawingData.data.document_id);
       }
 
-      if (quantityReadingsResult.data) setQuantityReadings(quantityReadingsResult.data);
+      if (memberInstancesResult.data) setMemberInstances(memberInstancesResult.data);
       if (membersResult.data) setMembers(membersResult.data);
       if (inspectionsResult.data) setInspections(inspectionsResult.data);
     } catch (error) {
@@ -158,8 +154,8 @@ export function AddPinModal({
       return;
     }
 
-    if ((pinType === 'inspection' || pinType === 'member') && !selectedMemberId && !selectedReadingId) {
-      setError('Member or member instance selection is required for inspection and member pins');
+    if ((pinType === 'inspection' || pinType === 'member') && !selectedMemberId) {
+      setError('Member instance selection is required for inspection and member pins');
       return;
     }
 
@@ -192,7 +188,6 @@ export function AddPinModal({
           pin_type: pinType,
           status,
           member_id: selectedMemberId || null,
-          inspection_reading_id: selectedReadingId || null,
           inspection_id: selectedInspectionId || null,
           page_number: pageNumber,
         },
@@ -334,41 +329,33 @@ export function AddPinModal({
                 Select Member Instance <span className="text-red-500">*</span>
               </label>
 
-              {quantityReadings.length > 0 ? (
+              {memberInstances.length > 0 ? (
                 <>
                   <select
-                    value={selectedReadingId}
-                    onChange={(e) => setSelectedReadingId(e.target.value)}
+                    value={selectedMemberId}
+                    onChange={(e) => setSelectedMemberId(e.target.value)}
                     className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     disabled={creating}
                   >
                     <option value="">-- Select Member Instance --</option>
-                    {quantityReadings
-                      .filter((reading) => reading.is_available && reading.remaining_quantity > 0)
-                      .map((reading) => (
-                        <option key={reading.reading_id} value={reading.reading_id}>
-                          {reading.generated_id} | {reading.member_mark} - {reading.section_size || 'Unknown'}
-                          {reading.has_readings ? ' ✓' : ''}
-                          {reading.member_quantity > 1
-                            ? ` (${reading.remaining_quantity}/${reading.member_quantity} available)`
+                    {memberInstances
+                      .filter((member) => member.is_available && member.remaining_quantity > 0)
+                      .map((member) => (
+                        <option key={member.member_id} value={member.member_id}>
+                          {member.member_mark} - {member.section_size || 'Unknown'}
+                          {member.has_readings ? ' ✓' : ''}
+                          {member.readings_count > 0 && ` (${member.readings_count} readings)`}
+                          {member.member_quantity > 1
+                            ? ` - ${member.remaining_quantity}/${member.member_quantity} available`
                             : ''}
                         </option>
                       ))}
                   </select>
                   <div className="mt-2 space-y-1">
-                    {quantityReadings.length > 100 && (
-                      <div className="bg-amber-900/30 border border-amber-700/50 rounded-lg p-3 mb-2">
-                        <p className="text-xs text-amber-300 font-medium mb-1">⚠️ Old Data Detected</p>
-                        <p className="text-xs text-amber-200">
-                          This project has {quantityReadings.length} readings which suggests old quantity data format.
-                          Please delete the member(s) and regenerate quantity readings for proper instance separation.
-                        </p>
-                      </div>
-                    )}
                     <p className="text-xs text-slate-400">
-                      Showing {quantityReadings.filter((r) => r.is_available && r.remaining_quantity > 0).length} available member instances
+                      Showing {memberInstances.filter((m) => m.is_available && m.remaining_quantity > 0).length} available member instances
                     </p>
-                    {selectedReadingId && selectedMember && (
+                    {selectedMemberId && selectedMember && (
                       <>
                         {selectedMember.member_quantity > 1 && (
                           <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg p-2">
@@ -415,48 +402,38 @@ export function AddPinModal({
           {selectedMember && (pinType === 'member' || pinType === 'inspection') && (
             <div className="bg-primary-900/30 border border-primary-700/50 rounded-lg p-4">
               <h4 className="text-sm font-semibold text-primary-300 mb-2">
-                {selectedReadingId ? 'Member Instance Details' : 'Member Details'}
+                Member Instance Details
               </h4>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                {selectedReadingId && (
-                  <>
-                    <div className="col-span-2 bg-primary-800/40 rounded p-2 mb-1">
-                      <span className="text-slate-400">Generated ID:</span>
-                      <span className="text-white ml-2 font-semibold text-sm">{selectedMember.generated_id}</span>
-                      <div className="text-slate-300 mt-1">
-                        Instance {selectedMember.sequence_number}
-                        {selectedMember.member_quantity > 1 && (
-                          <>
-                            {' | '}
-                            <span className="text-blue-400">
-                              Quantity: {selectedMember.member_quantity}
-                            </span>
-                          </>
-                        )}
-                        {' | '}
-                        <span className={`${selectedMember.has_readings ? 'text-green-400' : 'text-yellow-400'}`}>
-                          {selectedMember.has_readings ? 'Has inspection data' : 'No inspection data yet'}
+                <div className="col-span-2 bg-primary-800/40 rounded p-2 mb-1">
+                  <span className="text-slate-400">Member Mark:</span>
+                  <span className="text-white ml-2 font-semibold text-sm">{selectedMember.member_mark}</span>
+                  <div className="text-slate-300 mt-1">
+                    {selectedMember.readings_count > 0 && (
+                      <>
+                        <span className="text-blue-400">
+                          {selectedMember.readings_count} readings
                         </span>
-                      </div>
-                      {selectedMember.pin_usage_count > 0 && (
-                        <div className="text-slate-300 mt-1 pt-1 border-t border-primary-700/50">
-                          <span className="text-slate-400">Pin Usage:</span>
-                          <span className="text-white ml-2">
-                            {selectedMember.pin_usage_count} of {selectedMember.member_quantity} used
-                          </span>
-                          {selectedMember.remaining_quantity > 0 && (
-                            <span className="text-green-400 ml-2">
-                              ({selectedMember.remaining_quantity} remaining)
-                            </span>
-                          )}
-                        </div>
+                        {' | '}
+                      </>
+                    )}
+                    <span className={`${selectedMember.has_readings ? 'text-green-400' : 'text-yellow-400'}`}>
+                      {selectedMember.has_readings ? 'Has inspection data' : 'No inspection data yet'}
+                    </span>
+                  </div>
+                  {selectedMember.pin_usage_count > 0 && (
+                    <div className="text-slate-300 mt-1 pt-1 border-t border-primary-700/50">
+                      <span className="text-slate-400">Pin Usage:</span>
+                      <span className="text-white ml-2">
+                        {selectedMember.pin_usage_count} of {selectedMember.member_quantity} used
+                      </span>
+                      {selectedMember.remaining_quantity > 0 && (
+                        <span className="text-green-400 ml-2">
+                          ({selectedMember.remaining_quantity} remaining)
+                        </span>
                       )}
                     </div>
-                  </>
-                )}
-                <div>
-                  <span className="text-slate-400">Member Mark:</span>
-                  <span className="text-white ml-2">{selectedMember.member_mark || 'N/A'}</span>
+                  )}
                 </div>
                 <div>
                   <span className="text-slate-400">Section:</span>
@@ -469,6 +446,10 @@ export function AddPinModal({
                 <div>
                   <span className="text-slate-400">FRR:</span>
                   <span className="text-white ml-2">{selectedMember.frr_format || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Status:</span>
+                  <span className="text-white ml-2">{selectedMember.status || 'N/A'}</span>
                 </div>
                 <div className="col-span-2">
                   <span className="text-slate-400">Required DFT:</span>
