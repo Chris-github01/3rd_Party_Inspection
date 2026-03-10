@@ -208,6 +208,61 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
     }
   };
 
+  const handleImportAndSplit = async (file: File, method: 'pages' | 'every-n', data: any) => {
+    setShowProgress(true);
+    setProgressStatus('processing');
+    setProgressMessage('Splitting imported PDF...');
+    setProgress(0);
+
+    try {
+      const pdfBytes = await file.arrayBuffer();
+
+      let results;
+      if (method === 'pages') {
+        const splitPoints = data.splitPages
+          .split(',')
+          .map((p: string) => parseInt(p.trim(), 10))
+          .filter((n: number) => !isNaN(n));
+
+        results = await splitPDFByPages(
+          {
+            source: { file: pdfBytes, filename: file.name },
+            splitPoints,
+            outputPattern: 'split-{n}.pdf'
+          },
+          (p) => setProgress(p.progress)
+        );
+      } else {
+        results = await splitPDFEveryNPages(
+          {
+            source: { file: pdfBytes, filename: file.name },
+            pagesPerChunk: data.everyNPages,
+            outputPattern: 'split-{n}.pdf'
+          },
+          (p) => setProgress(p.progress)
+        );
+      }
+
+      for (let i = 0; i < results.length; i++) {
+        const blob = new Blob([results[i].data!], { type: 'application/pdf' });
+        const filename = `${file.name.replace('.pdf', '')}-part-${i + 1}.pdf`;
+        await saveGeneratedFile(blob, filename, 'split-imported', undefined, {
+          originalFilename: file.name,
+          partNumber: i + 1,
+          totalParts: results.length,
+          method,
+        });
+      }
+
+      setProgressStatus('completed');
+      setProgressMessage(`PDF split into ${results.length} files`);
+    } catch (error) {
+      console.error('Split failed:', error);
+      setProgressStatus('failed');
+      setProgressMessage(error instanceof Error ? error.message : 'Split operation failed');
+    }
+  };
+
   const handleRotate = async (pages: string, degrees: number) => {
     if (!currentPdfUrl || !workspace) return;
 
@@ -377,6 +432,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         onClose={() => setSelectedOperation(null)}
         pageCount={workspace?.page_count || 0}
         onSplit={handleSplit}
+        onImportAndSplit={handleImportAndSplit}
       />
 
       <RotateModal

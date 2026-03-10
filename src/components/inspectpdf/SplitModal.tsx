@@ -1,30 +1,73 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Upload, FileText } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
 
 interface SplitModalProps {
   isOpen: boolean;
   onClose: () => void;
   pageCount: number;
   onSplit: (method: 'pages' | 'every-n', data: any) => Promise<void>;
+  onImportAndSplit?: (file: File, method: 'pages' | 'every-n', data: any) => Promise<void>;
 }
 
-export function SplitModal({ isOpen, onClose, pageCount, onSplit }: SplitModalProps) {
+export function SplitModal({ isOpen, onClose, pageCount, onSplit, onImportAndSplit }: SplitModalProps) {
   const [splitMethod, setSplitMethod] = useState<'pages' | 'every-n'>('pages');
   const [splitPages, setSplitPages] = useState('');
   const [everyNPages, setEveryNPages] = useState('10');
   const [isSplitting, setIsSplitting] = useState(false);
+  const [importedFile, setImportedFile] = useState<File | null>(null);
+  const [importedPageCount, setImportedPageCount] = useState<number | null>(null);
+  const [isLoadingFile, setIsLoadingFile] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || file.type !== 'application/pdf') {
+      alert('Please select a valid PDF file');
+      return;
+    }
+
+    setIsLoadingFile(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      setImportedFile(file);
+      setImportedPageCount(pdf.numPages);
+    } catch (error) {
+      console.error('Error loading PDF:', error);
+      alert('Failed to load PDF. Please try again.');
+      setImportedFile(null);
+      setImportedPageCount(null);
+    } finally {
+      setIsLoadingFile(false);
+    }
+  };
+
+  const clearImportedFile = () => {
+    setImportedFile(null);
+    setImportedPageCount(null);
+  };
 
   const handleSplit = async () => {
     setIsSplitting(true);
     try {
-      if (splitMethod === 'pages') {
-        await onSplit('pages', { splitPages });
+      if (importedFile && onImportAndSplit) {
+        if (splitMethod === 'pages') {
+          await onImportAndSplit(importedFile, 'pages', { splitPages });
+        } else {
+          await onImportAndSplit(importedFile, 'every-n', { everyNPages: parseInt(everyNPages, 10) });
+        }
       } else {
-        await onSplit('every-n', { everyNPages: parseInt(everyNPages, 10) });
+        if (splitMethod === 'pages') {
+          await onSplit('pages', { splitPages });
+        } else {
+          await onSplit('every-n', { everyNPages: parseInt(everyNPages, 10) });
+        }
       }
       onClose();
+      setImportedFile(null);
+      setImportedPageCount(null);
     } catch (error) {
       console.error('Split failed:', error);
       alert('Failed to split PDF. Please try again.');
@@ -47,9 +90,60 @@ export function SplitModal({ isOpen, onClose, pageCount, onSplit }: SplitModalPr
         </div>
 
         <div className="p-6 space-y-6">
+          {onImportAndSplit && (
+            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 bg-slate-50">
+              <div className="text-center">
+                {!importedFile ? (
+                  <>
+                    <Upload className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                    <h3 className="text-sm font-medium text-slate-900 mb-2">
+                      Import a PDF to Split
+                    </h3>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Upload a PDF file to split it into multiple files
+                    </p>
+                    <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={handleFileImport}
+                        className="hidden"
+                        disabled={isLoadingFile}
+                      />
+                      {isLoadingFile ? 'Loading...' : 'Choose PDF File'}
+                    </label>
+                  </>
+                ) : (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-green-600" />
+                        <div className="text-left">
+                          <p className="font-medium text-green-900 text-sm">{importedFile.name}</p>
+                          <p className="text-xs text-green-700">
+                            {importedPageCount} pages • {(importedFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={clearImportedFile}
+                        className="text-green-600 hover:text-green-800 transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <p className="text-sm text-slate-600 mb-4">
-              Current PDF has <strong>{pageCount}</strong> pages
+              {importedFile
+                ? `Imported PDF has ${importedPageCount} pages`
+                : `Current PDF has ${pageCount} pages`
+              }
             </p>
 
             <div className="space-y-4">
@@ -123,7 +217,7 @@ export function SplitModal({ isOpen, onClose, pageCount, onSplit }: SplitModalPr
               <ul className="text-sm text-green-700 mt-2 space-y-1">
                 <li>• File 1: Pages 1-5</li>
                 <li>• File 2: Pages 6-10</li>
-                <li>• File 3: Pages 11-{pageCount}</li>
+                <li>• File 3: Pages 11-{importedPageCount || pageCount}</li>
               </ul>
             </div>
           )}
@@ -135,7 +229,7 @@ export function SplitModal({ isOpen, onClose, pageCount, onSplit }: SplitModalPr
               </p>
               <p className="text-sm text-green-700">
                 This will create approximately{' '}
-                <strong>{Math.ceil(pageCount / parseInt(everyNPages || '1'))}</strong>{' '}
+                <strong>{Math.ceil((importedPageCount || pageCount) / parseInt(everyNPages || '1'))}</strong>{' '}
                 files, each with {everyNPages} pages
               </p>
             </div>
