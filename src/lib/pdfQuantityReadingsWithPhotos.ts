@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { getPinPhotosWithBlobs, getPhotoDataURL, PinPhoto } from './pinPhotoUtils';
 import { supabase } from './supabase';
@@ -151,7 +152,7 @@ export async function generateQuantityReadingsPhotoReport(
     pin.photos.length.toString()
   ]);
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     startY: yPos,
     head: [['Pin #', 'Member', 'Section', 'Steel Type', 'Status', 'Photos']],
     body: tableData,
