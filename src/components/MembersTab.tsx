@@ -1524,9 +1524,9 @@ function ReadingsDetailModal({
               <thead className="bg-slate-600/50 sticky top-0">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-slate-300">Generated ID</th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Reading 1</th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Reading 2</th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Reading 3</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">1</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">2</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">3</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Average</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Status</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-slate-300">Temp (°C)</th>
