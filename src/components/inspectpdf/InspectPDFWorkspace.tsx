@@ -7,6 +7,7 @@ import { MergeModal } from './MergeModal';
 import { SplitModal } from './SplitModal';
 import { RotateModal } from './RotateModal';
 import { ProgressDialog } from './ProgressDialog';
+import { GeneratedFilesPanel } from './GeneratedFilesPanel';
 import { usePDFWorkspace } from '../../hooks/usePDFWorkspace';
 import {
   mergePDFs,
@@ -15,6 +16,7 @@ import {
   rotatePDF,
   parsePageRangeString,
 } from '../../lib/pdfManipulation';
+import { supabase } from '../../lib/supabase';
 
 interface InspectPDFWorkspaceProps {
   workspaceId: string;
@@ -37,6 +39,49 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
   const [progressStatus, setProgressStatus] = useState<'processing' | 'completed' | 'failed'>('processing');
   const [progressMessage, setProgressMessage] = useState('');
   const [showProgress, setShowProgress] = useState(false);
+  const [refreshFiles, setRefreshFiles] = useState(0);
+
+  const saveGeneratedFile = async (
+    blob: Blob,
+    filename: string,
+    operationType: string,
+    operationId?: string,
+    metadata?: Record<string, any>
+  ) => {
+    if (!workspace) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const filePath = `${user.id}/${workspace.project_id}/${Date.now()}-${filename}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('pdf-generated-files')
+        .upload(filePath, blob);
+
+      if (uploadError) throw uploadError;
+
+      const { error: dbError } = await supabase
+        .from('pdf_generated_files')
+        .insert({
+          workspace_id: workspace.id,
+          operation_id: operationId,
+          filename,
+          file_path: filePath,
+          file_size_bytes: blob.size,
+          page_count: 0,
+          operation_type: operationType,
+          metadata: metadata || {},
+        });
+
+      if (dbError) throw dbError;
+
+      setRefreshFiles(prev => prev + 1);
+    } catch (error) {
+      console.error('Error saving generated file:', error);
+    }
+  };
 
   const handleMerge = async (files: any[]) => {
     if (!currentPdfUrl) return;
@@ -77,6 +122,12 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
       );
 
       const blob = new Blob([result.data!], { type: 'application/pdf' });
+
+      const mergedFilename = `merged-${Date.now()}.pdf`;
+      await saveGeneratedFile(blob, mergedFilename, 'merge', undefined, {
+        fileCount: files.length + 1,
+        pageRanges: files.map(f => f.pageRange),
+      });
 
       await updateWorkspacePDF(blob, 'merge', {
         fileCount: files.length + 1,
@@ -130,6 +181,16 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         );
       }
 
+      for (let i = 0; i < results.length; i++) {
+        const blob = new Blob([results[i].data!], { type: 'application/pdf' });
+        const filename = `split-part-${i + 1}.pdf`;
+        await saveGeneratedFile(blob, filename, 'split', undefined, {
+          partNumber: i + 1,
+          totalParts: results.length,
+          method,
+        });
+      }
+
       const blob = new Blob([results[0].data!], { type: 'application/pdf' });
 
       await updateWorkspacePDF(blob, 'split', {
@@ -176,6 +237,13 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
       );
 
       const blob = new Blob([result.data!], { type: 'application/pdf' });
+
+      const rotatedFilename = `rotated-${degrees}deg-${Date.now()}.pdf`;
+      await saveGeneratedFile(blob, rotatedFilename, 'rotate', undefined, {
+        pages,
+        degrees,
+        affectedPages: pageNumbers.length,
+      });
 
       await updateWorkspacePDF(blob, 'rotate', {
         pages,
@@ -291,6 +359,10 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
             pdfUrl={currentPdfUrl}
             pageCount={workspace?.page_count || 0}
           />
+        </div>
+
+        <div className="w-80 flex-shrink-0 bg-white border-l border-slate-200 overflow-y-auto p-4">
+          <GeneratedFilesPanel key={refreshFiles} workspaceId={workspaceId} />
         </div>
       </div>
 
