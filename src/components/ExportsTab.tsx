@@ -653,7 +653,7 @@ export function ExportsTab({ project }: { project: Project }) {
         ]);
 
         autoTable(doc, {
-          head: [['ID', '1', '2', '3', 'Average', 'Status']],
+          head: [['ID', 'Reading', 'Reading', 'Reading', 'Average', 'Status']],
           body: readingData,
           startY: yPos,
           theme: 'grid',
