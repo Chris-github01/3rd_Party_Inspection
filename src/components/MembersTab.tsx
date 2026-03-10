@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, Upload, CreditCard as Edit, Trash2, Download, FlaskConical, Hash, AlertCircle } from 'lucide-react';
 import Papa from 'papaparse';
+import { format } from 'date-fns';
 import { normalizeFRRValue } from '../lib/frrUtils';
 import { generateSimulatedReadings, calculateSummary, type MemberConfig } from '../lib/simulationUtils';
 import { exportReadingsToFormattedExcel } from '../lib/excelExport';
@@ -223,8 +224,35 @@ export function MembersTab({ projectId }: { projectId: string }) {
 
   const exportReadingsToPDF = async () => {
     try {
-      const { generateMemberReadingsPDF } = await import('../lib/pdfMemberReadings');
       const selectedMembersList = members.filter(m => selectedMembers.has(m.id));
+
+      const { data: quantityReadingsCheck } = await supabase
+        .from('inspection_readings')
+        .select('id')
+        .in('member_id', Array.from(selectedMembers))
+        .limit(1);
+
+      if (quantityReadingsCheck && quantityReadingsCheck.length > 0) {
+        const { generateQuantityReadingsPDFWithStatistics } = await import('../lib/pdfQuantityReadingsWithStatistics');
+
+        const doc = await generateQuantityReadingsPDFWithStatistics(
+          projectId,
+          Array.from(selectedMembers)
+        );
+
+        const { data: project } = await supabase
+          .from('projects')
+          .select('name')
+          .eq('id', projectId)
+          .single();
+
+        const filename = `Quantity_Readings_Report_${project?.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+        doc.save(filename);
+
+        return;
+      }
+
+      const { generateMemberReadingsPDF } = await import('../lib/pdfMemberReadings');
 
       const membersWithReadings = [];
 
@@ -249,7 +277,6 @@ export function MembersTab({ projectId }: { projectId: string }) {
               .order('reading_no');
 
             if (readings) {
-              // Sort readings to ensure sequential order 1-100
               const sortedReadings = readings.sort((a: any, b: any) => a.reading_no - b.reading_no);
 
               membersWithReadings.push({
