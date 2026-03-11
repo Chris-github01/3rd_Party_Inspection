@@ -129,17 +129,12 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
   };
 
   const handleMerge = async (files: any[]) => {
-    if (!currentPdfUrl) return;
-
     setShowProgress(true);
     setProgressStatus('processing');
     setProgressMessage('Merging PDF files...');
     setProgress(0);
 
     try {
-      const response = await fetch(currentPdfUrl);
-      const currentPdfBytes = await response.arrayBuffer();
-
       const pdfInputs = await Promise.all(
         files.map(async (f) => ({
           pdfBytes: await f.file.arrayBuffer(),
@@ -147,12 +142,6 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
           filename: f.file.name,
         }))
       );
-
-      pdfInputs.unshift({
-        pdfBytes: currentPdfBytes,
-        pageRange: undefined,
-        filename: workspace?.name || 'current.pdf',
-      });
 
       const sources = pdfInputs.map((input) => ({
         file: input.pdfBytes,
@@ -174,7 +163,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
       const mergedFilename = 'merged.pdf';
 
       const saved = await saveGeneratedFile(blob, mergedFilename, 'merge', undefined, {
-        fileCount: files.length + 1,
+        fileCount: files.length,
         sourceFiles: sourceFileNames,
         pageRanges: files.map(f => f.pageRange).filter(Boolean),
         operation_timestamp: Date.now(),
@@ -184,13 +173,15 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         throw new Error('Failed to save merged file to database');
       }
 
-      await updateWorkspacePDF(blob, 'merge', {
-        fileCount: files.length + 1,
-        pageRanges: files.map(f => f.pageRange),
-      });
+      if (workspace) {
+        await updateWorkspacePDF(blob, 'merge', {
+          fileCount: files.length,
+          pageRanges: files.map(f => f.pageRange),
+        });
+      }
 
       setProgressStatus('completed');
-      setProgressMessage('PDFs merged successfully!');
+      setProgressMessage(`Successfully merged ${files.length} PDF file${files.length > 1 ? 's' : ''}!`);
     } catch (error) {
       console.error('Merge failed:', error);
       setProgressStatus('failed');

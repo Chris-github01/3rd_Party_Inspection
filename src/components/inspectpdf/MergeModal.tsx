@@ -93,7 +93,10 @@ export function MergeModal({ isOpen, onClose, onMerge }: MergeModalProps) {
                   Click to upload PDFs or drag and drop
                 </p>
                 <p className="text-sm text-slate-500">
-                  Select multiple PDF files to merge
+                  Select the PDF files you want to merge together
+                </p>
+                <p className="text-xs text-slate-400 mt-2">
+                  Only the files you upload here will be merged
                 </p>
                 <input
                   type="file"
