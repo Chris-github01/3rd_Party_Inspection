@@ -53,7 +53,12 @@ export function ExportsTab({ project }: { project: Project }) {
         .eq('is_active', true)
         .order('sequence_no', { ascending: true});
 
-      if (error) throw error;
+      if (error) {
+        console.warn('project_export_attachments table not found or error loading:', error);
+        setAttachments([]);
+        setLoadingAttachments(false);
+        return;
+      }
 
       // Manually fetch related documents
       if (attachmentsData && attachmentsData.length > 0) {
@@ -131,7 +136,6 @@ export function ExportsTab({ project }: { project: Project }) {
       membersRes,
       inspectionsRes,
       ncrsRes,
-      dftBatchesRes,
       simulatedMemberSetsRes,
       quantityReadingsRes,
       companySettingsFallbackRes,
@@ -140,14 +144,10 @@ export function ExportsTab({ project }: { project: Project }) {
       supabase.from('members').select('*').eq('project_id', project.id).order('member_mark'),
       supabase
         .from('inspections')
-        .select('*, members(member_mark), env_readings(*), dft_batches(*, dft_readings(*)), dft_simulation_enabled')
+        .select('*, members(member_mark), env_readings(*)')
         .eq('project_id', project.id)
         .order('inspection_date_time'),
-      supabase.from('ncrs').select('*, members(member_mark)').eq('project_id', project.id),
-      supabase
-        .from('dft_batches')
-        .select('*, inspections(*, members(member_mark)), dft_readings(*)')
-        .eq('inspections.project_id', project.id),
+      supabase.from('ncrs').select('*').eq('project_id', project.id),
       supabase
         .from('inspection_member_sets')
         .select('*, inspection_member_readings(*)')
@@ -169,7 +169,7 @@ export function ExportsTab({ project }: { project: Project }) {
     const members = membersRes.data || [];
     const inspections = inspectionsRes.data || [];
     const ncrs = ncrsRes.data || [];
-    const dftBatches = dftBatchesRes.data || [];
+    const dftBatches: any[] = [];
     const simulatedMemberSets = simulatedMemberSetsRes.data || [];
     const quantityReadings = quantityReadingsRes.data || [];
     const companySettingsFallback = companySettingsFallbackRes.data;
@@ -507,33 +507,7 @@ export function ExportsTab({ project }: { project: Project }) {
       }
     });
 
-    // Then, add inspection-based DFT data
-    inspections
-      .filter((i) => i.dft_batches && i.dft_batches.length > 0)
-      .forEach((i) => {
-        const member = members.find((m) => m.id === i.member_id);
-        const memberMark = i.members?.member_mark || 'N/A';
-        const requiredDft = member?.required_dft_microns;
-
-        // Add a row for EACH batch
-        i.dft_batches.forEach((batch: any, batchIndex: number) => {
-          const batchLabel = i.dft_batches.length > 1 ? ` (Batch ${batchIndex + 1})` : '';
-
-          dftData.push([
-            memberMark + batchLabel,
-            requiredDft ? `${requiredDft}` : 'N/A',
-            batch.dft_avg_microns ? batch.dft_avg_microns.toFixed(1) : 'N/A',
-            batch.dft_min_microns || 'N/A',
-            batch.dft_max_microns || 'N/A',
-            batch.readings_count || 'N/A',
-            requiredDft && batch.dft_avg_microns
-              ? batch.dft_avg_microns >= requiredDft
-                ? 'PASS'
-                : 'FAIL'
-              : 'N/A',
-          ]);
-        });
-      });
+    // Note: DFT batches feature removed as dft_batches table doesn't exist
 
     autoTable(doc, {
       head: [['Member', 'Required (µm)', 'Avg (µm)', 'Min (µm)', 'Max (µm)', 'Readings', 'Result']],
@@ -745,13 +719,16 @@ export function ExportsTab({ project }: { project: Project }) {
       doc.text('5. Non-Conformance Reports', 20, yPos);
       yPos += 10;
 
-      const ncrData = ncrs.map((ncr) => [
-        `NCR-${ncr.ncr_number}`,
-        ncr.members?.member_mark || 'N/A',
-        ncr.severity?.toUpperCase() || 'N/A',
-        ncr.issue_type?.replace('_', ' ') || 'N/A',
-        ncr.status?.replace('_', ' ').toUpperCase() || 'N/A',
-      ]);
+      const ncrData = ncrs.map((ncr) => {
+        const member = members.find(m => m.id === ncr.member_id);
+        return [
+          `NCR-${ncr.ncr_number}`,
+          member?.member_mark || 'N/A',
+          ncr.severity?.toUpperCase() || 'N/A',
+          ncr.issue_type?.replace('_', ' ') || 'N/A',
+          ncr.status?.replace('_', ' ').toUpperCase() || 'N/A',
+        ];
+      });
 
       autoTable(doc, {
         head: [['NCR #', 'Member', 'Severity', 'Issue Type', 'Status']],
@@ -938,23 +915,7 @@ export function ExportsTab({ project }: { project: Project }) {
         });
       }
 
-      // Show ALL DFT batches (not just first)
-      if (inspection.dft_batches && inspection.dft_batches.length > 0) {
-        inspection.dft_batches.forEach((batch: any, batchIndex: number) => {
-          const batchLabel = inspection.dft_batches.length > 1 ? `DFT Batch ${batchIndex + 1}: ` : 'DFT: ';
-          doc.text(
-            `${batchLabel}Min ${batch.dft_min_microns}µm, Max ${batch.dft_max_microns}µm, Avg ${batch.dft_avg_microns?.toFixed(1)}µm, Readings ${batch.readings_count}`,
-            25,
-            yPos
-          );
-          yPos += 6;
-
-          if (yPos > 257) {
-            doc.addPage();
-            yPos = 20;
-          }
-        });
-      }
+      // DFT batches section removed - table doesn't exist in database
 
       yPos += 5;
     });
