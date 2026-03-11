@@ -58,8 +58,31 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const { data: existingFiles } = await supabase
+        .from('pdf_generated_files')
+        .select('filename')
+        .eq('workspace_id', workspace.id)
+        .ilike('filename', `${filename.replace('.pdf', '')}%`);
+
+      let finalFilename = filename;
+      if (existingFiles && existingFiles.length > 0) {
+        const baseFilename = filename.replace('.pdf', '');
+        const existingFilenames = existingFiles.map(f => f.filename);
+
+        let revisionNumber = 1;
+        let proposedFilename = `${baseFilename}_R${revisionNumber}.pdf`;
+
+        while (existingFilenames.includes(proposedFilename)) {
+          revisionNumber++;
+          proposedFilename = `${baseFilename}_R${revisionNumber}.pdf`;
+        }
+
+        finalFilename = proposedFilename;
+        console.log(`Duplicate filename detected. Using revision: ${finalFilename}`);
+      }
+
       const timestamp = Date.now();
-      const filePath = `${user.id}/${workspace.project_id}/${timestamp}-${filename}`;
+      const filePath = `${user.id}/${workspace.project_id}/${timestamp}-${finalFilename}`;
 
       const { error: uploadError } = await supabase.storage
         .from('pdf-generated-files')
@@ -74,6 +97,8 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         ...(metadata || {}),
         created_at: new Date().toISOString(),
         timestamp,
+        original_filename: filename,
+        revision_applied: finalFilename !== filename,
       };
 
       const { error: dbError } = await supabase
@@ -81,7 +106,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         .insert({
           workspace_id: workspace.id,
           operation_id: operationId,
-          filename,
+          filename: finalFilename,
           file_path: filePath,
           file_size_bytes: blob.size,
           page_count: pageCount || metadata?.pageCount || 0,
@@ -95,6 +120,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
       }
 
       setRefreshFiles(prev => prev + 1);
+      console.log(`File saved successfully: ${finalFilename} (${blob.size} bytes)`);
       return true;
     } catch (error) {
       console.error('Error saving generated file:', error);
@@ -118,18 +144,20 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         files.map(async (f) => ({
           pdfBytes: await f.file.arrayBuffer(),
           pageRange: f.pageRange || undefined,
+          filename: f.file.name,
         }))
       );
 
       pdfInputs.unshift({
         pdfBytes: currentPdfBytes,
-        pageRange: undefined
+        pageRange: undefined,
+        filename: workspace?.name || 'current.pdf',
       });
 
-      const sources = pdfInputs.map((input, idx) => ({
+      const sources = pdfInputs.map((input) => ({
         file: input.pdfBytes,
         pageRanges: input.pageRange ? [{ start: 1, end: input.pageRange }] : undefined,
-        filename: idx === 0 ? 'current.pdf' : `file${idx}.pdf`
+        filename: input.filename
       }));
 
       const result = await mergePDFs(
@@ -142,11 +170,19 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
 
       const blob = new Blob([result.data!], { type: 'application/pdf' });
 
-      const mergedFilename = `merged-${Date.now()}.pdf`;
-      await saveGeneratedFile(blob, mergedFilename, 'merge', undefined, {
+      const sourceFileNames = pdfInputs.map(f => f.filename).join(', ');
+      const mergedFilename = 'merged.pdf';
+
+      const saved = await saveGeneratedFile(blob, mergedFilename, 'merge', undefined, {
         fileCount: files.length + 1,
-        pageRanges: files.map(f => f.pageRange),
+        sourceFiles: sourceFileNames,
+        pageRanges: files.map(f => f.pageRange).filter(Boolean),
+        operation_timestamp: Date.now(),
       }, result.metadata?.pageCount);
+
+      if (!saved) {
+        throw new Error('Failed to save merged file to database');
+      }
 
       await updateWorkspacePDF(blob, 'merge', {
         fileCount: files.length + 1,
