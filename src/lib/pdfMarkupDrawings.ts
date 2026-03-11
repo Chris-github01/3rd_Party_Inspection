@@ -398,20 +398,21 @@ export async function addMarkupDrawingsSection(
 
     // Process each drawing
     for (const drawing of drawings) {
-      const drawingPins = pins.filter(
-        (p) => p.drawing_id === drawing.id
-      );
+      try {
+        const drawingPins = pins.filter(
+          (p) => p.drawing_id === drawing.id
+        );
 
-      doc.addPage();
-      yPos = 20;
+        doc.addPage();
+        yPos = 20;
 
-      // Get page dimensions at the start (needed for pagination checks later)
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
+        // Get page dimensions at the start (needed for pagination checks later)
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
 
-      // Drawing title
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
+        // Drawing title
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text(
         `Drawing: ${drawing.block_name} - ${drawing.level_name} (Page ${drawing.page_number})`,
@@ -556,10 +557,34 @@ export async function addMarkupDrawingsSection(
           }
         });
       }
+
+      } catch (drawingError) {
+        console.error('[addMarkupDrawingsSection] ❌ Failed to process drawing:', drawing.id, drawingError);
+        console.error('[addMarkupDrawingsSection] Error details:', {
+          drawingId: drawing.id,
+          fileName: drawing.file_name,
+          filePath: drawing.file_path,
+          error: drawingError instanceof Error ? drawingError.message : String(drawingError)
+        });
+
+        // Add a placeholder page for the failed drawing
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(150, 150, 150);
+        doc.text('Drawing preview could not be rendered.', 20, yPos);
+        yPos += 7;
+        doc.setFontSize(9);
+        doc.text(`File: ${drawing.file_name || 'Unknown'}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Reason: ${drawingError instanceof Error ? drawingError.message : 'Unknown error'}`, 20, yPos);
+
+        console.log('[addMarkupDrawingsSection] Added placeholder, continuing to next drawing...');
+      }
     }
 
   } catch (error) {
-    console.error('Error adding markup drawings section:', error);
-    throw error;
+    console.error('[addMarkupDrawingsSection] ❌ Critical error in markup drawings section:', error);
+    // Don't throw - let the report continue
+    console.log('[addMarkupDrawingsSection] Returning gracefully despite error');
   }
 }

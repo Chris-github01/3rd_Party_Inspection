@@ -19,6 +19,16 @@ import { addExecutiveSummaryToPDF } from '../lib/pdfExecutiveSummary';
 import { addMarkupDrawingsSection } from '../lib/pdfMarkupDrawings';
 import { blobToCleanDataURL } from '../lib/pinPhotoUtils';
 import { calculateReadingStats, buildHistogram } from '../lib/readingStatistics';
+import { useToast } from '../contexts/ToastContext';
+
+// Feature flag to temporarily disable drawing previews for debugging
+const INCLUDE_DRAWING_PREVIEWS = true;
+
+// Helper function to normalize storage paths
+function normalizeStoragePath(path?: string | null): string | null {
+  if (!path) return null;
+  return path.replace(/^\/+/, '').trim();
+}
 
 async function generateProfessionalDFTReport(
   projectData: any,
@@ -228,6 +238,7 @@ interface Project {
 
 export function ExportsTab({ project }: { project: Project }) {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [generating, setGenerating] = useState(false);
   const [generatingMerged, setGeneratingMerged] = useState(false);
   const [generatingPhotoReport, setGeneratingPhotoReport] = useState(false);
@@ -505,31 +516,32 @@ export function ExportsTab({ project }: { project: Project }) {
     // Load organization logo with multi-bucket fallback
     if (orgSettings?.logo_url) {
       try {
-        console.log('[Audit Report] Loading organization logo:', orgSettings.logo_url.substring(0, 100));
+        console.log('[Audit Report] Loading organization logo');
         let logoDataUrl = null;
+        const normalizedPath = normalizeStoragePath(orgSettings.logo_url);
 
         // Check if full URL
         if (orgSettings.logo_url.startsWith('http://') || orgSettings.logo_url.startsWith('https://')) {
           const response = await fetch(orgSettings.logo_url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
           const logoBlob = await response.blob();
-          console.log('[Audit Report] Logo blob loaded:', logoBlob.size, 'bytes, type:', logoBlob.type);
+          console.log('[Audit Report] Logo blob loaded:', logoBlob.size, 'bytes');
 
           // Use canvas-based conversion to ensure jsPDF compatibility
           logoDataUrl = await blobToCleanDataURL(logoBlob);
-          console.log('[Audit Report] ✓ Logo converted to PNG format with transparency');
-        } else {
-          // Try multiple buckets
-          const buckets = ['organization-logos', 'project-documents', 'documents'];
+          console.log('[Audit Report] ✓ Logo converted successfully');
+        } else if (normalizedPath) {
+          // Try organization-logos bucket first (most likely), then documents as fallback
+          const buckets = ['organization-logos', 'documents'];
           for (const bucket of buckets) {
             try {
               const { data: logoData } = await supabase.storage
                 .from(bucket)
-                .getPublicUrl(orgSettings.logo_url);
+                .getPublicUrl(normalizedPath);
 
               if (logoData?.publicUrl) {
                 const response = await fetch(logoData.publicUrl);
-
-                // Check if response is valid (not an error page)
                 if (!response.ok) {
                   console.log(`[Audit Report] ${bucket}: HTTP ${response.status}, trying next...`);
                   continue;
@@ -537,17 +549,16 @@ export function ExportsTab({ project }: { project: Project }) {
 
                 const logoBlob = await response.blob();
 
-                // Validate it's an actual image, not an error page
+                // Validate it's an actual image
                 if (!logoBlob.type.startsWith('image/')) {
-                  console.log(`[Audit Report] ${bucket}: Invalid content type (${logoBlob.type}), trying next...`);
+                  console.log(`[Audit Report] ${bucket}: Invalid content type, trying next...`);
                   continue;
                 }
 
-                console.log(`[Audit Report] Logo loaded from ${bucket}:`, logoBlob.size, 'bytes');
+                console.log(`[Audit Report] ✓ Logo loaded from ${bucket}: ${logoBlob.size} bytes`);
 
                 // Use canvas-based conversion to ensure jsPDF compatibility
                 logoDataUrl = await blobToCleanDataURL(logoBlob);
-                console.log('[Audit Report] ✓ Logo converted to clean JPEG format');
                 if (logoDataUrl) break;
               }
             } catch (err) {
@@ -1037,13 +1048,32 @@ export function ExportsTab({ project }: { project: Project }) {
       const drawingsPinsData = executiveSummaryData.data.drawings_pins;
 
       // SECTION A: Add visual markup drawings with pin annotations
-      console.log('📍 Adding markup drawings section...');
-      try {
-        await addMarkupDrawingsSection(doc, project.id, `${sectionNumber}.1`);
-        console.log('✅ Markup drawings added successfully');
-      } catch (error) {
-        console.error('❌ Error adding markup drawings:', error);
-        // Continue with the report even if markup drawings fail
+      if (INCLUDE_DRAWING_PREVIEWS) {
+        console.log('[Audit Report] Adding markup drawings section...');
+        try {
+          await addMarkupDrawingsSection(doc, project.id, `${sectionNumber}.1`);
+          console.log('[Audit Report] ✅ Markup drawings section complete');
+        } catch (error) {
+          console.error('[Audit Report] ❌ Markup drawings section failed:', error);
+          console.error('[Audit Report] Error details:', error instanceof Error ? error.message : String(error));
+
+          // Add a note page about the failure instead of crashing
+          doc.addPage();
+          doc.setFontSize(16);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(200, 50, 50);
+          doc.text(`${sectionNumber}.1. Drawing Previews Unavailable`, 20, 30);
+
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(0, 0, 0);
+          doc.text('Drawing preview rendering encountered an error during export.', 20, 50);
+          doc.text('The pin location reference table below contains all pin data.', 20, 60);
+
+          console.log('[Audit Report] Added failure notice page, continuing with report...');
+        }
+      } else {
+        console.log('[Audit Report] Drawing previews disabled by feature flag');
       }
 
       // SECTION B: Add detailed pin locations table
@@ -1214,37 +1244,53 @@ export function ExportsTab({ project }: { project: Project }) {
   };
 
   const handleDownloadBaseReport = async () => {
+    if (!project?.id) {
+      toast({
+        title: 'Project not found',
+        description: 'Unable to generate report because the project is missing.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setGenerating(true);
-    console.log('🔄 Starting base report generation for project:', project.id);
-    console.log('🔄 Project details:', project);
 
     try {
-      console.log('📊 Calling generateAuditReport...');
+      console.log('[Base Report] Starting download for project:', project.id, project.name);
+
       const doc = await generateAuditReport();
 
       if (!doc) {
-        throw new Error('generateAuditReport returned null/undefined');
+        throw new Error('Report generation returned no document.');
       }
 
-      console.log('✅ Report generated successfully, saving file...');
+      console.log('[Base Report] Report generated successfully, saving file...');
+
       const filename = `PRC_InspectionReport_${project.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
 
-      console.log('💾 Attempting to save:', filename);
       doc.save(filename);
-      console.log('✅ File saved:', filename);
 
-    } catch (error: any) {
-      console.error('❌ CRITICAL ERROR generating report:', error);
-      console.error('❌ Error name:', error?.name);
-      console.error('❌ Error message:', error?.message);
-      console.error('❌ Error stack:', error?.stack);
-      console.error('❌ Full error object:', JSON.stringify(error, null, 2));
+      console.log('[Base Report] Download triggered:', filename);
 
-      const errorMsg = error?.message || error?.toString() || 'Unknown error - check console for details';
-      alert('Error generating report: ' + errorMsg + '\n\nCheck browser console (F12) for full details.');
+      toast({
+        title: 'Report download started',
+        description: filename,
+      });
+    } catch (error) {
+      console.error('[Base Report] Download failed:', error);
+      console.error('[Base Report] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+
+      toast({
+        title: 'Failed to generate report',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unknown error occurred during report generation.',
+        variant: 'destructive',
+      });
     } finally {
-      console.log('🏁 Report generation complete, resetting state');
       setGenerating(false);
+      console.log('[Base Report] Loading state reset');
     }
   };
 
