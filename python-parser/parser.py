@@ -677,10 +677,29 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                     "metadata": {"total_pages": total_pages, "errors": errors, "document_format": "jotun"}
                 }
 
+            # Deduplicate items - Jotun PDFs often have multiple tables with same members
+            # Keep the item with the LOWEST DFT value (typically the water-based product)
+            seen_sections = {}
+            deduplicated_items = []
+            for item in items:
+                section = item["section_size_normalized"]
+                if section not in seen_sections:
+                    seen_sections[section] = item
+                    deduplicated_items.append(item)
+                else:
+                    # If we've seen this section, keep the one with lower DFT
+                    existing = seen_sections[section]
+                    if item["dft_required_microns"] and existing["dft_required_microns"]:
+                        if item["dft_required_microns"] < existing["dft_required_microns"]:
+                            # Replace with the lower DFT version
+                            deduplicated_items.remove(existing)
+                            deduplicated_items.append(item)
+                            seen_sections[section] = item
+
             return {
                 "status": "completed",
-                "items_extracted": len(items),
-                "items": items,
+                "items_extracted": len(deduplicated_items),
+                "items": deduplicated_items,
                 "metadata": {
                     "total_pages": total_pages,
                     "errors": errors if errors else [],
