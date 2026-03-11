@@ -18,6 +18,178 @@ import { addIntroductionToPDF } from '../lib/pdfIntroduction';
 import { addExecutiveSummaryToPDF } from '../lib/pdfExecutiveSummary';
 import { addMarkupDrawingsSection } from '../lib/pdfMarkupDrawings';
 import { blobToCleanDataURL } from '../lib/pinPhotoUtils';
+import { calculateReadingStats, buildHistogram } from '../lib/readingStatistics';
+
+async function generateProfessionalDFTReport(
+  projectData: any,
+  members: any[],
+  readingsMap: Map<string, any[]>
+) {
+  const doc = new jsPDF();
+  const logoUrl = projectData?.organizations?.logo_url;
+  const companyName = projectData?.organizations?.name || 'P&R Consulting Limited';
+
+  for (let memberIndex = 0; memberIndex < members.length; memberIndex++) {
+    const member = members[memberIndex];
+    const readings = readingsMap.get(member.id) || [];
+
+    if (readings.length === 0) continue;
+
+    const dftValues = readings.map((r: any) => r.dft_average);
+    const stats = calculateReadingStats(dftValues);
+    const histogram = buildHistogram(dftValues, 8);
+
+    // Page 1: Summary with Metadata and Charts
+    if (memberIndex > 0) doc.addPage();
+
+    let yPos = 20;
+
+    // Header
+    if (logoUrl) {
+      try {
+        const response = await fetch(logoUrl);
+        const blob = await response.blob();
+        const dataUrl = await blobToCleanDataURL(blob);
+        doc.addImage(dataUrl, 'PNG', 15, 10, 40, 20);
+      } catch (error) {
+        console.warn('Failed to load logo:', error);
+      }
+    }
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DFT Inspection Report', 105, yPos, { align: 'center' });
+    yPos += 15;
+
+    doc.setFontSize(12);
+    doc.text(`Member: ${member.member_mark}`, 20, yPos);
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Section: ${member.section || 'N/A'} | Required DFT: ${member.required_dft_microns} µm`, 20, yPos);
+    yPos += 15;
+
+    // Metadata panels
+    const metadataY = yPos;
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(245, 245, 245);
+
+    // Project info
+    doc.roundedRect(15, metadataY, 85, 25, 2, 2, 'FD');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Project', 18, metadataY + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(projectData?.name || 'N/A', 18, metadataY + 10);
+
+    // Statistics
+    doc.roundedRect(110, metadataY, 85, 25, 2, 2, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.text('Statistics', 113, metadataY + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Avg: ${stats.mean.toFixed(1)} µm | Min: ${stats.min.toFixed(1)} µm`, 113, metadataY + 10);
+    doc.text(`Max: ${stats.max.toFixed(1)} µm | Readings: ${readings.length}`, 113, metadataY + 15);
+
+    yPos = metadataY + 30;
+
+    // Simple histogram
+    const histWidth = 170;
+    const histHeight = 60;
+    const histX = 20;
+    const histY = yPos;
+
+    doc.setDrawColor(100, 100, 100);
+    doc.line(histX, histY + histHeight, histX + histWidth, histY + histHeight);
+    doc.line(histX, histY, histX, histY + histHeight);
+
+    const maxFreq = Math.max(...histogram.map(b => b.frequency));
+    const barWidth = histWidth / histogram.length;
+
+    histogram.forEach((bin, i) => {
+      const barHeight = (bin.frequency / maxFreq) * histHeight;
+      const x = histX + i * barWidth;
+      const y = histY + histHeight - barHeight;
+
+      doc.setFillColor(59, 130, 246);
+      doc.rect(x + 2, y, barWidth - 4, barHeight, 'F');
+
+      doc.setFontSize(7);
+      doc.text(`${bin.rangeStart}-${bin.rangeEnd}`, x + barWidth / 2, histY + histHeight + 5, { align: 'center' });
+    });
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DFT Distribution (µm)', histX + histWidth / 2, histY - 5, { align: 'center' });
+
+    // Page 2: Readings Table
+    doc.addPage();
+    yPos = 20;
+
+    if (logoUrl) {
+      try {
+        const response = await fetch(logoUrl);
+        const blob = await response.blob();
+        const dataUrl = await blobToCleanDataURL(blob);
+        doc.addImage(dataUrl, 'PNG', 15, 10, 40, 20);
+      } catch (error) {
+        console.warn('Failed to load logo:', error);
+      }
+    }
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Inspection Readings', 105, yPos, { align: 'center' });
+    yPos += 10;
+
+    doc.setFontSize(12);
+    doc.text(`Member: ${member.member_mark}`, 20, yPos);
+    yPos += 10;
+
+    const tableData = readings.map((r: any) => [
+      format(new Date(r.created_at), 'dd/MM/yyyy HH:mm'),
+      r.sequence_number.toString(),
+      `${r.dft_average.toFixed(1)} µm`,
+      r.reading_type || 'Standard'
+    ]);
+
+    autoTable(doc, {
+      head: [['Date/Time', 'Reading #', 'Thickness', 'Type']],
+      body: tableData,
+      startY: yPos,
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      styles: { fontSize: 9 },
+      margin: { bottom: 30 }
+    });
+
+    // Footer
+    const pageCount = memberIndex === members.length - 1 ? (memberIndex + 1) * 2 : 0;
+    if (pageCount > 0) {
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Prepared by ${companyName}`, 105, 285, { align: 'center' });
+        doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
+      }
+    }
+  }
+
+  // Add footers to all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Prepared by ${companyName}`, 105, 285, { align: 'center' });
+    doc.text(`Page ${i} of ${totalPages}`, 105, 290, { align: 'center' });
+  }
+
+  const filename = `Professional_DFT_Report_${projectData?.name || 'Report'}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+  doc.save(filename);
+}
 
 interface Project {
   id: string;
@@ -36,6 +208,7 @@ export function ExportsTab({ project }: { project: Project }) {
   const [generatingPhotoReport, setGeneratingPhotoReport] = useState(false);
   const [generatingEnhancedPhotoReport, setGeneratingEnhancedPhotoReport] = useState(false);
   const [generatingQuantityPhotoReport, setGeneratingQuantityPhotoReport] = useState(false);
+  const [generatingProfessionalReport, setGeneratingProfessionalReport] = useState(false);
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
@@ -1547,12 +1720,12 @@ export function ExportsTab({ project }: { project: Project }) {
             <div className="bg-purple-100/50 border border-purple-300 rounded-lg p-3 mb-4">
               <h4 className="text-sm font-semibold text-purple-900 mb-2">Features:</h4>
               <ul className="text-sm text-purple-800 space-y-1">
-                <li>• Page 1: Line chart + histogram with metadata panels (Project, Gauge, Probe, Batch, Calibration, Statistics)</li>
+                <li>• Page 1: Histogram chart with metadata panels (Project, Statistics, Member info)</li>
                 <li>• Page 2: Clean readings table with Date/Time, Reading #, Thickness, Type</li>
                 <li>• Professional A4 portrait layout with company branding</li>
-                <li>• Print-friendly design with controlled page breaks</li>
-                <li>• Interactive charts rendered using Recharts</li>
-                <li>• View in browser, then print/save as PDF</li>
+                <li>• Each member gets a dedicated 2-page layout</li>
+                <li>• Automatic PDF download with organized structure</li>
+                <li>• Includes company logo and professional formatting</li>
               </ul>
             </div>
 
@@ -1560,34 +1733,77 @@ export function ExportsTab({ project }: { project: Project }) {
               <InspectedMemberSelector
                 projectId={project.id}
                 onGenerateReport={async (selectedPinIds) => {
-                  // Convert pin IDs to member IDs
-                  const { data: pins } = await supabase
-                    .from('drawing_pins')
-                    .select('member_id')
-                    .in('id', selectedPinIds);
+                  setGeneratingProfessionalReport(true);
+                  try {
+                    // Convert pin IDs to member IDs
+                    const { data: pins } = await supabase
+                      .from('drawing_pins')
+                      .select('member_id')
+                      .in('id', selectedPinIds);
 
-                  if (!pins || pins.length === 0) {
-                    alert('No members found for selected pins');
-                    return;
+                    if (!pins || pins.length === 0) {
+                      alert('No members found for selected pins');
+                      return;
+                    }
+
+                    // Extract unique member IDs
+                    const memberIds = [...new Set(pins.map(p => p.member_id).filter(id => id !== null))];
+
+                    if (memberIds.length === 0) {
+                      alert('Selected pins have no associated members');
+                      return;
+                    }
+
+                    // Fetch member data and readings
+                    const { data: members } = await supabase
+                      .from('members')
+                      .select('*')
+                      .in('id', memberIds)
+                      .order('member_mark');
+
+                    if (!members || members.length === 0) {
+                      alert('No member data found');
+                      return;
+                    }
+
+                    const { data: projectData } = await supabase
+                      .from('projects')
+                      .select('*, organizations(name, logo_url)')
+                      .eq('id', project.id)
+                      .single();
+
+                    // Fetch readings for each member
+                    const readingsMap = new Map();
+                    for (const member of members) {
+                      const { data: readings } = await supabase
+                        .from('inspection_readings')
+                        .select('*')
+                        .eq('member_id', member.id)
+                        .order('sequence_number');
+
+                      if (readings && readings.length > 0) {
+                        readingsMap.set(member.id, readings);
+                      }
+                    }
+
+                    // Generate PDF using jsPDF
+                    await generateProfessionalDFTReport(projectData, members, readingsMap);
+                  } catch (error) {
+                    console.error('Error generating professional report:', error);
+                    alert('Failed to generate report. Please try again.');
+                  } finally {
+                    setGeneratingProfessionalReport(false);
                   }
-
-                  // Extract unique member IDs
-                  const memberIds = [...new Set(pins.map(p => p.member_id).filter(id => id !== null))];
-
-                  if (memberIds.length === 0) {
-                    alert('Selected pins have no associated members');
-                    return;
-                  }
-
-                  const params = new URLSearchParams({
-                    projectId: project.id,
-                    memberIds: memberIds.join(','),
-                    batchName: project.name,
-                  });
-                  navigate(`/inspection-report?${params.toString()}`);
                 }}
               />
             </div>
+
+            {generatingProfessionalReport && (
+              <div className="mt-4 flex items-center gap-2 text-purple-600">
+                <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">Generating professional DFT inspection report...</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1600,7 +1816,7 @@ export function ExportsTab({ project }: { project: Project }) {
           <strong>Photo Report:</strong> Inspection_Report_Photos_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
           <strong>Enhanced Photo Report:</strong> Enhanced_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
           <strong>Quantity Readings Photo Report:</strong> Quantity_Readings_Photo_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf<br />
-          <strong>Professional DFT Report:</strong> View in browser, use browser Print to save as PDF
+          <strong>Professional DFT Report:</strong> Professional_DFT_Report_&#60;ProjectName&#62;_&#60;YYYYMMDD&#62;.pdf
         </p>
       </div>
     </div>
