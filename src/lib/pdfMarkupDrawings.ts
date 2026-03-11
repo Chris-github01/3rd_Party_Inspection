@@ -176,13 +176,25 @@ async function getDrawingImageData(
 
       const arrayBuffer = await fileData.arrayBuffer();
       console.log(`[getDrawingImageData] ✅ Step 2 Complete - ArrayBuffer size: ${arrayBuffer.byteLength} bytes`);
-      console.log(`[getDrawingImageData] Step 3: Loading PDF document...`);
+      console.log(`[getDrawingImageData] Step 3: Loading PDF document with 10s timeout...`);
 
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      // Wrap PDF loading with a timeout to prevent hanging
+      const pdfLoadPromise = pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('PDF loading timeout after 10 seconds')), 10000)
+      );
+
+      const pdf = await Promise.race([pdfLoadPromise, timeoutPromise]) as any;
       console.log(`[getDrawingImageData] ✅ Step 3 Complete - PDF loaded, ${pdf.numPages} pages`);
-      console.log(`[getDrawingImageData] Step 4: Getting page ${pageNumber}...`);
+      console.log(`[getDrawingImageData] Step 4: Getting page ${pageNumber} with 5s timeout...`);
 
-      const page = await pdf.getPage(pageNumber);
+      // Wrap page retrieval with timeout
+      const pagePromise = pdf.getPage(pageNumber);
+      const pageTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Page retrieval timeout after 5 seconds')), 5000)
+      );
+
+      const page = await Promise.race([pagePromise, pageTimeout]) as any;
       console.log(`[getDrawingImageData] ✅ Step 4 Complete - Page retrieved`);
 
       console.log(`[getDrawingImageData] Step 5: Creating viewport...`);
@@ -201,11 +213,18 @@ async function getDrawingImageData(
       canvas.height = viewport.height;
       console.log(`[getDrawingImageData] ✅ Step 6 Complete - Canvas created: ${canvas.width}x${canvas.height}`);
 
-      console.log(`[getDrawingImageData] Step 7: Rendering PDF to canvas...`);
-      await page.render({
+      console.log(`[getDrawingImageData] Step 7: Rendering PDF to canvas with 15s timeout...`);
+
+      // Wrap canvas rendering with timeout
+      const renderPromise = page.render({
         canvasContext: context,
         viewport: viewport,
       } as any).promise;
+      const renderTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Canvas rendering timeout after 15 seconds')), 15000)
+      );
+
+      await Promise.race([renderPromise, renderTimeout]);
 
       console.log(`[getDrawingImageData] ✅ Step 7 Complete - PDF rendered to canvas`);
       console.log(`[getDrawingImageData] Step 8: Converting canvas to data URL...`);
@@ -405,10 +424,20 @@ export async function addMarkupDrawingsSection(
       console.log(`[addMarkupDrawingsSection] Processing drawing ${drawing.id}: ${drawing.file_name}`);
       console.log(`[addMarkupDrawingsSection] Found ${drawingPins.length} pins for this drawing`);
 
-      const { imageData, width: imgWidth, height: imgHeight } = await getDrawingImageData(
-        drawing,
-        drawing.page_number
+      // Wrap the entire drawing image loading with a 30-second timeout
+      console.log(`[addMarkupDrawingsSection] Loading drawing with 30s timeout...`);
+      const drawingLoadPromise = getDrawingImageData(drawing, drawing.page_number);
+      const drawingTimeout = new Promise<{ imageData: string | null; width: number; height: number }>((resolve) =>
+        setTimeout(() => {
+          console.warn(`[addMarkupDrawingsSection] ⚠️ Drawing load timeout after 30s - skipping drawing ${drawing.id}`);
+          resolve({ imageData: null, width: 0, height: 0 });
+        }, 30000)
       );
+
+      const { imageData, width: imgWidth, height: imgHeight } = await Promise.race([
+        drawingLoadPromise,
+        drawingTimeout
+      ]);
 
       if (imageData) {
         console.log(`[addMarkupDrawingsSection] ✅ Drawing image loaded successfully`);
