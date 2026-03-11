@@ -518,7 +518,16 @@ export function ExportsTab({ project }: { project: Project }) {
           const logoX = (210 - logoWidth) / 2;
           doc.addImage(logoDataUrl, 'JPEG', logoX, yPos, logoWidth, logoHeight);
           console.log('[Audit Report] ✓ Logo added centered at position (' + logoX + ', ' + yPos + ')');
-          yPos += logoHeight + 10;
+          yPos += logoHeight + 2;
+
+          // Add two line breaks (spacing) then company name
+          yPos += 14;
+          const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
+          doc.setFontSize(18);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(0, 0, 0);
+          doc.text(orgName, 105, yPos, { align: 'center' });
+          yPos += 10;
         } else {
           console.warn('[Audit Report] ✗ Could not load logo from any bucket');
           const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
@@ -631,10 +640,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
         const lines = doc.splitTextToSize(paragraph, 170);
         for (const line of lines) {
-          if (yPos > 257) {
-            doc.addPage();
-            yPos = 20;
-          }
+          yPos = checkPageBreak(yPos, 5);
           doc.text(line, 20, yPos);
           yPos += 5;
         }
@@ -651,6 +657,7 @@ export function ExportsTab({ project }: { project: Project }) {
       const repairRequired = members.filter((m) => m.status === 'repair_required').length;
       const openNCRs = ncrs.filter((n) => n.status !== 'closed').length;
 
+      yPos = checkPageBreak(yPos, 40);
       doc.text(`Total Members: ${totalMembers}`, 20, yPos);
       yPos += 7;
       doc.text(`Inspected: ${inspectedMembers} (${((inspectedMembers / totalMembers) * 100).toFixed(1)}%)`, 20, yPos);
@@ -663,6 +670,7 @@ export function ExportsTab({ project }: { project: Project }) {
       yPos += 15;
     }
 
+    yPos = checkPageBreak(yPos, 30);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.text('3. Report Inspection Standards and Reference Documents', 20, yPos);
@@ -674,11 +682,13 @@ export function ExportsTab({ project }: { project: Project }) {
     const introText = 'This report reflects observations and testing conducted against the applicable project specification and nominated inspection standards, including recognised NACE (AMPP) standards for protective coatings inspection where relevant. Industry guidance documents, including those published by the Fire Protection Association of New Zealand (FPANZ), may be referenced for general best practice; however, compliance assessment is based strictly on the contract documentation and nominated testing standards.';
     const lines = doc.splitTextToSize(introText, maxWidth);
     lines.forEach((line: string) => {
+      yPos = checkPageBreak(yPos, 5);
       doc.text(line, 20, yPos);
       yPos += 5;
     });
     yPos += 5;
 
+    yPos = checkPageBreak(yPos, 30);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.text('Standards Referenced:', 20, yPos);
@@ -693,17 +703,13 @@ export function ExportsTab({ project }: { project: Project }) {
     ];
 
     standards.forEach((std) => {
+      yPos = checkPageBreak(yPos, 6);
       doc.text(`• ${std}`, 20, yPos);
       yPos += 6;
     });
 
-    // Smart page break: only add new page if insufficient space for section + table header
-    if (yPos > 240) {
-      doc.addPage();
-      yPos = 20;
-    } else {
-      yPos += 15;
-    }
+    // Smart page break for DFT section
+    yPos = checkPageBreak(yPos, 40);
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -1064,6 +1070,7 @@ export function ExportsTab({ project }: { project: Project }) {
         const noteText = 'Note: Pin locations are marked on project drawings and correspond to inspected structural members. Drawing references and coordinates are maintained in the project site manager system.';
         const noteLines = doc.splitTextToSize(noteText, 170);
         noteLines.forEach((line: string) => {
+          yPos = checkPageBreak(yPos, 5);
           doc.text(line, 20, yPos);
           yPos += 5;
         });
@@ -1085,10 +1092,7 @@ export function ExportsTab({ project }: { project: Project }) {
     yPos += 10;
 
     inspections.forEach((inspection, idx) => {
-      if (yPos > 257) {
-        doc.addPage();
-        yPos = 20;
-      }
+      yPos = checkPageBreak(yPos, 30);
 
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');

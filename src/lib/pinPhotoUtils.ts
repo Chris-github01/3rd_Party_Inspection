@@ -172,6 +172,10 @@ export function blobToCleanDataURL(blob: Blob): Promise<string> {
           return;
         }
 
+        // Fill with white background to prevent black blocks on transparent PNGs
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         // Draw image to canvas
         ctx.drawImage(img, 0, 0);
 
