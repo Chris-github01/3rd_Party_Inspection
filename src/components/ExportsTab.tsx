@@ -497,12 +497,26 @@ export function ExportsTab({ project }: { project: Project }) {
 
               if (logoData?.publicUrl) {
                 const response = await fetch(logoData.publicUrl);
+
+                // Check if response is valid (not an error page)
+                if (!response.ok) {
+                  console.log(`[Audit Report] ${bucket}: HTTP ${response.status}, trying next...`);
+                  continue;
+                }
+
                 const logoBlob = await response.blob();
+
+                // Validate it's an actual image, not an error page
+                if (!logoBlob.type.startsWith('image/')) {
+                  console.log(`[Audit Report] ${bucket}: Invalid content type (${logoBlob.type}), trying next...`);
+                  continue;
+                }
+
                 console.log(`[Audit Report] Logo loaded from ${bucket}:`, logoBlob.size, 'bytes');
 
                 // Use canvas-based conversion to ensure jsPDF compatibility
                 logoDataUrl = await blobToCleanDataURL(logoBlob);
-                console.log('[Audit Report] ✓ Logo converted to PNG format with transparency');
+                console.log('[Audit Report] ✓ Logo converted to clean JPEG format');
                 if (logoDataUrl) break;
               }
             } catch (err) {
@@ -512,23 +526,34 @@ export function ExportsTab({ project }: { project: Project }) {
           }
         }
 
-        if (logoDataUrl) {
-          const logoWidth = 40;
-          const logoHeight = 20;
-          const logoX = (210 - logoWidth) / 2;
-          doc.addImage(logoDataUrl, 'PNG', logoX, yPos, logoWidth, logoHeight);
-          console.log('[Audit Report] ✓ Logo added centered at position (' + logoX + ', ' + yPos + ')');
-          yPos += logoHeight + 5;
+        if (logoDataUrl && logoDataUrl.startsWith('data:image/')) {
+          try {
+            const logoWidth = 40;
+            const logoHeight = 20;
+            const logoX = (210 - logoWidth) / 2;
+            doc.addImage(logoDataUrl, 'PNG', logoX, yPos, logoWidth, logoHeight);
+            console.log('[Audit Report] ✓ Logo added centered at position (' + logoX + ', ' + yPos + ')');
+            yPos += logoHeight + 5;
 
-          // Add organization name below logo with proper spacing
-          const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
-          doc.setFontSize(18);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(0, 0, 0);
-          doc.text(orgName, 105, yPos, { align: 'center' });
-          yPos += 12;
+            // Add organization name below logo with proper spacing
+            const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text(orgName, 105, yPos, { align: 'center' });
+            yPos += 12;
+          } catch (imgError) {
+            console.error('[Audit Report] ✗ Error adding logo to PDF:', imgError);
+            // Fallback to text-only header
+            const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
+            doc.setFontSize(22);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 40, 80);
+            doc.text(orgName, 105, yPos, { align: 'center' });
+            yPos += 12;
+          }
         } else {
-          console.warn('[Audit Report] ✗ Could not load logo from any bucket');
+          console.warn('[Audit Report] ✗ Invalid or missing logo data URL');
           const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
           doc.setFontSize(22);
           doc.setFont('helvetica', 'bold');
