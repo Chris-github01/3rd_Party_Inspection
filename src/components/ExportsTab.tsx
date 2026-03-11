@@ -485,7 +485,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
           // Use canvas-based conversion to ensure jsPDF compatibility
           logoDataUrl = await blobToCleanDataURL(logoBlob);
-          console.log('[Audit Report] ✓ Logo converted to clean JPEG format');
+          console.log('[Audit Report] ✓ Logo converted to PNG format with transparency');
         } else {
           // Try multiple buckets
           const buckets = ['organization-logos', 'project-documents', 'documents'];
@@ -502,7 +502,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
                 // Use canvas-based conversion to ensure jsPDF compatibility
                 logoDataUrl = await blobToCleanDataURL(logoBlob);
-                console.log('[Audit Report] ✓ Logo converted to clean JPEG format');
+                console.log('[Audit Report] ✓ Logo converted to PNG format with transparency');
                 if (logoDataUrl) break;
               }
             } catch (err) {
@@ -516,18 +516,17 @@ export function ExportsTab({ project }: { project: Project }) {
           const logoWidth = 40;
           const logoHeight = 20;
           const logoX = (210 - logoWidth) / 2;
-          doc.addImage(logoDataUrl, 'JPEG', logoX, yPos, logoWidth, logoHeight);
+          doc.addImage(logoDataUrl, 'PNG', logoX, yPos, logoWidth, logoHeight);
           console.log('[Audit Report] ✓ Logo added centered at position (' + logoX + ', ' + yPos + ')');
-          yPos += logoHeight + 2;
+          yPos += logoHeight + 5;
 
-          // Add two line breaks (spacing) then company name
-          yPos += 14;
+          // Add organization name below logo with proper spacing
           const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
           doc.setFontSize(18);
           doc.setFont('helvetica', 'bold');
           doc.setTextColor(0, 0, 0);
           doc.text(orgName, 105, yPos, { align: 'center' });
-          yPos += 10;
+          yPos += 12;
         } else {
           console.warn('[Audit Report] ✗ Could not load logo from any bucket');
           const orgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
@@ -1479,7 +1478,7 @@ export function ExportsTab({ project }: { project: Project }) {
                   className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
                 >
                   <Download className="w-5 h-5 mr-2" />
-                  {generating ? 'Generating...' : 'Download Base Report'}
+                  {generating ? 'Downloading...' : 'Download Base Report'}
                 </button>
                 <button
                   onClick={() => handleDownloadOrEdit(generateAuditReport, `PRC_InspectionReport_${project.name}_${format(new Date(), 'yyyyMMdd')}`, 'edit')}
@@ -1608,7 +1607,7 @@ export function ExportsTab({ project }: { project: Project }) {
                       className="flex items-center px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 disabled:opacity-50 transition-colors"
                     >
                       <Layers className="w-5 h-5 mr-2" />
-                      {generatingMerged ? 'Generating Merged Pack...' : 'Generate Full Audit Pack (Merged)'}
+                      {generatingMerged ? 'Downloading Merged Pack...' : 'Generate Full Audit Pack (Merged)'}
                     </button>
                   ) : (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -1741,7 +1740,7 @@ export function ExportsTab({ project }: { project: Project }) {
                 >
                   <Download className="w-5 h-5" />
                   {generatingQuantityPhotoReport
-                    ? 'Generating Report...'
+                    ? 'Downloading Report...'
                     : `Generate Report (${selectedPinIds.length} pins selected)`}
                 </button>
               </div>

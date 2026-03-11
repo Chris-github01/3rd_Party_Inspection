@@ -150,8 +150,9 @@ export function blobToDataURL(blob: Blob): Promise<string> {
 }
 
 /**
- * Convert blob to clean JPEG data URL via Canvas
+ * Convert blob to clean PNG data URL via Canvas
  * This ensures the image is in a format that jsPDF can safely embed
+ * Preserves transparency for logos
  */
 export function blobToCleanDataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -172,16 +173,15 @@ export function blobToCleanDataURL(blob: Blob): Promise<string> {
           return;
         }
 
-        // Fill with white background to prevent black blocks on transparent PNGs
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // DO NOT fill background - preserve transparency
+        // This allows logos to display without black/white blocks
 
-        // Draw image to canvas
+        // Draw image to canvas (preserves alpha channel)
         ctx.drawImage(img, 0, 0);
 
-        // Convert to JPEG data URL (more compatible with jsPDF than PNG)
-        // Quality 0.92 provides good balance between size and quality
-        const dataURL = canvas.toDataURL('image/jpeg', 0.92);
+        // Convert to PNG data URL to preserve transparency
+        // PNG supports alpha channel unlike JPEG
+        const dataURL = canvas.toDataURL('image/png');
 
         URL.revokeObjectURL(url);
         resolve(dataURL);
