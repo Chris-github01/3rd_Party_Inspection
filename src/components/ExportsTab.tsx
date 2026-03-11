@@ -1598,10 +1598,29 @@ export function ExportsTab({ project }: { project: Project }) {
             <div className="bg-white rounded-lg p-4 border-2 border-purple-200">
               <InspectedMemberSelector
                 projectId={project.id}
-                onGenerateReport={(selectedPinIds) => {
+                onGenerateReport={async (selectedPinIds) => {
+                  // Convert pin IDs to member IDs
+                  const { data: pins } = await supabase
+                    .from('drawing_pins')
+                    .select('member_id')
+                    .in('id', selectedPinIds);
+
+                  if (!pins || pins.length === 0) {
+                    alert('No members found for selected pins');
+                    return;
+                  }
+
+                  // Extract unique member IDs
+                  const memberIds = [...new Set(pins.map(p => p.member_id).filter(id => id !== null))];
+
+                  if (memberIds.length === 0) {
+                    alert('Selected pins have no associated members');
+                    return;
+                  }
+
                   const params = new URLSearchParams({
                     projectId: project.id,
-                    memberIds: selectedPinIds.join(','),
+                    memberIds: memberIds.join(','),
                     batchName: project.name,
                   });
                   navigate(`/inspection-report?${params.toString()}`);
