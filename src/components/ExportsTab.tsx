@@ -318,25 +318,56 @@ export function ExportsTab({ project }: { project: Project }) {
   };
 
   const generateAuditReport = async (): Promise<jsPDF> => {
-    console.log('📝 Starting audit report generation...');
+    console.log('📝 ========================================');
+    console.log('📝 AUDIT REPORT GENERATION STARTED');
+    console.log('📝 ========================================');
+    console.log('📝 Project ID:', project.id);
+    console.log('📝 Project Name:', project.name);
+    console.log('📝 Timestamp:', new Date().toISOString());
 
     // Generate Introduction and Executive Summary using dedicated generators
-    console.log('🔍 Fetching introduction and executive summary data...');
-    const [introductionData, executiveSummaryData] = await Promise.all([
-      generateIntroduction(project.id).catch(err => {
-        console.error('⚠️ Error generating introduction:', err);
-        console.error('Introduction error details:', err.message, err.stack);
-        return null;
-      }),
-      generateExecutiveSummary(project.id).catch(err => {
-        console.error('⚠️ Error generating executive summary:', err);
-        console.error('Executive summary error details:', err.message, err.stack);
-        return null;
-      })
-    ]);
+    console.log('🔍 ========================================');
+    console.log('🔍 STEP 1: Fetching RPC data...');
+    console.log('🔍 ========================================');
+
+    let introductionData = null;
+    let executiveSummaryData = null;
+
+    try {
+      console.log('🔍 Calling generateIntroduction...');
+      introductionData = await generateIntroduction(project.id);
+      console.log('✅ Introduction data retrieved successfully');
+    } catch (err: any) {
+      console.error('❌ CRITICAL: Error generating introduction:', err);
+      console.error('❌ Introduction error name:', err?.name);
+      console.error('❌ Introduction error message:', err?.message);
+      console.error('❌ Introduction error stack:', err?.stack);
+      // Don't return null, re-throw to stop execution
+      throw new Error('Failed to generate introduction: ' + (err?.message || 'Unknown error'));
+    }
+
+    try {
+      console.log('🔍 Calling generateExecutiveSummary...');
+      executiveSummaryData = await generateExecutiveSummary(project.id);
+      console.log('✅ Executive summary data retrieved successfully');
+    } catch (err: any) {
+      console.error('❌ CRITICAL: Error generating executive summary:', err);
+      console.error('❌ Executive summary error name:', err?.name);
+      console.error('❌ Executive summary error message:', err?.message);
+      console.error('❌ Executive summary error stack:', err?.stack);
+      // Don't return null, re-throw to stop execution
+      throw new Error('Failed to generate executive summary: ' + (err?.message || 'Unknown error'));
+    }
 
     console.log('📊 Introduction data:', introductionData ? 'Retrieved' : 'Failed/Null');
     console.log('📊 Executive summary data:', executiveSummaryData ? 'Retrieved' : 'Failed/Null');
+
+    if (!introductionData) {
+      throw new Error('Introduction data is null - RPC may have failed silently');
+    }
+    if (!executiveSummaryData) {
+      throw new Error('Executive summary data is null - RPC may have failed silently');
+    }
 
     console.log('🗄️ Fetching database records...');
     const [
@@ -1185,17 +1216,32 @@ export function ExportsTab({ project }: { project: Project }) {
   const handleDownloadBaseReport = async () => {
     setGenerating(true);
     console.log('🔄 Starting base report generation for project:', project.id);
+    console.log('🔄 Project details:', project);
+
     try {
       console.log('📊 Calling generateAuditReport...');
       const doc = await generateAuditReport();
+
+      if (!doc) {
+        throw new Error('generateAuditReport returned null/undefined');
+      }
+
       console.log('✅ Report generated successfully, saving file...');
       const filename = `PRC_InspectionReport_${project.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+
+      console.log('💾 Attempting to save:', filename);
       doc.save(filename);
       console.log('✅ File saved:', filename);
+
     } catch (error: any) {
-      console.error('❌ Error generating report:', error);
-      console.error('Error stack:', error.stack);
-      alert('Error generating report: ' + (error.message || 'Unknown error'));
+      console.error('❌ CRITICAL ERROR generating report:', error);
+      console.error('❌ Error name:', error?.name);
+      console.error('❌ Error message:', error?.message);
+      console.error('❌ Error stack:', error?.stack);
+      console.error('❌ Full error object:', JSON.stringify(error, null, 2));
+
+      const errorMsg = error?.message || error?.toString() || 'Unknown error - check console for details';
+      alert('Error generating report: ' + errorMsg + '\n\nCheck browser console (F12) for full details.');
     } finally {
       console.log('🏁 Report generation complete, resetting state');
       setGenerating(false);
