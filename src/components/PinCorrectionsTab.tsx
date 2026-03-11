@@ -1,16 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import {
-  AlertCircle,
-  CheckCircle,
-  Download,
-  Plus,
-  Edit3,
-  Trash2,
-  FileText,
-  MapPin,
-  ArrowRight,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle, Download, Plus, CreditCard as Edit3, Trash2, FileText, MapPin, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '../contexts/ToastContext';
 import { generatePinCorrectionsReport } from '../lib/pdfPinCorrectionsReport';
