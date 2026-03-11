@@ -293,18 +293,27 @@ export function ExportsTab({ project }: { project: Project }) {
   };
 
   const generateAuditReport = async (): Promise<jsPDF> => {
+    console.log('📝 Starting audit report generation...');
+
     // Generate Introduction and Executive Summary using dedicated generators
+    console.log('🔍 Fetching introduction and executive summary data...');
     const [introductionData, executiveSummaryData] = await Promise.all([
       generateIntroduction(project.id).catch(err => {
-        console.error('Error generating introduction:', err);
+        console.error('⚠️ Error generating introduction:', err);
+        console.error('Introduction error details:', err.message, err.stack);
         return null;
       }),
       generateExecutiveSummary(project.id).catch(err => {
-        console.error('Error generating executive summary:', err);
+        console.error('⚠️ Error generating executive summary:', err);
+        console.error('Executive summary error details:', err.message, err.stack);
         return null;
       })
     ]);
 
+    console.log('📊 Introduction data:', introductionData ? 'Retrieved' : 'Failed/Null');
+    console.log('📊 Executive summary data:', executiveSummaryData ? 'Retrieved' : 'Failed/Null');
+
+    console.log('🗄️ Fetching database records...');
     const [
       membersRes,
       inspectionsRes,
@@ -338,6 +347,26 @@ export function ExportsTab({ project }: { project: Project }) {
         organizations(id, name, logo_url, address, phone, email, website)
       `).eq('id', project.id).single(),
     ]);
+
+    // Check for errors in database queries
+    if (membersRes.error) {
+      console.error('❌ Error fetching members:', membersRes.error);
+      throw new Error('Failed to fetch members: ' + membersRes.error.message);
+    }
+    if (inspectionsRes.error) {
+      console.error('❌ Error fetching inspections:', inspectionsRes.error);
+      throw new Error('Failed to fetch inspections: ' + inspectionsRes.error.message);
+    }
+    if (ncrsRes.error) {
+      console.error('❌ Error fetching NCRs:', ncrsRes.error);
+      throw new Error('Failed to fetch NCRs: ' + ncrsRes.error.message);
+    }
+    if (projectDetailsRes.error) {
+      console.error('❌ Error fetching project details:', projectDetailsRes.error);
+      throw new Error('Failed to fetch project details: ' + projectDetailsRes.error.message);
+    }
+
+    console.log('✅ Database records fetched successfully');
 
     const members = membersRes.data || [];
     const inspections = inspectionsRes.data || [];
@@ -1093,11 +1122,14 @@ export function ExportsTab({ project }: { project: Project }) {
       yPos += 5;
     });
 
+    console.log('📄 Adding footers to all pages...');
     doc.setFontSize(9);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
     const pageCount = doc.getNumberOfPages();
     const footerOrgName = orgSettings?.name || orgSettings?.company_name || 'P&R Consulting Limited';
+    console.log(`📄 Total pages: ${pageCount}, Footer: ${footerOrgName}`);
+
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.text(`Prepared by ${footerOrgName}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 15, {
@@ -1108,18 +1140,26 @@ export function ExportsTab({ project }: { project: Project }) {
       });
     }
 
+    console.log('✅ PDF document generation complete, returning document object');
     return doc;
   };
 
   const handleDownloadBaseReport = async () => {
     setGenerating(true);
+    console.log('🔄 Starting base report generation for project:', project.id);
     try {
+      console.log('📊 Calling generateAuditReport...');
       const doc = await generateAuditReport();
-      doc.save(`PRC_InspectionReport_${project.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      console.log('✅ Report generated successfully, saving file...');
+      const filename = `PRC_InspectionReport_${project.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+      doc.save(filename);
+      console.log('✅ File saved:', filename);
     } catch (error: any) {
-      console.error('Error generating report:', error);
-      alert('Error generating report: ' + error.message);
+      console.error('❌ Error generating report:', error);
+      console.error('Error stack:', error.stack);
+      alert('Error generating report: ' + (error.message || 'Unknown error'));
     } finally {
+      console.log('🏁 Report generation complete, resetting state');
       setGenerating(false);
     }
   };
