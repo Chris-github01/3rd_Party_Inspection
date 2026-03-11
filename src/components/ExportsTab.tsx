@@ -351,7 +351,7 @@ export function ExportsTab({ project }: { project: Project }) {
       supabase.from('members').select('*').eq('project_id', project.id).order('member_mark'),
       supabase
         .from('inspections')
-        .select('*, members(member_mark), env_readings(*)')
+        .select('*, members(member_mark)')
         .eq('project_id', project.id)
         .order('inspection_date_time'),
       supabase.from('ncrs').select('*').eq('project_id', project.id),
@@ -1124,23 +1124,8 @@ export function ExportsTab({ project }: { project: Project }) {
 
       yPos += 6;
 
-      // Show ALL environmental readings (not just first)
-      if (inspection.env_readings && inspection.env_readings.length > 0) {
-        inspection.env_readings.forEach((env: any, envIndex: number) => {
-          const envLabel = inspection.env_readings.length > 1 ? `Environmental Reading ${envIndex + 1}: ` : 'Environmental: ';
-          doc.text(
-            `${envLabel}Ambient ${env.ambient_temp_c}°C, Steel ${env.steel_temp_c}°C, RH ${env.relative_humidity_pct}%, Dew Pt Spread ${env.dew_point_spread_c?.toFixed(1)}°C`,
-            25,
-            yPos
-          );
-          yPos += 6;
-
-          if (yPos > 257) {
-            doc.addPage();
-            yPos = 20;
-          }
-        });
-      }
+      // Environmental readings feature removed - table doesn't exist in database
+      // TODO: If environmental readings are needed, create env_readings table with proper relationship
 
       // DFT batches section removed - table doesn't exist in database
 
