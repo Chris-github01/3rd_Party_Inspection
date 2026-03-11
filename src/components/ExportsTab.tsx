@@ -1598,16 +1598,14 @@ export function ExportsTab({ project }: { project: Project }) {
             <div className="bg-white rounded-lg p-4 border-2 border-purple-200">
               <InspectedMemberSelector
                 projectId={project.id}
-                onGeneratePDF={(memberIds) => {
+                onGenerateReport={(selectedPinIds) => {
                   const params = new URLSearchParams({
                     projectId: project.id,
-                    memberIds: memberIds.join(','),
+                    memberIds: selectedPinIds.join(','),
                     batchName: project.name,
                   });
                   navigate(`/inspection-report?${params.toString()}`);
                 }}
-                buttonLabel="View Professional Report"
-                buttonIcon={<FileText className="w-5 h-5" />}
               />
             </div>
           </div>
