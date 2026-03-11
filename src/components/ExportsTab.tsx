@@ -25,19 +25,38 @@ async function generateProfessionalDFTReport(
   members: any[],
   readingsMap: Map<string, any[]>
 ) {
+  console.log('🎨 Starting Professional DFT Report Generation');
+  console.log('📊 Project:', projectData?.name);
+  console.log('👥 Members to process:', members.length);
+  console.log('📈 Readings map size:', readingsMap.size);
+
   const doc = new jsPDF();
   const logoUrl = projectData?.organizations?.logo_url;
   const companyName = projectData?.organizations?.name || 'P&R Consulting Limited';
+
+  let processedMembers = 0;
 
   for (let memberIndex = 0; memberIndex < members.length; memberIndex++) {
     const member = members[memberIndex];
     const readings = readingsMap.get(member.id) || [];
 
-    if (readings.length === 0) continue;
+    console.log(`📝 Processing member ${memberIndex + 1}/${members.length}: ${member.member_mark}`);
+    console.log(`   Readings found: ${readings.length}`);
 
-    const dftValues = readings.map((r: any) => r.dft_average);
-    const stats = calculateReadingStats(dftValues);
-    const histogram = buildHistogram(dftValues, 8);
+    if (readings.length === 0) {
+      console.log(`   ⚠️ Skipping member ${member.member_mark} - no readings`);
+      continue;
+    }
+
+    try {
+      const dftValues = readings.map((r: any) => r.dft_average);
+      console.log(`   DFT values: ${dftValues.length} readings, range: ${Math.min(...dftValues).toFixed(1)} - ${Math.max(...dftValues).toFixed(1)} µm`);
+
+      const stats = calculateReadingStats(dftValues);
+      const histogram = buildHistogram(dftValues, 8);
+
+      console.log(`   Stats calculated: mean=${stats.mean.toFixed(1)}, min=${stats.min.toFixed(1)}, max=${stats.max.toFixed(1)}`);
+      console.log(`   Histogram bins: ${histogram.length}`);
 
     // Page 1: Summary with Metadata and Charts
     if (memberIndex > 0) doc.addPage();
@@ -102,11 +121,11 @@ async function generateProfessionalDFTReport(
     doc.line(histX, histY + histHeight, histX + histWidth, histY + histHeight);
     doc.line(histX, histY, histX, histY + histHeight);
 
-    const maxFreq = Math.max(...histogram.map(b => b.frequency));
+    const maxFreq = Math.max(...histogram.map(b => b.count), 1);
     const barWidth = histWidth / histogram.length;
 
     histogram.forEach((bin, i) => {
-      const barHeight = (bin.frequency / maxFreq) * histHeight;
+      const barHeight = maxFreq > 0 ? (bin.count / maxFreq) * histHeight : 0;
       const x = histX + i * barWidth;
       const y = histY + histHeight - barHeight;
 
@@ -114,7 +133,7 @@ async function generateProfessionalDFTReport(
       doc.rect(x + 2, y, barWidth - 4, barHeight, 'F');
 
       doc.setFontSize(7);
-      doc.text(`${bin.rangeStart}-${bin.rangeEnd}`, x + barWidth / 2, histY + histHeight + 5, { align: 'center' });
+      doc.text(`${Math.round(bin.start)}-${Math.round(bin.end)}`, x + barWidth / 2, histY + histHeight + 5, { align: 'center' });
     });
 
     doc.setFontSize(9);
@@ -152,32 +171,36 @@ async function generateProfessionalDFTReport(
       r.reading_type || 'Standard'
     ]);
 
-    autoTable(doc, {
-      head: [['Date/Time', 'Reading #', 'Thickness', 'Type']],
-      body: tableData,
-      startY: yPos,
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-      styles: { fontSize: 9 },
-      margin: { bottom: 30 }
-    });
+      autoTable(doc, {
+        head: [['Date/Time', 'Reading #', 'Thickness', 'Type']],
+        body: tableData,
+        startY: yPos,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+        styles: { fontSize: 9 },
+        margin: { bottom: 30 }
+      });
 
-    // Footer
-    const pageCount = memberIndex === members.length - 1 ? (memberIndex + 1) * 2 : 0;
-    if (pageCount > 0) {
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'italic');
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Prepared by ${companyName}`, 105, 285, { align: 'center' });
-        doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
-      }
+      processedMembers++;
+      console.log(`   ✅ Member ${member.member_mark} processed successfully`);
+    } catch (memberError: any) {
+      console.error(`   ❌ Error processing member ${member.member_mark}:`, memberError);
+      console.error('   Error details:', memberError.message, memberError.stack);
+      // Continue with next member
     }
   }
 
+  console.log(`📊 Processed ${processedMembers} members out of ${members.length}`);
+
+  if (processedMembers === 0) {
+    throw new Error('No members with readings were found to generate the report. Please ensure selected members have inspection readings.');
+  }
+
   // Add footers to all pages
+  console.log('📄 Adding footers to all pages...');
   const totalPages = doc.getNumberOfPages();
+  console.log(`   Total pages: ${totalPages}`);
+
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFontSize(9);
@@ -187,8 +210,10 @@ async function generateProfessionalDFTReport(
     doc.text(`Page ${i} of ${totalPages}`, 105, 290, { align: 'center' });
   }
 
-  const filename = `Professional_DFT_Report_${projectData?.name || 'Report'}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+  const filename = `Professional_DFT_Report_${(projectData?.name || 'Report').replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+  console.log(`💾 Saving PDF: ${filename}`);
   doc.save(filename);
+  console.log('✅ Professional DFT Report generated successfully!');
 }
 
 interface Project {
@@ -1774,65 +1799,106 @@ export function ExportsTab({ project }: { project: Project }) {
                 projectId={project.id}
                 onGenerateReport={async (selectedPinIds) => {
                   setGeneratingProfessionalReport(true);
+                  console.log('🚀 Professional DFT Report - Starting generation');
+                  console.log('📌 Selected pin IDs:', selectedPinIds.length);
+
                   try {
                     // Convert pin IDs to member IDs
-                    const { data: pins } = await supabase
+                    console.log('🔍 Fetching member IDs from pins...');
+                    const { data: pins, error: pinsError } = await supabase
                       .from('drawing_pins')
                       .select('member_id')
                       .in('id', selectedPinIds);
 
+                    if (pinsError) {
+                      throw new Error(`Failed to fetch pins: ${pinsError.message}`);
+                    }
+
                     if (!pins || pins.length === 0) {
-                      alert('No members found for selected pins');
+                      alert('No members found for selected pins. Please select pins that have associated members.');
                       return;
                     }
 
                     // Extract unique member IDs
                     const memberIds = [...new Set(pins.map(p => p.member_id).filter(id => id !== null))];
+                    console.log('👥 Unique member IDs:', memberIds.length);
 
                     if (memberIds.length === 0) {
-                      alert('Selected pins have no associated members');
+                      alert('Selected pins have no associated members. Please link pins to members first.');
                       return;
                     }
 
                     // Fetch member data and readings
-                    const { data: members } = await supabase
+                    console.log('📥 Fetching member data...');
+                    const { data: members, error: membersError } = await supabase
                       .from('members')
                       .select('*')
                       .in('id', memberIds)
                       .order('member_mark');
 
+                    if (membersError) {
+                      throw new Error(`Failed to fetch members: ${membersError.message}`);
+                    }
+
                     if (!members || members.length === 0) {
-                      alert('No member data found');
+                      alert('No member data found for the selected pins.');
                       return;
                     }
 
-                    const { data: projectData } = await supabase
+                    console.log('📥 Fetching project data...');
+                    const { data: projectData, error: projectError } = await supabase
                       .from('projects')
                       .select('*, organizations(name, logo_url)')
                       .eq('id', project.id)
                       .single();
 
+                    if (projectError) {
+                      throw new Error(`Failed to fetch project: ${projectError.message}`);
+                    }
+
                     // Fetch readings for each member
+                    console.log('📊 Fetching inspection readings...');
                     const readingsMap = new Map();
+                    let totalReadings = 0;
+
                     for (const member of members) {
-                      const { data: readings } = await supabase
+                      const { data: readings, error: readingsError } = await supabase
                         .from('inspection_readings')
                         .select('*')
                         .eq('member_id', member.id)
                         .order('sequence_number');
 
+                      if (readingsError) {
+                        console.warn(`⚠️ Error fetching readings for ${member.member_mark}:`, readingsError);
+                        continue;
+                      }
+
                       if (readings && readings.length > 0) {
                         readingsMap.set(member.id, readings);
+                        totalReadings += readings.length;
+                        console.log(`   ${member.member_mark}: ${readings.length} readings`);
                       }
                     }
 
+                    console.log(`📊 Total readings fetched: ${totalReadings}`);
+
+                    if (readingsMap.size === 0) {
+                      alert('No inspection readings found for the selected members. Please add DFT readings first.');
+                      return;
+                    }
+
                     // Generate PDF using jsPDF
+                    console.log('🎨 Generating PDF...');
                     await generateProfessionalDFTReport(projectData, members, readingsMap);
-                  } catch (error) {
-                    console.error('Error generating professional report:', error);
-                    alert('Failed to generate report. Please try again.');
+                    console.log('✅ Professional DFT Report completed!');
+                  } catch (error: any) {
+                    console.error('❌ Error generating professional report:', error);
+                    console.error('Error stack:', error.stack);
+                    const errorMessage = error.message || 'Unknown error occurred';
+                    alert(`Failed to generate report: ${errorMessage}\n\nPlease check the browser console for details.`);
                   } finally {
                     setGeneratingProfessionalReport(false);
+                    console.log('🏁 Professional DFT Report - Process complete');
                   }
                 }}
               />
