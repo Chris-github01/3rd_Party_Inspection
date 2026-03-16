@@ -18,8 +18,8 @@ import { addIntroductionToPDF } from '../lib/pdfIntroduction';
 import { addExecutiveSummaryToPDF } from '../lib/pdfExecutiveSummary';
 import { addMarkupDrawingsSection } from '../lib/pdfMarkupDrawings';
 import { blobToCleanDataURL } from '../lib/pinPhotoUtils';
-import { calculateReadingStats, buildHistogram } from '../lib/readingStatistics';
 import { useToast } from '../contexts/ToastContext';
+import { generateProfessionalDftReport } from '../lib/exports/professionalReport/generateProfessionalDftReport';
 
 // Feature flag to temporarily disable drawing previews for debugging
 const INCLUDE_DRAWING_PREVIEWS = true;
@@ -31,6 +31,18 @@ function normalizeStoragePath(path?: string | null): string | null {
 }
 
 async function generateProfessionalDFTReport(
+  projectData: any,
+  members: any[],
+  readingsMap: Map<string, any[]>
+) {
+  const doc = await generateProfessionalDftReport(projectData, members, readingsMap);
+  const filename = `DFT-Inspection-Report-${(projectData?.name || 'Report').replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+  doc.save(filename);
+}
+
+// Old implementation removed - using new professional report generator
+
+async function generateProfessionalDFTReportOLD(
   projectData: any,
   members: any[],
   readingsMap: Map<string, any[]>
@@ -220,10 +232,7 @@ async function generateProfessionalDFTReport(
     doc.text(`Page ${i} of ${totalPages}`, 105, 290, { align: 'center' });
   }
 
-  const filename = `Professional_DFT_Report_${(projectData?.name || 'Report').replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
-  console.log(`💾 Saving PDF: ${filename}`);
-  doc.save(filename);
-  console.log('✅ Professional DFT Report generated successfully!');
+  // Old implementation removed - see generateProfessionalDFTReport wrapper above
 }
 
 interface Project {
