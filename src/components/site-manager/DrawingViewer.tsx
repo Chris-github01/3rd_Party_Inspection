@@ -78,6 +78,8 @@ export function DrawingViewer({
   const [renderedWidth, setRenderedWidth] = useState(0);
   const [renderedHeight, setRenderedHeight] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [draggingPin, setDraggingPin] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -224,13 +226,26 @@ export function DrawingViewer({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (addingPin) return;
+    if (addingPin || draggingPin) return;
     setIsPanning(true);
     setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isPanning) {
+    if (draggingPin) {
+      const targetElement = isPdf ? canvasRef.current : imageRef.current;
+      if (!targetElement) return;
+
+      const rect = targetElement.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+      setPins(prevPins =>
+        prevPins.map(pin =>
+          pin.id === draggingPin ? { ...pin, x, y } : pin
+        )
+      );
+    } else if (isPanning) {
       setPan({
         x: e.clientX - panStart.x,
         y: e.clientY - panStart.y,
@@ -238,7 +253,28 @@ export function DrawingViewer({
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = async () => {
+    if (draggingPin) {
+      const draggedPin = pins.find(p => p.id === draggingPin);
+      if (draggedPin) {
+        try {
+          const { error } = await supabase
+            .from('drawing_pins')
+            .update({
+              x: draggedPin.x,
+              y: draggedPin.y,
+            })
+            .eq('id', draggingPin);
+
+          if (error) throw error;
+          console.log('[DrawingViewer] Pin position updated successfully');
+        } catch (error) {
+          console.error('[DrawingViewer] Error updating pin position:', error);
+          loadPins();
+        }
+      }
+      setDraggingPin(null);
+    }
     setIsPanning(false);
   };
 
@@ -258,9 +294,28 @@ export function DrawingViewer({
     }
   };
 
+  const handlePinMouseDown = (pin: Pin, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (addingPin) return;
+
+    setDraggingPin(pin.id);
+
+    const targetElement = isPdf ? canvasRef.current : imageRef.current;
+    if (!targetElement) return;
+
+    const rect = targetElement.getBoundingClientRect();
+    const pinCenterX = pin.x * rect.width;
+    const pinCenterY = pin.y * rect.height;
+
+    setDragOffset({
+      x: e.clientX - rect.left - pinCenterX,
+      y: e.clientY - rect.top - pinCenterY,
+    });
+  };
+
   const handlePinClick = (pin: Pin, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!addingPin) {
+    if (!addingPin && !draggingPin) {
       setSelectedPin(pin);
     }
   };
@@ -437,7 +492,7 @@ export function DrawingViewer({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        style={{ cursor: addingPin ? 'crosshair' : isPanning ? 'grabbing' : 'grab' }}
+        style={{ cursor: addingPin ? 'crosshair' : (draggingPin || isPanning) ? 'grabbing' : 'grab' }}
       >
         <div
           className="absolute inset-0 flex items-center justify-center"
@@ -463,13 +518,17 @@ export function DrawingViewer({
                   {filteredPins.map((pin) => (
                     <button
                       key={pin.id}
+                      onMouseDown={(e) => handlePinMouseDown(pin, e)}
                       onClick={(e) => handlePinClick(pin, e)}
                       className={`absolute w-8 h-8 -ml-4 -mt-8 ${getPinColor(
                         pin.status
-                      )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center pointer-events-auto`}
+                      )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center pointer-events-auto ${
+                        draggingPin === pin.id ? 'scale-125 cursor-grabbing' : 'cursor-grab'
+                      }`}
                       style={{
                         left: `${pin.x * 100}%`,
                         top: `${pin.y * 100}%`,
+                        transition: draggingPin === pin.id ? 'none' : 'transform 0.2s',
                       }}
                       title={pin.label}
                     >
@@ -491,13 +550,17 @@ export function DrawingViewer({
                 {filteredPins.map((pin) => (
                   <button
                     key={pin.id}
+                    onMouseDown={(e) => handlePinMouseDown(pin, e)}
                     onClick={(e) => handlePinClick(pin, e)}
                     className={`absolute w-8 h-8 -ml-4 -mt-8 ${getPinColor(
                       pin.status
-                    )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center`}
+                    )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center ${
+                      draggingPin === pin.id ? 'scale-125 cursor-grabbing' : 'cursor-grab'
+                    }`}
                     style={{
                       left: `${pin.x * 100}%`,
                       top: `${pin.y * 100}%`,
+                      transition: draggingPin === pin.id ? 'none' : 'transform 0.2s',
                     }}
                     title={pin.label}
                   >
@@ -543,7 +606,7 @@ export function DrawingViewer({
           <span>
             {addingPin
               ? 'Click on the drawing to place a pin'
-              : 'Use mouse wheel to zoom, drag to pan'}
+              : 'Drag pins to reposition • Use mouse wheel to zoom, drag to pan'}
           </span>
         </div>
       </div>
