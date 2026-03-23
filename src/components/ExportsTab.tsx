@@ -1908,10 +1908,17 @@ export function ExportsTab({ project }: { project: Project }) {
               </ul>
             </div>
 
-            <div className="bg-white rounded-lg p-4 border-2 border-purple-200">
-              <InspectedMemberSelector
-                projectId={project.id}
-                onGenerateReport={async (selectedPinIds) => {
+            <div className="space-y-4">
+              <DateTimeRangeSelector
+                onRangesChange={setProfessionalReportDateRanges}
+                enabled={professionalReportCustomDatesEnabled}
+                onEnabledChange={setProfessionalReportCustomDatesEnabled}
+              />
+
+              <div className="bg-white rounded-lg p-4 border-2 border-purple-200">
+                <InspectedMemberSelector
+                  projectId={project.id}
+                  onGenerateReport={async (selectedPinIds) => {
                   setGeneratingProfessionalReport(true);
                   console.log('🚀 Professional DFT Report - Starting generation');
                   console.log('📌 Selected pin IDs:', selectedPinIds.length);
@@ -2016,6 +2023,7 @@ export function ExportsTab({ project }: { project: Project }) {
                   }
                 }}
               />
+              </div>
             </div>
 
             {generatingProfessionalReport && (
