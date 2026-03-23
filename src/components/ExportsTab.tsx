@@ -9,6 +9,7 @@ import { PDFDocument } from 'pdf-lib';
 import { createDividerPage } from '../lib/pdfUtils';
 import { InspectedMemberSelector } from './InspectedMemberSelector';
 import { PhotoExportPinSelector } from './PhotoExportPinSelector';
+import { DateTimeRangeSelector, DateTimeRange } from './DateTimeRangeSelector';
 import { generateInspectionReportWithPhotos } from '../lib/pdfInspectionWithPhotos';
 import { generateEnhancedInspectionReportWithPhotos } from '../lib/pdfInspectionWithPhotosEnhanced';
 import { generateQuantityReadingsPhotoReport } from '../lib/pdfQuantityReadingsWithPhotos';
@@ -257,6 +258,8 @@ export function ExportsTab({ project }: { project: Project }) {
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
+  const [professionalReportDateRanges, setProfessionalReportDateRanges] = useState<DateTimeRange[]>([]);
+  const [professionalReportCustomDatesEnabled, setProfessionalReportCustomDatesEnabled] = useState(false);
 
   useEffect(() => {
     loadAttachments();
