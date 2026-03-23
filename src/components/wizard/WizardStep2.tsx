@@ -6,9 +6,9 @@ import { WizardData } from '../ProjectWizard';
 interface Client {
   id: string;
   name: string;
-  main_contractor: string;
-  contact_name: string;
-  contact_email: string;
+  company: string;
+  contact_person: string;
+  email: string;
 }
 
 interface WizardStep2Props {
@@ -23,10 +23,10 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
   const [creating, setCreating] = useState(false);
   const [newClient, setNewClient] = useState({
     name: '',
-    main_contractor: '',
-    contact_name: '',
-    contact_email: '',
-    contact_phone: '',
+    company: '',
+    contact_person: '',
+    email: '',
+    phone: '',
   });
 
   useEffect(() => {
@@ -52,6 +52,10 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
       alert('Client name is required');
       return;
     }
+    if (!newClient.company.trim()) {
+      alert('Company is required');
+      return;
+    }
 
     setCreating(true);
     try {
@@ -71,10 +75,10 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
       setShowCreate(false);
       setNewClient({
         name: '',
-        main_contractor: '',
-        contact_name: '',
-        contact_email: '',
-        contact_phone: '',
+        company: '',
+        contact_person: '',
+        email: '',
+        phone: '',
       });
     } catch (error: any) {
       console.error('Error creating client:', error);
@@ -172,15 +176,15 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
                       <h5 className="font-semibold text-white">
                         {client.name}
                       </h5>
-                      {client.main_contractor && (
+                      {client.company && (
                         <p className="text-sm text-slate-300 mt-1">
-                          Main Contractor: {client.main_contractor}
+                          Company: {client.company}
                         </p>
                       )}
-                      {client.contact_name && (
+                      {client.contact_person && (
                         <p className="text-xs text-slate-400 mt-1">
-                          Contact: {client.contact_name}
-                          {client.contact_email && ` (${client.contact_email})`}
+                          Contact: {client.contact_person}
+                          {client.email && ` (${client.email})`}
                         </p>
                       )}
                     </div>
@@ -230,13 +234,13 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Main Contractor
+              Company <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              value={newClient.main_contractor}
+              value={newClient.company}
               onChange={(e) =>
-                setNewClient({ ...newClient, main_contractor: e.target.value })
+                setNewClient({ ...newClient, company: e.target.value })
               }
               placeholder="e.g., Fletcher Construction"
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
@@ -245,13 +249,13 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Contact Name
+              Contact Person
             </label>
             <input
               type="text"
-              value={newClient.contact_name}
+              value={newClient.contact_person}
               onChange={(e) =>
-                setNewClient({ ...newClient, contact_name: e.target.value })
+                setNewClient({ ...newClient, contact_person: e.target.value })
               }
               placeholder="e.g., John Smith"
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
@@ -260,13 +264,13 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Contact Email
+              Email
             </label>
             <input
               type="email"
-              value={newClient.contact_email}
+              value={newClient.email}
               onChange={(e) =>
-                setNewClient({ ...newClient, contact_email: e.target.value })
+                setNewClient({ ...newClient, email: e.target.value })
               }
               placeholder="e.g., john.smith@example.com"
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
@@ -275,13 +279,13 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Contact Phone
+              Phone
             </label>
             <input
               type="tel"
-              value={newClient.contact_phone}
+              value={newClient.phone}
               onChange={(e) =>
-                setNewClient({ ...newClient, contact_phone: e.target.value })
+                setNewClient({ ...newClient, phone: e.target.value })
               }
               placeholder="e.g., +64 21 123 4567"
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder-slate-400"
@@ -291,7 +295,7 @@ export function WizardStep2({ data, updateData }: WizardStep2Props) {
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleCreateClient}
-              disabled={creating || !newClient.name.trim()}
+              disabled={creating || !newClient.name.trim() || !newClient.company.trim()}
               className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {creating ? 'Creating...' : 'Create Client'}

@@ -11,11 +11,11 @@ interface CreateClientModalProps {
 export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientModalProps) {
   const [formData, setFormData] = useState({
     name: '',
-    main_contractor: '',
-    contact_name: '',
-    contact_email: '',
-    contact_phone: '',
-    billing_notes: '',
+    company: '',
+    contact_person: '',
+    email: '',
+    phone: '',
+    address: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -36,11 +36,11 @@ export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientMo
       onClose();
       setFormData({
         name: '',
-        main_contractor: '',
-        contact_name: '',
-        contact_email: '',
-        contact_phone: '',
-        billing_notes: '',
+        company: '',
+        contact_person: '',
+        email: '',
+        phone: '',
+        address: '',
       });
     } catch (err: any) {
       console.error('Error creating client:', err);
@@ -90,25 +90,26 @@ export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientMo
 
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-white mb-1">
-                    Main Contractor
+                    Company
                   </label>
                   <input
                     type="text"
-                    value={formData.main_contractor}
-                    onChange={(e) => setFormData({ ...formData, main_contractor: e.target.value })}
+                    required
+                    value={formData.company}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Contractor Name"
+                    placeholder="Company Name"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-white mb-1">
-                    Contact Name
+                    Contact Person
                   </label>
                   <input
                     type="text"
-                    value={formData.contact_name}
-                    onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                    value={formData.contact_person}
+                    onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="John Smith"
                   />
@@ -116,12 +117,12 @@ export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientMo
 
                 <div>
                   <label className="block text-sm font-medium text-white mb-1">
-                    Contact Email
+                    Email
                   </label>
                   <input
                     type="email"
-                    value={formData.contact_email}
-                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="john@company.com"
                   />
@@ -129,12 +130,12 @@ export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientMo
 
                 <div>
                   <label className="block text-sm font-medium text-white mb-1">
-                    Contact Phone
+                    Phone
                   </label>
                   <input
                     type="tel"
-                    value={formData.contact_phone}
-                    onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="+64 21 123 4567"
                   />
@@ -142,14 +143,14 @@ export function CreateClientModal({ isOpen, onClose, onSuccess }: CreateClientMo
 
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-white mb-1">
-                    Billing Notes
+                    Address
                   </label>
                   <textarea
                     rows={3}
-                    value={formData.billing_notes}
-                    onChange={(e) => setFormData({ ...formData, billing_notes: e.target.value })}
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Net 30 days. PO required."
+                    placeholder="123 Main Street, Auckland 1010"
                   />
                 </div>
               </div>
