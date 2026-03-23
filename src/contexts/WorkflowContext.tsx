@@ -93,6 +93,7 @@ export function WorkflowProvider({ children, projectId }: { children: ReactNode;
   // Initial load
   useEffect(() => {
     loadWorkflowState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   // Subscribe to workflow state changes
