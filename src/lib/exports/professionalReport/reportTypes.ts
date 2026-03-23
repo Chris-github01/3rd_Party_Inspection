@@ -59,3 +59,15 @@ export interface MemberReportData {
   requiredDft: number;
   inspectionDate?: string;
 }
+
+export interface DateTimeRange {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface ReportGenerationOptions {
+  dateTimeRanges?: DateTimeRange[];
+  customDatesEnabled?: boolean;
+}

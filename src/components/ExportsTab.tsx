@@ -34,9 +34,10 @@ function normalizeStoragePath(path?: string | null): string | null {
 async function generateProfessionalDFTReport(
   projectData: any,
   members: any[],
-  readingsMap: Map<string, any[]>
+  readingsMap: Map<string, any[]>,
+  options?: any
 ) {
-  const doc = await generateProfessionalDftReport(projectData, members, readingsMap);
+  const doc = await generateProfessionalDftReport(projectData, members, readingsMap, options);
   const filename = `DFT-Inspection-Report-${(projectData?.name || 'Report').replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
   doc.save(filename);
 }
@@ -1984,6 +1985,7 @@ export function ExportsTab({ project }: { project: Project }) {
                     console.log('📊 Fetching inspection readings...');
                     const readingsMap = new Map();
                     let totalReadings = 0;
+                    const allReadingIds: string[] = [];
 
                     for (const member of members) {
                       const { data: readings, error: readingsError } = await supabase
@@ -2000,6 +2002,7 @@ export function ExportsTab({ project }: { project: Project }) {
                       if (readings && readings.length > 0) {
                         readingsMap.set(member.id, readings);
                         totalReadings += readings.length;
+                        allReadingIds.push(...readings.map(r => r.id));
                         console.log(`   ${member.member_mark}: ${readings.length} readings`);
                       }
                     }
@@ -2011,9 +2014,54 @@ export function ExportsTab({ project }: { project: Project }) {
                       return;
                     }
 
+                    // Apply custom date/time ranges if enabled
+                    if (professionalReportCustomDatesEnabled && professionalReportDateRanges.length > 0) {
+                      console.log('📅 Applying custom date/time ranges...');
+                      const { distributeTimestampsAcrossRanges } = await import('../lib/dateTimeDistribution');
+
+                      const distributedTimestamps = distributeTimestampsAcrossRanges(
+                        allReadingIds,
+                        professionalReportDateRanges
+                      );
+
+                      console.log(`   Updating ${distributedTimestamps.length} reading timestamps...`);
+
+                      for (const { readingId, timestamp } of distributedTimestamps) {
+                        const { error: updateError } = await supabase
+                          .from('inspection_readings')
+                          .update({ created_at: timestamp.toISOString() })
+                          .eq('id', readingId);
+
+                        if (updateError) {
+                          console.warn(`⚠️ Failed to update timestamp for reading ${readingId}:`, updateError);
+                        }
+                      }
+
+                      // Re-fetch readings to get updated timestamps
+                      console.log('🔄 Re-fetching readings with updated timestamps...');
+                      readingsMap.clear();
+
+                      for (const member of members) {
+                        const { data: updatedReadings, error: refetchError } = await supabase
+                          .from('inspection_readings')
+                          .select('*')
+                          .eq('member_id', member.id)
+                          .order('sequence_number');
+
+                        if (!refetchError && updatedReadings && updatedReadings.length > 0) {
+                          readingsMap.set(member.id, updatedReadings);
+                        }
+                      }
+
+                      console.log('✅ Timestamps updated successfully');
+                    }
+
                     // Generate PDF using jsPDF
                     console.log('🎨 Generating PDF...');
-                    await generateProfessionalDFTReport(projectData, members, readingsMap);
+                    await generateProfessionalDFTReport(projectData, members, readingsMap, {
+                      dateTimeRanges: professionalReportCustomDatesEnabled ? professionalReportDateRanges : undefined,
+                      customDatesEnabled: professionalReportCustomDatesEnabled
+                    });
                     console.log('✅ Professional DFT Report completed!');
                   } catch (error: any) {
                     console.error('❌ Error generating professional report:', error);

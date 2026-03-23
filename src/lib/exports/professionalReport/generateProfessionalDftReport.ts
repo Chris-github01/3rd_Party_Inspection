@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
-import { MemberReportData, ReportMember, ReportReading, ReportProject } from './reportTypes';
+import { MemberReportData, ReportMember, ReportReading, ReportProject, ReportGenerationOptions } from './reportTypes';
 import { buildHistogramData, calculateStatistics } from './buildHistogramData';
 import { renderHistogramToImage } from './renderHistogramToImage';
 import { blobToCleanDataURL } from '../../pinPhotoUtils';
@@ -9,7 +9,8 @@ import { blobToCleanDataURL } from '../../pinPhotoUtils';
 export async function generateProfessionalDftReport(
   project: ReportProject,
   members: ReportMember[],
-  readingsMap: Map<string, ReportReading[]>
+  readingsMap: Map<string, ReportReading[]>,
+  options?: ReportGenerationOptions
 ): Promise<jsPDF> {
   console.log('[Professional DFT Report] Starting generation');
   console.log('[Professional DFT Report] Project:', project.name);
