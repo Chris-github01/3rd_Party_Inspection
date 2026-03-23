@@ -1124,7 +1124,7 @@ export function ExportsTab({ project }: { project: Project }) {
         ]);
 
         autoTable(doc, {
-          head: [['Pin #', 'Type', 'Member', 'Location', 'Dwg Page', 'Status', 'Photos']],
+          head: [['Pin #', 'Type', 'Member', 'Location', 'Dwg Page', 'Status', 'Comment']],
           body: pinsData,
           startY: yPos,
           theme: 'grid',
