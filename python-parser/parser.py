@@ -628,6 +628,19 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                         designation = re.sub(r"^(AU\s+|A\s+)", "", designation).strip()
                         designation_normalized = normalize_section(designation)
 
+                        # Extract member mark from Reference/Notes column
+                        # Look for patterns like C25b, W40a, B46b at the end of the line
+                        member_mark = None
+                        member_mark_patterns = [
+                            r"([CBWM]\d+[a-z]?)(?:\s*\[[^\]]+\])?(?:\s|$)",  # C25b [3], W40a
+                            r"([A-Z]{1,2}\d+[a-z]?)(?:\s*\[[^\]]+\])?(?:\s|$)",  # Generic pattern
+                        ]
+                        for pattern in member_mark_patterns:
+                            mark_match = re.search(pattern, line)
+                            if mark_match:
+                                member_mark = mark_match.group(1).strip()
+                                break
+
                         # Extract DFT - look for decimal numbers in mm (0.441, 0.422, etc.)
                         dft_microns = None
                         dft_matches = re.findall(r"0\.(\d{3})", line)
@@ -650,7 +663,7 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                             "page": page_number,
                             "line": line_num,
                             "raw_text": line[:200],
-                            "member_mark": None,
+                            "member_mark": member_mark,
                             "section_size_raw": designation,
                             "section_size_normalized": designation_normalized,
                             "frr_minutes": current_frr,
@@ -678,23 +691,29 @@ def parse_jotun_schedule(pdf_path: str) -> Dict[str, Any]:
                 }
 
             # Deduplicate items - Jotun PDFs often have multiple tables with same members
+            # Use member_mark if available, otherwise use section
             # Keep the item with the LOWEST DFT value (typically the water-based product)
-            seen_sections = {}
+            seen_items = {}
             deduplicated_items = []
             for item in items:
-                section = item["section_size_normalized"]
-                if section not in seen_sections:
-                    seen_sections[section] = item
+                # Create unique key: use member_mark if available, otherwise use section + element_type
+                if item["member_mark"]:
+                    key = item["member_mark"]
+                else:
+                    key = f"{item['section_size_normalized']}_{item.get('element_type', 'unknown')}"
+
+                if key not in seen_items:
+                    seen_items[key] = item
                     deduplicated_items.append(item)
                 else:
-                    # If we've seen this section, keep the one with lower DFT
-                    existing = seen_sections[section]
+                    # If we've seen this key, keep the one with lower DFT
+                    existing = seen_items[key]
                     if item["dft_required_microns"] and existing["dft_required_microns"]:
                         if item["dft_required_microns"] < existing["dft_required_microns"]:
                             # Replace with the lower DFT version
                             deduplicated_items.remove(existing)
                             deduplicated_items.append(item)
-                            seen_sections[section] = item
+                            seen_items[key] = item
 
             return {
                 "status": "completed",
