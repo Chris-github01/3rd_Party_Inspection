@@ -153,7 +153,7 @@ function generateFullIntroduction(data: IntroductionData, dateRange: string): st
     '- Environmental conditions monitoring (temperature, humidity, dew point) at time of application and inspection',
     '- Material traceability and compliance verification against Product Data Sheets (PDS), Safety Data Sheets (SDS), and approved specifications',
     '- Comprehensive photographic documentation of representative areas, typical conditions, and any non-conformances identified',
-    '- Verification of applied fire resistance ratings (FRR) against fire engineering loading schedules and design documentation',
+    '- Verification of applied fire resistance ratings (FRR) against Manufacturers loading schedules and design documentation',
     '- Assessment of workmanship quality and identification of defects or deficiencies requiring rectification',
   ];
 
@@ -193,7 +193,7 @@ function generateFullIntroduction(data: IntroductionData, dateRange: string): st
 
 ${companyName} has been formally engaged by ${clientName} to perform independent third-party audit inspections of ${systemType} at ${projectName}${projectRef}, located at ${siteAddress}. This inspection report provides a comprehensive record of all verification activities undertaken to assess compliance with the project specifications, approved manufacturer requirements, and relevant industry standards.
 
-The integrity of passive fire protection systems is critical to building safety, property protection, and regulatory compliance. These inspections serve to verify that fire protection systems have been installed in accordance with design intent, manufacturer specifications, and accepted industry practice. The audit provides documented evidence of compliance for quality assurance purposes and supports the certification process for building consent authorities.
+The integrity of Protective Coating systems is critical to building safety, property protection, and regulatory compliance. These inspections serve to verify that fire protection systems have been installed in accordance with design intent, manufacturer specifications, and accepted industry practice. The audit provides documented evidence of compliance for quality assurance purposes and supports the certification process for building consent authorities.
 
 1.2 Inspection Period and Methodology
 
@@ -219,7 +219,7 @@ The inspection methodology employed visual assessment, dimensional verification,
 
 1.4 Report Structure
 
-This report is structured to provide clear documentation of inspection findings, organized by project area, structural element, or fire protection system as appropriate. Each section includes detailed observations, measurement data, photographic evidence, and compliance assessment against the specified requirements.`;
+This report is structured to provide clear documentation of inspection findings, organized by project area, structural element, or fire protection system as appropriate. Each section includes detailed observations, measurement data, and compliance assessment against the specified requirements.`;
 }
 
 function generateShortIntroduction(data: IntroductionData, dateRange: string): string {
