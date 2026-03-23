@@ -5,6 +5,12 @@ export interface DistributedTimestamp {
   timestamp: Date;
 }
 
+export interface MemberReadings {
+  memberId: string;
+  memberMark: string;
+  readingIds: string[];
+}
+
 export function distributeTimestampsAcrossRanges(
   readingIds: string[],
   dateTimeRanges: DateTimeRange[]
@@ -16,76 +22,72 @@ export function distributeTimestampsAcrossRanges(
     }));
   }
 
-  const totalReadings = readingIds.length;
-  const timestamps: DistributedTimestamp[] = [];
+  return readingIds.map(id => ({
+    readingId: id,
+    timestamp: new Date()
+  }));
+}
 
-  const timeSlots: Date[] = [];
-  for (const range of dateTimeRanges) {
-    const slots = generateTimeSlotsForRange(range);
-    timeSlots.push(...slots);
+export function distributeMemberTimestamps(
+  members: MemberReadings[],
+  dateTimeRanges: DateTimeRange[]
+): DistributedTimestamp[] {
+  if (!dateTimeRanges || dateTimeRanges.length === 0) {
+    return [];
   }
 
-  timeSlots.sort((a, b) => a.getTime() - b.getTime());
+  const timestamps: DistributedTimestamp[] = [];
+  const sortedRanges = [...dateTimeRanges].sort((a, b) =>
+    new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime()
+  );
 
-  if (totalReadings <= timeSlots.length) {
-    const step = Math.floor(timeSlots.length / totalReadings);
-    for (let i = 0; i < totalReadings; i++) {
-      const slotIndex = Math.min(i * step, timeSlots.length - 1);
+  const totalMembers = members.length;
+  let currentRangeIndex = 0;
+  let currentTime = parseDateTime(sortedRanges[0]);
+  const rangeEndTime = parseDateTime(sortedRanges[0], true);
+
+  for (let memberIndex = 0; memberIndex < totalMembers; memberIndex++) {
+    const member = members[memberIndex];
+    const readingCount = member.readingIds.length;
+
+    for (let readingIndex = 0; readingIndex < readingCount; readingIndex++) {
+      const secondsPerReading = 5 + Math.random() * 3;
+      currentTime = new Date(currentTime.getTime() + secondsPerReading * 1000);
+
+      if (currentTime > rangeEndTime) {
+        currentRangeIndex++;
+        if (currentRangeIndex >= sortedRanges.length) {
+          currentRangeIndex = sortedRanges.length - 1;
+        }
+        currentTime = parseDateTime(sortedRanges[currentRangeIndex]);
+      }
+
       timestamps.push({
-        readingId: readingIds[i],
-        timestamp: timeSlots[slotIndex]
+        readingId: member.readingIds[readingIndex],
+        timestamp: new Date(currentTime)
       });
     }
-  } else {
-    for (let i = 0; i < totalReadings; i++) {
-      const slotIndex = i % timeSlots.length;
-      timestamps.push({
-        readingId: readingIds[i],
-        timestamp: timeSlots[slotIndex]
-      });
+
+    if (memberIndex < totalMembers - 1) {
+      const breakSeconds = 60 + Math.random() * 60;
+      currentTime = new Date(currentTime.getTime() + breakSeconds * 1000);
+
+      if (currentTime > rangeEndTime) {
+        currentRangeIndex++;
+        if (currentRangeIndex >= sortedRanges.length) {
+          break;
+        }
+        currentTime = parseDateTime(sortedRanges[currentRangeIndex]);
+      }
     }
   }
 
   return timestamps;
 }
 
-function generateTimeSlotsForRange(range: DateTimeRange): Date[] {
-  const slots: Date[] = [];
-
-  const [startHour, startMin] = range.startTime.split(':').map(Number);
-  const [endHour, endMin] = range.endTime.split(':').map(Number);
-
-  const startMinutes = startHour * 60 + startMin;
-  const endMinutes = endHour * 60 + endMin;
-  const durationMinutes = endMinutes - startMinutes;
-
-  if (durationMinutes <= 0) {
-    return slots;
-  }
-
-  const minInterval = 8;
-  const maxInterval = 15;
-  const avgInterval = (minInterval + maxInterval) / 2;
-
-  const numSlots = Math.floor(durationMinutes / avgInterval);
-
-  for (let i = 0; i < numSlots; i++) {
-    const randomInterval = minInterval + Math.random() * (maxInterval - minInterval);
-    const offsetMinutes = Math.floor(i * randomInterval);
-    const totalMinutes = startMinutes + offsetMinutes;
-
-    if (totalMinutes >= endMinutes) break;
-
-    const hour = Math.floor(totalMinutes / 60);
-    const minute = totalMinutes % 60;
-
-    const dateStr = range.date;
-    const timestamp = new Date(`${dateStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
-
-    slots.push(timestamp);
-  }
-
-  return slots;
+function parseDateTime(range: DateTimeRange, useEndTime: boolean = false): Date {
+  const time = useEndTime ? range.endTime : range.startTime;
+  return new Date(`${range.date}T${time}:00`);
 }
 
 export function calculateTotalDuration(dateTimeRanges: DateTimeRange[]): { hours: number; minutes: number } {

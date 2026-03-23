@@ -1985,7 +1985,11 @@ export function ExportsTab({ project }: { project: Project }) {
                     console.log('📊 Fetching inspection readings...');
                     const readingsMap = new Map();
                     let totalReadings = 0;
-                    const allReadingIds: string[] = [];
+                    const memberReadingsList: Array<{
+                      memberId: string;
+                      memberMark: string;
+                      readingIds: string[];
+                    }> = [];
 
                     for (const member of members) {
                       const { data: readings, error: readingsError } = await supabase
@@ -2002,7 +2006,11 @@ export function ExportsTab({ project }: { project: Project }) {
                       if (readings && readings.length > 0) {
                         readingsMap.set(member.id, readings);
                         totalReadings += readings.length;
-                        allReadingIds.push(...readings.map(r => r.id));
+                        memberReadingsList.push({
+                          memberId: member.id,
+                          memberMark: member.member_mark,
+                          readingIds: readings.map(r => r.id)
+                        });
                         console.log(`   ${member.member_mark}: ${readings.length} readings`);
                       }
                     }
@@ -2017,10 +2025,15 @@ export function ExportsTab({ project }: { project: Project }) {
                     // Apply custom date/time ranges if enabled
                     if (professionalReportCustomDatesEnabled && professionalReportDateRanges.length > 0) {
                       console.log('📅 Applying custom date/time ranges...');
-                      const { distributeTimestampsAcrossRanges } = await import('../lib/dateTimeDistribution');
+                      console.log(`   Simulating realistic inspection workflow:`);
+                      console.log(`   - 5-8 seconds per reading`);
+                      console.log(`   - 1-2 minute breaks between members`);
+                      console.log(`   - Members inspected sequentially`);
 
-                      const distributedTimestamps = distributeTimestampsAcrossRanges(
-                        allReadingIds,
+                      const { distributeMemberTimestamps } = await import('../lib/dateTimeDistribution');
+
+                      const distributedTimestamps = distributeMemberTimestamps(
+                        memberReadingsList,
                         professionalReportDateRanges
                       );
 
