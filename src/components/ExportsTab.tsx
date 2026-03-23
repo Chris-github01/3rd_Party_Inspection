@@ -2024,18 +2024,29 @@ export function ExportsTab({ project }: { project: Project }) {
                         professionalReportDateRanges
                       );
 
-                      console.log(`   Updating ${distributedTimestamps.length} reading timestamps...`);
+                      console.log(`   Updating ${distributedTimestamps.length} reading timestamps via batch RPC...`);
 
-                      for (const { readingId, timestamp } of distributedTimestamps) {
-                        const { error: updateError } = await supabase
-                          .from('inspection_readings')
-                          .update({ created_at: timestamp.toISOString() })
-                          .eq('id', readingId);
+                      // Convert to format expected by RPC function
+                      const updates = distributedTimestamps.map(({ readingId, timestamp }) => ({
+                        readingId,
+                        timestamp: timestamp.toISOString()
+                      }));
 
-                        if (updateError) {
-                          console.warn(`⚠️ Failed to update timestamp for reading ${readingId}:`, updateError);
+                      // Call the batch update RPC function
+                      const { data: updateCount, error: rpcError } = await supabase.rpc(
+                        'batch_update_reading_timestamps',
+                        {
+                          p_project_id: project.id,
+                          p_updates: updates
                         }
+                      );
+
+                      if (rpcError) {
+                        console.error('❌ Error updating timestamps:', rpcError);
+                        throw new Error(`Failed to update timestamps: ${rpcError.message}`);
                       }
+
+                      console.log(`✅ Updated ${updateCount} timestamps successfully`);
 
                       // Re-fetch readings to get updated timestamps
                       console.log('🔄 Re-fetching readings with updated timestamps...');
@@ -2053,7 +2064,7 @@ export function ExportsTab({ project }: { project: Project }) {
                         }
                       }
 
-                      console.log('✅ Timestamps updated successfully');
+                      console.log('✅ Timestamps applied successfully');
                     }
 
                     // Generate PDF using jsPDF
