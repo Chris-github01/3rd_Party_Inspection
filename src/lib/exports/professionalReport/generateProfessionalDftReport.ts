@@ -129,6 +129,7 @@ async function renderPage1(
   doc.setTextColor(80, 80, 80);
   const memberDetails = [
     data.member.section ? `Section: ${data.member.section}` : null,
+    data.member.coating_system ? `Product: ${data.member.coating_system}` : null,
     `Required DFT: ${data.requiredDft} µm`,
     data.member.steel_type ? `Steel Type: ${data.member.steel_type}` : null
   ].filter(Boolean).join(' | ');
@@ -145,6 +146,7 @@ async function renderPage1(
   renderMetadataPanel(doc, 78, yPos, 60, 32, 'Member Details', [
     { label: 'Member', value: data.member.member_mark },
     { label: 'Section', value: data.member.section || 'N/A' },
+    { label: 'Product', value: data.member.coating_system || 'N/A' },
     { label: 'Required DFT', value: `${data.requiredDft} µm` }
   ]);
 

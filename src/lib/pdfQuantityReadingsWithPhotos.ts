@@ -192,6 +192,7 @@ export async function generateQuantityReadingsPhotoReport(
     // Pin details in compact grid
     const details = [
       `Steel Type: ${pin.steel_type || 'N/A'}`,
+      `Product: ${pin.coating_product || 'N/A'}`,
       `Status: ${pin.status?.toUpperCase() || 'N/A'}`,
       `FRR: ${pin.frr_format || 'N/A'}`,
       `DFT: ${pin.dft_required_microns ? `${pin.dft_required_microns} um` : 'N/A'}`

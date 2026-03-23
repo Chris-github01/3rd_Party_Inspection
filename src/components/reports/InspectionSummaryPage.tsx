@@ -90,6 +90,9 @@ export function InspectionSummaryPage({
             { label: 'Section', value: member.section },
             { label: 'Level', value: member.level },
             { label: 'Block', value: member.block },
+            { label: 'Product', value: member.coating_system || 'Not specified' },
+            { label: 'Required DFT', value: `${member.required_dft_microns} µm` },
+            { label: 'FRR', value: `${member.frr_minutes} minutes` },
           ]}
         />
 
