@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Shield } from 'lucide-react';
+import { Shield, ArrowLeft } from 'lucide-react';
 import { getSafeErrorMessage } from '../lib/securityUtils';
 
 export function Login() {
@@ -30,6 +30,14 @@ export function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-white/80 hover:text-white text-sm font-medium mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Website
+        </Link>
+
         <div className="bg-white rounded-lg shadow-2xl p-8">
           <div className="flex items-center justify-center mb-8">
             <Shield className="w-12 h-12 text-primary-600 mr-3" />
