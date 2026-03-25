@@ -75,7 +75,7 @@ export function Layout({ children }: LayoutProps) {
   console.log('Layout - profile:', profile, 'canAccessSettings:', canAccessSettings);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex">
+    <div className="min-h-screen bg-[#0B0F14] flex">
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
@@ -88,19 +88,19 @@ export function Layout({ children }: LayoutProps) {
       <aside
         className={`${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed lg:static inset-y-0 left-0 z-50 w-64 lg:translate-x-0 bg-primary-900/95 lg:bg-primary-900/50 backdrop-blur-sm border-r border-primary-700/50 transition-transform duration-300 flex flex-col`}
+        } fixed lg:static inset-y-0 left-0 z-50 w-64 lg:translate-x-0 bg-[#0B0F14]/95 lg:bg-[#0B0F14]/50 backdrop-blur-sm border-r border-slate-800 transition-transform duration-300 flex flex-col`}
       >
         {/* Logo */}
-        <div className="h-16 border-b border-primary-700/50 flex items-center justify-between px-4">
+        <div className="h-16 border-b border-slate-800 flex items-center justify-between px-4">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold">
+            <div className="w-8 h-8 bg-gradient-to-br from-[#C8102E] to-[#A60E25] rounded-lg flex items-center justify-center text-white font-bold">
               P&R
             </div>
             <span className="ml-3 font-semibold text-white">P&R Consulting</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="p-1 hover:bg-primary-700/50 rounded text-white lg:hidden"
+            className="p-1 hover:bg-slate-800 rounded text-white lg:hidden"
           >
             <X className="w-5 h-5" />
           </button>
@@ -124,8 +124,8 @@ export function Layout({ children }: LayoutProps) {
                   }}
                   className={`w-full flex items-center px-3 py-2 rounded-lg transition-colors ${
                     active
-                      ? 'bg-primary-600 text-white'
-                      : 'text-blue-100 hover:bg-primary-700/50'
+                      ? 'bg-[#C8102E] text-white'
+                      : 'text-[#D1D5DB] hover:bg-slate-800'
                   }`}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
@@ -156,8 +156,8 @@ export function Layout({ children }: LayoutProps) {
                           }}
                           className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                             childActive
-                              ? 'bg-primary-600 text-white'
-                              : 'text-blue-200 hover:bg-primary-700/50'
+                              ? 'bg-[#C8102E] text-white'
+                              : 'text-[#D1D5DB] hover:bg-slate-800'
                           }`}
                         >
                           <ChildIcon className="w-4 h-4" />
@@ -173,22 +173,22 @@ export function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* User Section */}
-        <div className="border-t border-primary-700/50 p-4">
+        <div className="border-t border-slate-800 p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{profile?.name}</p>
-              <p className="text-xs text-blue-200 capitalize">{profile?.role}</p>
+              <p className="text-xs text-[#D1D5DB] capitalize">{profile?.role}</p>
             </div>
             <button
               onClick={handleSignOut}
-              className="p-2 text-blue-100 hover:bg-primary-700/50 rounded-lg"
+              className="p-2 text-[#D1D5DB] hover:bg-slate-800 rounded-lg"
             >
               <LogOut className="w-5 h-5" />
             </button>
           </div>
-          <div className="pt-3 border-t border-primary-700/50">
-            <p className="text-xs text-blue-200 text-center">
-              Prepared by <span className="font-semibold text-accent-400">P&R Consulting Limited</span>
+          <div className="pt-3 border-t border-slate-800">
+            <p className="text-xs text-[#D1D5DB] text-center">
+              Prepared by <span className="font-semibold text-[#C8102E]">P&R Consulting Limited</span>
             </p>
           </div>
         </div>
@@ -197,16 +197,16 @@ export function Layout({ children }: LayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
-        <header className="lg:hidden sticky top-0 z-30 bg-primary-900/95 backdrop-blur-sm border-b border-primary-700/50">
+        <header className="lg:hidden sticky top-0 z-30 bg-[#0B0F14]/95 backdrop-blur-sm border-b border-slate-800">
           <div className="flex items-center justify-between px-4 h-16">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 text-white hover:bg-primary-700/50 rounded-lg"
+              className="p-2 text-white hover:bg-slate-800 rounded-lg"
             >
               <Menu className="w-6 h-6" />
             </button>
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold">
+              <div className="w-8 h-8 bg-gradient-to-br from-[#C8102E] to-[#A60E25] rounded-lg flex items-center justify-center text-white font-bold">
                 P&R
               </div>
               <span className="ml-2 font-semibold text-white">P&R Consulting</span>

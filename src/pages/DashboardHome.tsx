@@ -131,7 +131,7 @@ export function DashboardHome() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-400"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C8102E]"></div>
       </div>
     );
   }
@@ -142,18 +142,18 @@ export function DashboardHome() {
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-            <p className="text-blue-100 mt-1">Welcome back, {profile?.name}</p>
+            <p className="text-[#D1D5DB] mt-1">Welcome back, {profile?.name}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-primary-500/20 rounded-lg">
-                <FolderOpen className="w-6 h-6 text-primary-300" />
+              <div className="p-3 bg-[#C8102E]/20 rounded-lg">
+                <FolderOpen className="w-6 h-6 text-[#C8102E]" />
               </div>
             </div>
             <h3 className="text-2xl font-bold text-white">{kpis.activeProjects}</h3>
-            <p className="text-sm text-blue-200">Active Projects</p>
+            <p className="text-sm text-[#D1D5DB]">Active Projects</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6">
@@ -163,7 +163,7 @@ export function DashboardHome() {
               </div>
             </div>
             <h3 className="text-2xl font-bold text-white">{kpis.inspectionsThisMonth}</h3>
-            <p className="text-sm text-blue-200">Inspections This Month</p>
+            <p className="text-sm text-[#D1D5DB]">Inspections This Month</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6">
@@ -173,7 +173,7 @@ export function DashboardHome() {
               </div>
             </div>
             <h3 className="text-2xl font-bold text-white">{kpis.openNCRs}</h3>
-            <p className="text-sm text-blue-200">Open NCRs</p>
+            <p className="text-sm text-[#D1D5DB]">Open NCRs</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6">
@@ -183,7 +183,7 @@ export function DashboardHome() {
               </div>
             </div>
             <h3 className="text-2xl font-bold text-white">{kpis.passRate.toFixed(1)}%</h3>
-            <p className="text-sm text-blue-200">Pass Rate</p>
+            <p className="text-sm text-[#D1D5DB]">Pass Rate</p>
           </div>
         </div>
 
@@ -194,44 +194,44 @@ export function DashboardHome() {
               <div className="space-y-3">
                 <button
                   onClick={() => navigate('/clients?new=true')}
-                  className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-primary-500 hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-[#C8102E] hover:bg-white/5 transition-colors"
                 >
-                  <div className="p-2 bg-primary-500/20 rounded-lg mr-3">
-                    <Users className="w-5 h-5 text-primary-300" />
+                  <div className="p-2 bg-[#C8102E]/20 rounded-lg mr-3">
+                    <Users className="w-5 h-5 text-[#C8102E]" />
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-white">Create Client</p>
-                    <p className="text-xs text-blue-200">Add new client record</p>
+                    <p className="text-xs text-[#D1D5DB]">Add new client record</p>
                   </div>
-                  <Plus className="w-5 h-5 text-blue-200" />
+                  <Plus className="w-5 h-5 text-[#D1D5DB]" />
                 </button>
 
                 <button
                   onClick={() => navigate('/projects?new=true')}
-                  className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-primary-500 hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-[#C8102E] hover:bg-white/5 transition-colors"
                 >
                   <div className="p-2 bg-green-500/20 rounded-lg mr-3">
                     <FolderOpen className="w-5 h-5 text-green-300" />
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-white">Create Project</p>
-                    <p className="text-xs text-blue-200">Start new inspection project</p>
+                    <p className="text-xs text-[#D1D5DB]">Start new inspection project</p>
                   </div>
-                  <Plus className="w-5 h-5 text-blue-200" />
+                  <Plus className="w-5 h-5 text-[#D1D5DB]" />
                 </button>
 
                 <button
                   onClick={() => navigate('/projects')}
-                  className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-primary-500 hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-[#C8102E] hover:bg-white/5 transition-colors"
                 >
-                  <div className="p-2 bg-purple-500/20 rounded-lg mr-3">
-                    <ClipboardCheck className="w-5 h-5 text-purple-300" />
+                  <div className="p-2 bg-[#C8102E]/20 rounded-lg mr-3">
+                    <ClipboardCheck className="w-5 h-5 text-[#C8102E]" />
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-white">New Inspection</p>
-                    <p className="text-xs text-blue-200">Choose project then member</p>
+                    <p className="text-xs text-[#D1D5DB]">Choose project then member</p>
                   </div>
-                  <Plus className="w-5 h-5 text-blue-200" />
+                  <Plus className="w-5 h-5 text-[#D1D5DB]" />
                 </button>
               </div>
             </div>
@@ -240,7 +240,7 @@ export function DashboardHome() {
             <div className={`bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 ${canEdit ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
             <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
             {activities.length === 0 ? (
-              <div className="text-center py-8 text-blue-200">
+              <div className="text-center py-8 text-[#D1D5DB]">
                 <Clock className="w-12 h-12 mx-auto mb-2 text-white/20" />
                 <p>No recent activity</p>
               </div>
@@ -257,7 +257,7 @@ export function DashboardHome() {
                           ? 'bg-green-500/20'
                           : activity.type === 'ncr'
                           ? 'bg-red-500/20'
-                          : 'bg-primary-500/20'
+                          : 'bg-[#C8102E]/20'
                       }`}
                     >
                       {activity.type === 'inspection' ? (
@@ -269,15 +269,15 @@ export function DashboardHome() {
                       ) : activity.type === 'ncr' ? (
                         <AlertTriangle className="w-4 h-4 text-red-300" />
                       ) : (
-                        <FolderOpen className="w-4 h-4 text-primary-300" />
+                        <FolderOpen className="w-4 h-4 text-[#C8102E]" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white">{activity.description}</p>
                       {activity.project_name && (
-                        <p className="text-xs text-blue-200 truncate">{activity.project_name}</p>
+                        <p className="text-xs text-[#D1D5DB] truncate">{activity.project_name}</p>
                       )}
-                      <p className="text-xs text-blue-300 mt-1">
+                      <p className="text-xs text-[#9CA3AF] mt-1">
                         {format(new Date(activity.timestamp), 'MMM d, yyyy HH:mm')}
                       </p>
                     </div>
