@@ -23,7 +23,7 @@ export function Login() {
       setError(getSafeErrorMessage(error, 'Invalid credentials. Please try again.'));
       setLoading(false);
     } else {
-      navigate('/');
+      navigate('/app');
     }
   };
 

@@ -26,6 +26,12 @@ import { PinsList } from './pages/site/PinsList';
 import { PinInspection } from './pages/site/PinInspection';
 import InspectPDF from './pages/InspectPDF';
 import InspectionReport from './pages/InspectionReport';
+import { PublicLayout } from './website/layout/PublicLayout';
+import { Home } from './website/pages/Home';
+import { About } from './website/pages/About';
+import { Services } from './website/pages/Services';
+import { ProjectsPage } from './website/pages/ProjectsPage';
+import { Contact } from './website/pages/Contact';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -61,10 +67,20 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <Routes>
+          {/* Public Website Routes */}
+          <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
+          <Route path="/about" element={<PublicLayout><About /></PublicLayout>} />
+          <Route path="/services" element={<PublicLayout><Services /></PublicLayout>} />
+          <Route path="/projects" element={<PublicLayout><ProjectsPage /></PublicLayout>} />
+          <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
+
+          {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+
+          {/* App Dashboard (moved from /) */}
           <Route
-            path="/"
+            path="/app"
             element={
               <PrivateRoute>
                 <DashboardHome />

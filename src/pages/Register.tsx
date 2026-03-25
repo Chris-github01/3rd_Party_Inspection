@@ -49,7 +49,7 @@ export function Register() {
       setError(getSafeErrorMessage(error, 'Registration failed. Please try again.'));
       setLoading(false);
     } else {
-      navigate('/');
+      navigate('/app');
     }
   };
 
