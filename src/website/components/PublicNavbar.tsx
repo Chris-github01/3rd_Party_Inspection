@@ -56,7 +56,7 @@ export function PublicNavbar() {
               to="/login"
               className="text-sm font-medium text-[#D1D5DB] hover:text-[#F5F7FA] transition-colors"
             >
-              Client Login
+              Inspector Login
             </Link>
             <Link
               to="/contact"
