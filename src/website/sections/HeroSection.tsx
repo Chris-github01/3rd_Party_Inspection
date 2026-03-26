@@ -6,6 +6,16 @@ export function HeroSection() {
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F14] via-[#121821] to-[#0B0F14]" />
 
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <img
+          src="/images/P&R_Logo.png"
+          alt="Background Logo"
+          className="w-[800px] max-w-none opacity-[0.06] blur-[1px] grayscale transform scale-110"
+        />
+      </div>
+
+      <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/85 to-black/95" />
+
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
           backgroundImage: 'linear-gradient(to right, #1e293b 1px, transparent 1px), linear-gradient(to bottom, #1e293b 1px, transparent 1px)',
@@ -13,7 +23,7 @@ export function HeroSection() {
         }} />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#121821] border border-slate-800 rounded-full mb-8">
           <Shield className="w-4 h-4 text-[#C8102E]" />
           <span className="text-[#D1D5DB] text-sm font-medium">
