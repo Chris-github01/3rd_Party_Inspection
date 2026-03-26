@@ -7,7 +7,7 @@ export function ServicesOverviewSection() {
       icon: Shield,
       title: 'Protective Coatings Inspection',
       description: 'AMPP-certified inspection of protective coating systems across industrial, infrastructure, and commercial projects.',
-      image: 'https://images.pexels.com/photos/4792484/pexels-photo-4792484.jpeg?auto=compress&cs=tinysrgb&w=800',
+      image: '/images/protective-coatings-inspection.jpg',
     },
     {
       icon: Flame,
