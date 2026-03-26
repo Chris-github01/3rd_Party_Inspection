@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { Shield } from 'lucide-react';
 
 export function PublicNavbar() {
   const location = useLocation();
@@ -18,11 +19,9 @@ export function PublicNavbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <Link to="/" className="flex items-center gap-3 group">
-            <img
-              src="/P&R_Logo.png"
-              alt="P&R Consulting"
-              className="h-12 w-auto"
-            />
+            <div className="w-10 h-10 bg-gradient-to-br from-[#C8102E] to-[#A60E25] rounded flex items-center justify-center">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
             <div className="flex flex-col">
               <span className="text-[#F5F7FA] font-bold text-lg tracking-tight">
                 P&R Consulting

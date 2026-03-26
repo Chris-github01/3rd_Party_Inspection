@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Shield, Mail, MapPin, Phone } from 'lucide-react';
 
 export function PublicFooter() {
   const currentYear = new Date().getFullYear();
@@ -9,11 +10,9 @@ export function PublicFooter() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-3 mb-4">
-              <img
-                src="/P&R_Logo.png"
-                alt="P&R Consulting"
-                className="h-12 w-auto"
-              />
+              <div className="w-10 h-10 bg-gradient-to-br from-[#C8102E] to-[#A60E25] rounded flex items-center justify-center">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
               <div className="flex flex-col">
                 <span className="text-[#F5F7FA] font-bold text-lg">
                   P&R Consulting Limited
