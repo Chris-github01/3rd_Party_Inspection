@@ -5,9 +5,11 @@ export function ClientLogosSection() {
     { name: 'Naylor Love', url: '/images/clients/naylor-love-logo.png' },
     { name: 'Watts & Hughes', url: '/images/clients/wh.png' },
     { name: 'Cook Brothers Construction', url: '/images/clients/CookBrothersConstructionBlockLogo_CMYK.jpg' },
+    { name: 'Hawkins', url: '/images/clients/hawk.png' },
+    { name: 'Cassidy Construction', url: '/images/clients/cass.png' },
   ];
 
-  const allLogos = [...logos, ...logos, ...logos];
+  const allLogos = [...logos, ...logos];
 
   return (
     <section className="bg-[#0B0F14] border-t border-slate-800 py-12 overflow-hidden">
