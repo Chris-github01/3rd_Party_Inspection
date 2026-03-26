@@ -29,16 +29,7 @@ export function ClientLogosSection() {
       setLogos(data || []);
     } catch (error) {
       console.error('Error fetching logos:', error);
-      // Fallback to hardcoded logos if database fails
-      setLogos([
-        { id: '1', name: 'LT McGuinness', logo_url: '/images/clients/LT-McGuinness-Logo-Colour-with-black.png', display_order: 1, preserve_colors: false },
-        { id: '2', name: 'Kalmar', logo_url: '/images/clients/Kalmar-Logo@2x.png', display_order: 2, preserve_colors: false },
-        { id: '3', name: 'Naylor Love', logo_url: '/images/clients/naylor-love-logo.png', display_order: 3, preserve_colors: false },
-        { id: '4', name: 'Watts & Hughes', logo_url: '/images/clients/wh.png', display_order: 4, preserve_colors: false },
-        { id: '5', name: 'Cook Brothers Construction', logo_url: '/images/clients/CookBrothersConstructionBlockLogo_CMYK.jpg', display_order: 5, preserve_colors: false },
-        { id: '6', name: 'Hawkins', logo_url: '/images/clients/hawk.png', display_order: 6, preserve_colors: true },
-        { id: '7', name: 'Cassidy Construction', logo_url: '/images/clients/cass.png', display_order: 7, preserve_colors: true },
-      ]);
+      setLogos([]);
     } finally {
       setLoading(false);
     }
@@ -57,6 +48,9 @@ export function ClientLogosSection() {
   // We need at least 2 full sets for the animation to loop seamlessly
   const allLogos = [...logos, ...logos];
 
+  // Dynamic animation duration based on number of logos (8 seconds per logo for smooth scrolling)
+  const animationDuration = Math.max(30, logos.length * 8);
+
   return (
     <section className="bg-[#0B0F14] border-t border-slate-800 py-12 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
@@ -74,7 +68,10 @@ export function ClientLogosSection() {
         <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0B0F14] to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0B0F14] to-transparent z-10 pointer-events-none" />
 
-        <div className="flex animate-scroll-logos will-change-transform">
+        <div
+          className="flex animate-scroll-logos will-change-transform"
+          style={{ animationDuration: `${animationDuration}s` }}
+        >
           {allLogos.map((logo, index) => (
             <div
               key={`${logo.id}-${index}`}
