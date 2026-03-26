@@ -3,12 +3,11 @@ export function ClientLogosSection() {
     { name: 'LT McGuinness', url: '/images/clients/LT-McGuinness-Logo-Colour-with-black.png' },
     { name: 'Kalmar', url: '/images/clients/Kalmar-Logo@2x.png' },
     { name: 'Naylor Love', url: '/images/clients/naylor-love-logo.png' },
-    { name: 'LT McGuinness', url: '/images/clients/LT-McGuinness-Logo-Colour-with-black.png' },
-    { name: 'Kalmar', url: '/images/clients/Kalmar-Logo@2x.png' },
-    { name: 'Naylor Love', url: '/images/clients/naylor-love-logo.png' },
+    { name: 'Watts & Hughes', url: '/images/clients/wh.png' },
+    { name: 'Cook Brothers Construction', url: '/images/clients/CookBrothersConstructionBlockLogo_CMYK.jpg' },
   ];
 
-  const allLogos = [...logos, ...logos];
+  const allLogos = [...logos, ...logos, ...logos];
 
   return (
     <section className="bg-[#0B0F14] border-t border-slate-800 py-12 overflow-hidden">
