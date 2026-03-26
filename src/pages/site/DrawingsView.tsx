@@ -253,11 +253,11 @@ export function DrawingsView() {
 
     setShowPinSetup(false);
     setDropMode(false);
-    navigate(`/projects/${projectId}/site/pins/${pinData.id}/inspect/${inspectionData.id}`);
+    navigate(`/app/projects/${projectId}/site/pins/${pinData.id}/inspect/${inspectionData.id}`);
   };
 
   const handlePinClick = (pin: Pin) => {
-    navigate(`/projects/${projectId}/site/pins/${pin.id}`);
+    navigate(`/app/projects/${projectId}/site/pins/${pin.id}`);
   };
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.25, 3));
@@ -322,7 +322,7 @@ export function DrawingsView() {
         <h3 className="text-lg font-medium text-slate-900 mb-2">No inspection packages</h3>
         <p className="text-slate-600 mb-4">Create an inspection package before dropping pins</p>
         <button
-          onClick={() => navigate(`/projects/${projectId}/site/packages`)}
+          onClick={() => navigate(`/app/projects/${projectId}/site/packages`)}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
         >
           Create Package

@@ -210,7 +210,7 @@ export function PinsList() {
           filteredPins.map((pin) => (
             <button
               key={pin.id}
-              onClick={() => navigate(`/projects/${projectId}/site/pins/${pin.id}`)}
+              onClick={() => navigate(`/app/projects/${projectId}/site/pins/${pin.id}`)}
               className="w-full bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 shadow-sm hover:shadow transition-shadow text-left"
             >
               <div className="flex items-start justify-between mb-2">

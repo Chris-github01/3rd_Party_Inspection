@@ -193,7 +193,7 @@ export function DashboardHome() {
               <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
               <div className="space-y-3">
                 <button
-                  onClick={() => navigate('/clients?new=true')}
+                  onClick={() => navigate('/app/clients?new=true')}
                   className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-[#C8102E] hover:bg-white/5 transition-colors"
                 >
                   <div className="p-2 bg-[#C8102E]/20 rounded-lg mr-3">
@@ -207,7 +207,7 @@ export function DashboardHome() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/projects?new=true')}
+                  onClick={() => navigate('/app/projects?new=true')}
                   className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-[#C8102E] hover:bg-white/5 transition-colors"
                 >
                   <div className="p-2 bg-green-500/20 rounded-lg mr-3">
@@ -221,7 +221,7 @@ export function DashboardHome() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/projects')}
+                  onClick={() => navigate('/app/projects')}
                   className="w-full flex items-center p-3 text-left border-2 border-white/10 rounded-lg hover:border-[#C8102E] hover:bg-white/5 transition-colors"
                 >
                   <div className="p-2 bg-[#C8102E]/20 rounded-lg mr-3">

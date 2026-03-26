@@ -385,7 +385,7 @@ export function PinInspection() {
     }
 
     toast.success(`Inspection marked as ${status}`);
-    navigate(`/projects/${projectId}/site/pins`);
+    navigate(`/app/projects/${projectId}/site/pins`);
   };
 
   const calculateStats = () => {

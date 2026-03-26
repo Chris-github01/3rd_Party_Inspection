@@ -1,20 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Outlet } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import {
-  Menu,
-  X,
-  MapPin,
-  Camera,
-  FileText,
-  Download,
-  Layout as LayoutIcon,
-  Package,
-  ChevronLeft,
-  Cloud,
-  CloudOff,
-  RefreshCw,
-} from 'lucide-react';
+import { Menu, X, MapPin, Camera, FileText, Download, LayoutGrid as LayoutIcon, Package, ChevronLeft, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -66,12 +53,12 @@ export function SiteMode() {
   };
 
   const handleExitSiteMode = () => {
-    navigate(`/projects/${projectId}`);
+    navigate(`/app/projects/${projectId}`);
   };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    navigate(`/projects/${projectId}/site/${tab === 'drawings' ? '' : tab}`);
+    navigate(`/app/projects/${projectId}/site/${tab === 'drawings' ? '' : tab}`);
   };
 
   if (!project) {
@@ -115,7 +102,7 @@ export function SiteMode() {
               )}
             </div>
             <button
-              onClick={() => navigate(`/projects/${projectId}/site/pins/new`)}
+              onClick={() => navigate(`/app/projects/${projectId}/site/pins/new`)}
               className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
               aria-label="Add pin"
             >
@@ -198,7 +185,7 @@ export function SiteMode() {
                   icon={Package}
                   label="Inspection Packages"
                   onClick={() => {
-                    navigate(`/projects/${projectId}/site/packages`);
+                    navigate(`/app/projects/${projectId}/site/packages`);
                     setDrawerOpen(false);
                   }}
                 />
@@ -206,7 +193,7 @@ export function SiteMode() {
                   icon={FileText}
                   label="Documents"
                   onClick={() => {
-                    navigate(`/projects/${projectId}/site/documents`);
+                    navigate(`/app/projects/${projectId}/site/documents`);
                     setDrawerOpen(false);
                   }}
                 />

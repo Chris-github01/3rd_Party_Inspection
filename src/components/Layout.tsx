@@ -25,17 +25,17 @@ export function Layout({ children }: LayoutProps) {
     {
       label: 'Dashboard',
       icon: LayoutDashboard,
-      path: '/',
+      path: '/app',
     },
     {
       label: 'Clients',
       icon: Users,
-      path: '/clients',
+      path: '/app/clients',
     },
     {
       label: 'Projects',
       icon: FolderOpen,
-      path: '/projects',
+      path: '/app/projects',
     },
     {
       label: 'Settings',
@@ -53,7 +53,7 @@ export function Layout({ children }: LayoutProps) {
 
   const isActive = (path?: string) => {
     if (!path) return false;
-    if (path === '/') return location.pathname === '/';
+    if (path === '/app') return location.pathname === '/app';
     return location.pathname.startsWith(path);
   };
 

@@ -52,18 +52,18 @@ export function PinDetailModal({ isOpen, pin, projectId, onClose, onUpdate }: Pi
   };
 
   const handleCreateInspection = () => {
-    navigate(`/projects/${projectId}?tab=inspections&createFromPin=${pin.id}`);
+    navigate(`/app/projects/${projectId}?tab=inspections&createFromPin=${pin.id}`);
     onClose();
   };
 
   const handleCreateNCR = () => {
-    navigate(`/projects/${projectId}?tab=ncrs&createFromPin=${pin.id}`);
+    navigate(`/app/projects/${projectId}?tab=ncrs&createFromPin=${pin.id}`);
     onClose();
   };
 
   const handleOpenInspection = () => {
     if (pin.inspection_id) {
-      navigate(`/projects/${projectId}?tab=inspections&inspection=${pin.inspection_id}`);
+      navigate(`/app/projects/${projectId}?tab=inspections&inspection=${pin.inspection_id}`);
       onClose();
     }
   };

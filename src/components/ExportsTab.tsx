@@ -1552,7 +1552,7 @@ export function ExportsTab({ project }: { project: Project }) {
 
       if (workspaceError) throw workspaceError;
 
-      navigate(`/projects/${project.id}/inspect-pdf/${workspace.id}`);
+      navigate(`/app/projects/${project.id}/inspect-pdf/${workspace.id}`);
     } catch (error) {
       console.error('Failed to open in InspectPDF:', error);
       alert('Failed to open PDF in InspectPDF. Please try again.');

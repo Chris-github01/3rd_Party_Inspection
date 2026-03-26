@@ -409,7 +409,7 @@ export function InspectPDFWorkspace({ workspaceId, projectId }: InspectPDFWorksp
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(`/projects/${projectId}`)}
+              onClick={() => navigate(`/app/projects/${projectId}`)}
               className="text-slate-600 hover:text-slate-900 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />

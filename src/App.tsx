@@ -78,7 +78,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* App Dashboard (moved from /) */}
+          {/* App Dashboard */}
           <Route
             path="/app"
             element={
@@ -88,7 +88,7 @@ function App() {
             }
           />
           <Route
-            path="/clients"
+            path="/app/clients"
             element={
               <PrivateRoute>
                 <Clients />
@@ -96,7 +96,7 @@ function App() {
             }
           />
           <Route
-            path="/projects"
+            path="/app/projects"
             element={
               <PrivateRoute>
                 <Projects />
@@ -104,7 +104,7 @@ function App() {
             }
           />
           <Route
-            path="/projects/:id"
+            path="/app/projects/:id"
             element={
               <PrivateRoute>
                 <ProjectDetail />
@@ -112,7 +112,7 @@ function App() {
             }
           />
           <Route
-            path="/projects/:projectId/inspect-pdf/:workspaceId"
+            path="/app/projects/:projectId/inspect-pdf/:workspaceId"
             element={
               <PrivateRoute>
                 <InspectPDF />
@@ -120,7 +120,7 @@ function App() {
             }
           />
           <Route
-            path="/inspection-report"
+            path="/app/inspection-report"
             element={
               <PrivateRoute>
                 <InspectionReport />
@@ -128,7 +128,7 @@ function App() {
             }
           />
           <Route
-            path="/projects/:projectId/site"
+            path="/app/projects/:projectId/site"
             element={
               <SiteModeRoute>
                 <SiteMode />

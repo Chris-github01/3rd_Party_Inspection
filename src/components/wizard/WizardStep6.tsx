@@ -77,7 +77,7 @@ export function WizardStep6({ data, onComplete }: WizardStep6Props) {
       }
 
       onComplete();
-      navigate(`/projects/${newProject.id}`);
+      navigate(`/app/projects/${newProject.id}`);
     } catch (err: any) {
       console.error('Error creating project:', err);
       setError(`Failed to create project: ${err.message}`);

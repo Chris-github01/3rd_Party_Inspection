@@ -35,7 +35,7 @@ export function Projects() {
     if (searchParams.get('new') === 'true') {
       setShowCreateModal(true);
       // Clean up URL parameter
-      navigate('/projects', { replace: true });
+      navigate('/app/projects', { replace: true });
     }
   }, [searchParams, navigate]);
 
@@ -99,7 +99,7 @@ export function Projects() {
                     Filtered by: {clientName}
                   </span>
                   <button
-                    onClick={() => navigate('/projects')}
+                    onClick={() => navigate('/app/projects')}
                     className="inline-flex items-center px-2 py-1 text-sm text-blue-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                   >
                     <X className="w-4 h-4 mr-1" />
@@ -128,7 +128,7 @@ export function Projects() {
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  onClick={() => navigate(`/projects/${project.id}`)}
+                  onClick={() => navigate(`/app/projects/${project.id}`)}
                   className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:shadow-lg transition-shadow cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-4">

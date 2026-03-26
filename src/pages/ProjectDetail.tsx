@@ -213,7 +213,7 @@ export function ProjectDetail() {
                   </button>
                 )}
                 <button
-                  onClick={() => navigate(`/projects/${project.id}/site`)}
+                  onClick={() => navigate(`/app/projects/${project.id}/site`)}
                   className="flex items-center space-x-2 px-3 sm:px-4 py-2 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                 >
                   <Smartphone className="w-5 h-5 flex-shrink-0" />
