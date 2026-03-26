@@ -28,7 +28,7 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0B0F14] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Link
           to="/"
@@ -40,9 +40,9 @@ export function Login() {
 
         <div className="bg-white rounded-lg shadow-2xl p-8">
           <div className="flex items-center justify-center mb-8">
-            <Shield className="w-12 h-12 text-primary-600 mr-3" />
+            <Shield className="w-12 h-12 text-[#C8102E] mr-3" />
             <div>
-              <h1 className="text-2xl font-bold text-primary-900">P&R Consulting Limited</h1>
+              <h1 className="text-2xl font-bold text-slate-900">P&R Consulting Limited</h1>
               <p className="text-sm text-slate-600">Project Inspection</p>
             </div>
           </div>
@@ -64,7 +64,7 @@ export function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
                 placeholder="inspector@example.com"
               />
             </div>
@@ -79,7 +79,7 @@ export function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
                 placeholder="••••••••"
               />
             </div>
@@ -87,7 +87,7 @@ export function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-[#C8102E] text-white py-2 px-4 rounded-lg font-medium hover:bg-[#A60E25] focus:outline-none focus:ring-2 focus:ring-[#C8102E] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
@@ -96,7 +96,7 @@ export function Login() {
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-600">
               Don't have an account?{' '}
-              <a href="/register" className="text-primary-600 hover:text-primary-700 font-medium">
+              <a href="/register" className="text-[#C8102E] hover:text-[#A60E25] font-medium">
                 Register
               </a>
             </p>
@@ -104,8 +104,8 @@ export function Login() {
         </div>
 
         <div className="mt-8 text-center">
-          <p className="text-xs text-slate-500">
-            Powered by <span className="font-semibold text-accent-500">P&R Consulting Limited</span>
+          <p className="text-xs text-slate-300">
+            Powered by <span className="font-semibold text-[#C8102E]">P&R Consulting Limited</span>
           </p>
         </div>
       </div>
