@@ -74,9 +74,19 @@
 }
 
 .animate-scroll-logos {
-  animation: scrollLogos 30s linear infinite;
+  animation: scrollLogos 40s linear infinite;
+  will-change: transform;
 }
 
 .animate-scroll-logos:hover {
   animation-play-state: paused;
+}
+
+/* Ensure smooth animation with hardware acceleration */
+@media (prefers-reduced-motion: no-preference) {
+  .animate-scroll-logos {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
 }

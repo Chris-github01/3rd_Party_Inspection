@@ -48,8 +48,14 @@ export function ClientLogosSection() {
     return null;
   }
 
-  // Duplicate logos array multiple times for seamless scrolling
-  const allLogos = [...logos, ...logos, ...logos];
+  // If no logos, don't render the section
+  if (logos.length === 0) {
+    return null;
+  }
+
+  // Duplicate logos array enough times for seamless infinite scrolling
+  // We need at least 2 full sets for the animation to loop seamlessly
+  const allLogos = [...logos, ...logos];
 
   return (
     <section className="bg-[#0B0F14] border-t border-slate-800 py-12 overflow-hidden">
@@ -65,10 +71,10 @@ export function ClientLogosSection() {
       </div>
 
       <div className="relative">
-        <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0B0F14] to-transparent z-10" />
-        <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0B0F14] to-transparent z-10" />
+        <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0B0F14] to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0B0F14] to-transparent z-10 pointer-events-none" />
 
-        <div className="flex animate-scroll-logos">
+        <div className="flex animate-scroll-logos will-change-transform">
           {allLogos.map((logo, index) => (
             <div
               key={`${logo.id}-${index}`}
