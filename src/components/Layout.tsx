@@ -1,7 +1,7 @@
 import { useState, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, FolderOpen, Settings, LogOut, Menu, X, ChevronDown, ChevronRight, Package, Layers, FileText, LayoutGrid as LayoutIcon, Building2, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, FolderOpen, Settings, LogOut, Menu, X, ChevronDown, ChevronRight, Package, Layers, FileText, LayoutGrid as LayoutIcon, Building2, ClipboardList, Image } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -47,6 +47,7 @@ export function Layout({ children }: LayoutProps) {
         { label: 'Reports', icon: FileText, path: '/settings/reports' },
         { label: 'Templates', icon: LayoutIcon, path: '/settings/templates' },
         { label: 'Onboarding', icon: ClipboardList, path: '/settings/onboarding' },
+        { label: 'Client Logos', icon: Image, path: '/settings/client-logos' },
       ],
     },
   ];

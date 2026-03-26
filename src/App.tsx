@@ -19,6 +19,7 @@ import { ProjectTemplateDetail } from './pages/settings/ProjectTemplateDetail';
 import { Organization } from './pages/settings/Organization';
 import { Organizations } from './pages/settings/Organizations';
 import { Onboarding } from './pages/settings/Onboarding';
+import ClientLogos from './pages/settings/ClientLogos';
 import { SiteMode } from './pages/SiteMode';
 import { InspectionPackages } from './pages/site/InspectionPackages';
 import { DrawingsView } from './pages/site/DrawingsView';
@@ -225,6 +226,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Onboarding />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/settings/client-logos"
+            element={
+              <PrivateRoute>
+                <ClientLogos />
               </PrivateRoute>
             }
           />
