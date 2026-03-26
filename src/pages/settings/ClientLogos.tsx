@@ -149,26 +149,27 @@ export default function ClientLogos() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-800">
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-slate-300">Order</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-slate-300">Preview</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-slate-300">Name</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-slate-300">URL</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-slate-300">Colors</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-slate-300">Status</th>
-                  <th className="text-right px-6 py-4 text-sm font-semibold text-slate-300">Actions</th>
+                  <th className="text-left px-4 py-4 text-sm font-semibold text-slate-300 w-24">Order</th>
+                  <th className="text-left px-4 py-4 text-sm font-semibold text-slate-300 w-28">Preview</th>
+                  <th className="text-left px-4 py-4 text-sm font-semibold text-slate-300">Name</th>
+                  <th className="text-left px-4 py-4 text-sm font-semibold text-slate-300">URL</th>
+                  <th className="text-left px-4 py-4 text-sm font-semibold text-slate-300 w-24">Colors</th>
+                  <th className="text-left px-4 py-4 text-sm font-semibold text-slate-300 w-24">Status</th>
+                  <th className="text-center px-4 py-4 text-sm font-semibold text-slate-300 w-20">Delete</th>
                 </tr>
               </thead>
               <tbody>
                 {logos.map((logo, index) => (
                   <tr key={logo.id} className="border-b border-slate-800 hover:bg-slate-800/30">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 font-mono">{logo.display_order}</span>
+                        <span className="text-slate-400 font-mono text-sm">{logo.display_order}</span>
                         <div className="flex flex-col">
                           <button
                             onClick={() => moveOrder(logo.id, 'up')}
                             disabled={index === 0}
                             className="p-1 hover:bg-slate-700 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move up"
                           >
                             <MoveUp className="w-3 h-3 text-slate-400" />
                           </button>
@@ -176,13 +177,14 @@ export default function ClientLogos() {
                             onClick={() => moveOrder(logo.id, 'down')}
                             disabled={index === logos.length - 1}
                             className="p-1 hover:bg-slate-700 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move down"
                           >
                             <MoveDown className="w-3 h-3 text-slate-400" />
                           </button>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="w-20 h-12 bg-slate-800 rounded flex items-center justify-center p-2">
                         <img
                           src={logo.logo_url}
@@ -193,44 +195,47 @@ export default function ClientLogos() {
                         />
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <span className="text-white font-medium">{logo.name}</span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <span className="text-slate-400 text-sm font-mono truncate max-w-xs block">
                         {logo.logo_url}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <button
                         onClick={() => togglePreserveColors(logo.id, logo.preserve_colors)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                           logo.preserve_colors
                             ? 'bg-blue-500/20 text-blue-300'
                             : 'bg-slate-700 text-slate-300'
                         }`}
+                        title="Toggle color preservation"
                       >
                         {logo.preserve_colors ? 'Original' : 'Filtered'}
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <button
                         onClick={() => toggleActive(logo.id, logo.active)}
-                        className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                        className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                           logo.active
                             ? 'bg-green-500/20 text-green-300'
                             : 'bg-slate-700 text-slate-400'
                         }`}
+                        title="Toggle visibility"
                       >
                         {logo.active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                         {logo.active ? 'Active' : 'Hidden'}
                       </button>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-center">
                         <button
                           onClick={() => deleteLogo(logo.id)}
-                          className="p-2 hover:bg-red-500/10 text-red-400 hover:text-red-300 rounded transition-colors"
+                          className="p-2 hover:bg-red-500/20 bg-red-500/10 text-red-400 hover:text-red-300 rounded-lg transition-colors border border-red-500/30 hover:border-red-500/50"
+                          title="Delete logo"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
