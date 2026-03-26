@@ -6,15 +6,15 @@ export function HeroSection() {
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F14] via-[#121821] to-[#0B0F14]" />
 
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/80" />
+
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <img
           src="/images/P&R_Logo.png"
           alt="Background Logo"
-          className="w-[800px] max-w-none opacity-[0.06] blur-[1px] grayscale transform scale-110"
+          className="w-[800px] max-w-none opacity-[0.08] blur-[0.5px] grayscale transform scale-110"
         />
       </div>
-
-      <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/85 to-black/95" />
 
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
