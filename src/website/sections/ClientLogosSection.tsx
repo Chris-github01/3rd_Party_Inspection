@@ -1,11 +1,11 @@
 export function ClientLogosSection() {
   const logos = [
-    { name: 'Client 1', url: '/images/clients/client-1.png' },
-    { name: 'Client 2', url: '/images/clients/client-2.png' },
-    { name: 'Client 3', url: '/images/clients/client-3.png' },
-    { name: 'Client 4', url: '/images/clients/client-4.png' },
-    { name: 'Client 5', url: '/images/clients/client-5.png' },
-    { name: 'Client 6', url: '/images/clients/client-6.png' },
+    { name: 'LT McGuinness', url: '/images/clients/LT-McGuinness-Logo-Colour-with-black.png' },
+    { name: 'Kalmar', url: '/images/clients/Kalmar-Logo@2x.png' },
+    { name: 'Naylor Love', url: '/images/clients/naylor-love-logo.png' },
+    { name: 'LT McGuinness', url: '/images/clients/LT-McGuinness-Logo-Colour-with-black.png' },
+    { name: 'Kalmar', url: '/images/clients/Kalmar-Logo@2x.png' },
+    { name: 'Naylor Love', url: '/images/clients/naylor-love-logo.png' },
   ];
 
   const allLogos = [...logos, ...logos];
