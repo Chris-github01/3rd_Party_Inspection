@@ -20,8 +20,21 @@ export function CredentialsSection() {
   ];
 
   return (
-    <section className="py-24 bg-[#0B0F14]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-24 bg-[#0B0F14] relative overflow-hidden">
+      {/* Optional support image */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1/3 h-full hidden lg:block opacity-10">
+        <img
+          src="/images/credentials-support-image.jpg"
+          alt="Credentials support"
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0B0F14] via-[#0B0F14]/90 to-transparent" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center mb-6">
           <div className="inline-block px-4 py-1.5 bg-[#121821] border border-slate-800 rounded-full mb-6">
             <span className="text-sm font-semibold text-[#C8102E]">CREDENTIALS</span>

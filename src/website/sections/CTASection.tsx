@@ -4,6 +4,20 @@ import { ArrowRight, Mail } from 'lucide-react';
 export function CTASection() {
   return (
     <section className="py-24 bg-gradient-to-br from-[#0B0F14] via-[#121821] to-[#0B0F14] relative overflow-hidden">
+      {/* Optional background image */}
+      <div className="absolute inset-0">
+        <img
+          src="/images/cta-industrial-background.jpg"
+          alt="Industrial background"
+          className="w-full h-full object-cover opacity-[0.15]"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      </div>
+
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F14]/90 via-[#121821]/95 to-[#0B0F14]/90" />
+
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
           backgroundImage: 'linear-gradient(45deg, #C8102E 25%, transparent 25%), linear-gradient(-45deg, #C8102E 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #C8102E 75%), linear-gradient(-45deg, transparent 75%, #C8102E 75%)',

@@ -6,21 +6,25 @@ export function SectorCoverageSection() {
       icon: GraduationCap,
       title: 'Education',
       description: 'Schools, universities, and educational facilities requiring compliant fire protection and coating inspection.',
+      image: '/images/sector-education-inspection.jpg',
     },
     {
       icon: Building2,
       title: 'Commercial',
       description: 'Office buildings, retail developments, and commercial construction projects across New Zealand.',
+      image: '/images/sector-commercial-inspection.jpg',
     },
     {
       icon: Construction,
       title: 'Infrastructure',
       description: 'Bridges, civil structures, and public infrastructure requiring protective coating verification.',
+      image: '/images/sector-infrastructure-inspection.jpg',
     },
     {
       icon: Factory,
       title: 'Industrial',
       description: 'Manufacturing facilities, processing plants, and industrial environments with corrosion protection requirements.',
+      image: '/images/sector-industrial-inspection.jpg',
     },
   ];
 
@@ -40,17 +44,30 @@ export function SectorCoverageSection() {
           {sectors.map((sector, index) => (
             <div
               key={index}
-              className="group bg-[#0B0F14] border border-slate-800 hover:border-[#C8102E] rounded-xl p-6 transition-all hover:shadow-lg hover:shadow-[#C8102E]/10"
+              className="group bg-[#0B0F14] border border-slate-800 hover:border-[#C8102E] rounded-xl overflow-hidden transition-all hover:shadow-lg hover:shadow-[#C8102E]/10"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-[#C8102E]/20 to-[#A60E25]/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <sector.icon className="w-6 h-6 text-[#C8102E]" />
+              <div className="relative h-44 overflow-hidden bg-slate-900">
+                <img
+                  src={sector.image}
+                  alt={sector.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F14] via-[#0B0F14]/60 to-transparent" />
+                <div className="absolute bottom-3 left-3 w-12 h-12 bg-gradient-to-br from-[#C8102E]/20 to-[#A60E25]/20 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform backdrop-blur-sm border border-[#C8102E]/30">
+                  <sector.icon className="w-6 h-6 text-[#C8102E]" />
+                </div>
               </div>
-              <h3 className="text-lg font-bold text-[#F5F7FA] mb-2">
-                {sector.title}
-              </h3>
-              <p className="text-sm text-[#D1D5DB] leading-relaxed">
-                {sector.description}
-              </p>
+              <div className="p-6">
+                <h3 className="text-lg font-bold text-[#F5F7FA] mb-2">
+                  {sector.title}
+                </h3>
+                <p className="text-sm text-[#D1D5DB] leading-relaxed">
+                  {sector.description}
+                </p>
+              </div>
             </div>
           ))}
         </div>

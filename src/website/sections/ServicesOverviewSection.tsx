@@ -7,21 +7,25 @@ export function ServicesOverviewSection() {
       icon: Shield,
       title: 'Protective Coatings Inspection',
       description: 'AMPP-certified inspection of protective coating systems across industrial, infrastructure, and commercial projects.',
+      image: '/images/service-protective-coatings-inspection.jpg',
     },
     {
       icon: Flame,
       title: 'Intumescent Coatings Inspection',
       description: 'Specialist inspection of intumescent coating applications for structural fire protection in accordance with project specifications.',
+      image: '/images/service-intumescent-coatings-inspection.jpg',
     },
     {
       icon: CheckCircle,
       title: 'Passive Fire Protection Inspection',
       description: 'NZQA Level 4 certified passive fire protection inspection covering fire-rated systems and compliance verification.',
+      image: '/images/service-passive-fire-inspection.jpg',
     },
     {
       icon: ClipboardCheck,
       title: 'QA Verification Support',
       description: 'Independent quality assurance, defect identification, and verification support for construction and infrastructure projects.',
+      image: '/images/service-qa-verification-support.jpg',
     },
   ];
 
@@ -48,17 +52,30 @@ export function ServicesOverviewSection() {
           {services.map((service, index) => (
             <div
               key={index}
-              className="group bg-[#0B0F14] border border-slate-800 hover:border-[#C8102E] rounded-xl p-8 transition-all hover:shadow-xl hover:shadow-[#C8102E]/10"
+              className="group bg-[#0B0F14] border border-slate-800 hover:border-[#C8102E] rounded-xl overflow-hidden transition-all hover:shadow-xl hover:shadow-[#C8102E]/10"
             >
-              <div className="w-14 h-14 bg-gradient-to-br from-[#C8102E] to-[#A60E25] rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <service.icon className="w-7 h-7 text-white" />
+              <div className="relative h-56 overflow-hidden bg-slate-900">
+                <img
+                  src={service.image}
+                  alt={service.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F14] via-[#0B0F14]/50 to-transparent" />
+                <div className="absolute bottom-4 left-4 w-14 h-14 bg-gradient-to-br from-[#C8102E] to-[#A60E25] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <service.icon className="w-7 h-7 text-white" />
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-[#F5F7FA] mb-3">
-                {service.title}
-              </h3>
-              <p className="text-[#D1D5DB] leading-relaxed">
-                {service.description}
-              </p>
+              <div className="p-8">
+                <h3 className="text-xl font-bold text-[#F5F7FA] mb-3">
+                  {service.title}
+                </h3>
+                <p className="text-[#D1D5DB] leading-relaxed">
+                  {service.description}
+                </p>
+              </div>
             </div>
           ))}
         </div>

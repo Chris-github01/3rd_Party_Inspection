@@ -4,6 +4,18 @@ import { ArrowRight, Shield } from 'lucide-react';
 export function HeroSection() {
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+      {/* Hero background image */}
+      <div className="absolute inset-0">
+        <img
+          src="/images/hero-inspection-authority-nz.jpg"
+          alt="Inspection Authority New Zealand"
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      </div>
+
       {/* Base background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F14] via-[#121821] to-[#0B0F14]" />
 
