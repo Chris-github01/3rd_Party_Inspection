@@ -7,25 +7,25 @@ export function ServicesOverviewSection() {
       icon: Shield,
       title: 'Protective Coatings Inspection',
       description: 'AMPP-certified inspection of protective coating systems across industrial, infrastructure, and commercial projects.',
-      image: '/images/service-protective-coatings-inspection.jpg',
+      image: 'https://images.pexels.com/photos/4792484/pexels-photo-4792484.jpeg?auto=compress&cs=tinysrgb&w=800',
     },
     {
       icon: Flame,
       title: 'Intumescent Coatings Inspection',
       description: 'Specialist inspection of intumescent coating applications for structural fire protection in accordance with project specifications.',
-      image: '/images/service-intumescent-coatings-inspection.jpg',
+      image: 'https://images.pexels.com/photos/1216589/pexels-photo-1216589.jpeg?auto=compress&cs=tinysrgb&w=800',
     },
     {
       icon: CheckCircle,
       title: 'Passive Fire Protection Inspection',
       description: 'NZQA Level 4 certified passive fire protection inspection covering fire-rated systems and compliance verification.',
-      image: '/images/service-passive-fire-inspection.jpg',
+      image: 'https://images.pexels.com/photos/159358/construction-site-build-construction-work-159358.jpeg?auto=compress&cs=tinysrgb&w=800',
     },
     {
       icon: ClipboardCheck,
       title: 'QA Verification Support',
       description: 'Independent quality assurance, defect identification, and verification support for construction and infrastructure projects.',
-      image: '/images/service-qa-verification-support.jpg',
+      image: 'https://images.pexels.com/photos/5668858/pexels-photo-5668858.jpeg?auto=compress&cs=tinysrgb&w=800',
     },
   ];
 
