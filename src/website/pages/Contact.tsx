@@ -1,5 +1,6 @@
 import { Mail, MapPin, Phone, Send } from 'lucide-react';
 import { useState } from 'react';
+import { supabase } from '../../lib/supabase';
 
 export function Contact() {
   const [formData, setFormData] = useState({
@@ -10,10 +11,40 @@ export function Contact() {
     projectType: '',
     message: '',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Contact form submission is not yet connected to backend. This is UI-only for now.');
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-contact-email', {
+        body: formData,
+      });
+
+      if (error) throw error;
+
+      setSubmitStatus('success');
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        company: '',
+        projectType: '',
+        message: '',
+      });
+
+      setTimeout(() => {
+        setSubmitStatus('idle');
+      }, 5000);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setSubmitStatus('error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -144,11 +175,24 @@ export function Contact() {
 
                 <button
                   type="submit"
-                  className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#C8102E] hover:bg-[#A60E25] text-white font-semibold rounded-lg transition-colors"
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#C8102E] hover:bg-[#A60E25] text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="w-5 h-5" />
-                  Submit Request
+                  {isSubmitting ? 'Sending...' : 'Submit Request'}
                 </button>
+
+                {submitStatus === 'success' && (
+                  <div className="mt-4 p-4 bg-green-900/20 border border-green-700 rounded-lg text-green-400 text-sm text-center">
+                    Thank you for your enquiry! We'll respond within one business day.
+                  </div>
+                )}
+
+                {submitStatus === 'error' && (
+                  <div className="mt-4 p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-400 text-sm text-center">
+                    Sorry, there was an error sending your message. Please email us directly at info@prconsulting.nz
+                  </div>
+                )}
 
                 <p className="mt-4 text-sm text-[#D1D5DB] text-center">
                   Your information will be used solely for responding to your enquiry.
