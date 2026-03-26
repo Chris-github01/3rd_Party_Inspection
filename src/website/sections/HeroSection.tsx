@@ -4,18 +4,10 @@ import { ArrowRight, Shield } from 'lucide-react';
 export function HeroSection() {
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+      {/* Base background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F14] via-[#121821] to-[#0B0F14]" />
 
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/80" />
-
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <img
-          src="/images/P&R_Logo.png"
-          alt="Background Logo"
-          className="w-[800px] max-w-none opacity-[0.08] blur-[0.5px] grayscale transform scale-110"
-        />
-      </div>
-
+      {/* Grid pattern background */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
           backgroundImage: 'linear-gradient(to right, #1e293b 1px, transparent 1px), linear-gradient(to bottom, #1e293b 1px, transparent 1px)',
@@ -23,6 +15,22 @@ export function HeroSection() {
         }} />
       </div>
 
+      {/* P&R Logo watermark - full section */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none lg:-translate-x-24">
+        <img
+          src="/images/P&R_Logo.png"
+          alt="P&R watermark"
+          className="w-[950px] md:w-[1100px] lg:w-[1250px] max-w-none object-contain opacity-[0.16] grayscale contrast-125 saturate-0"
+        />
+      </div>
+
+      {/* Soft full-section gradient overlay - above logo, below text */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/55 to-black/70" />
+
+      {/* Subtle radial highlight */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_55%)]" />
+
+      {/* Content - no background box */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#121821] border border-slate-800 rounded-full mb-8">
           <Shield className="w-4 h-4 text-[#C8102E]" />
