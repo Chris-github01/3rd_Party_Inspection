@@ -19,7 +19,7 @@ export function ServicesOverviewSection() {
       icon: CheckCircle,
       title: 'Passive Fire Protection Inspection',
       description: 'NZQA Level 4 certified passive fire protection inspection covering fire-rated systems and compliance verification.',
-      image: 'https://images.pexels.com/photos/159358/construction-site-build-construction-work-159358.jpeg?auto=compress&cs=tinysrgb&w=800',
+      image: '/images/passive-fire-protection-inspection.jpg',
     },
     {
       icon: ClipboardCheck,
