@@ -16,9 +16,9 @@ export function CTASection() {
         />
       </div>
 
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F14]/90 via-[#121821]/95 to-[#0B0F14]/90" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F14]/95 via-[#121821]/98 to-[#0B0F14]/95" />
 
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-[0.03]">
         <div className="absolute inset-0" style={{
           backgroundImage: 'linear-gradient(45deg, #C8102E 25%, transparent 25%), linear-gradient(-45deg, #C8102E 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #C8102E 75%), linear-gradient(-45deg, transparent 75%, #C8102E 75%)',
           backgroundSize: '2rem 2rem',
