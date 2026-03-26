@@ -31,19 +31,20 @@ export function ClientLogosSection() {
           {allLogos.map((logo, index) => (
             <div
               key={`${logo.name}-${index}`}
-              className="flex-shrink-0 w-48 h-24 mx-8 flex items-center justify-center"
+              className="flex-shrink-0 w-72 h-36 mx-10 flex items-center justify-center"
             >
-              <div className="w-full h-full bg-[#121821] border border-slate-800 rounded-lg p-6 flex items-center justify-center hover:border-[#C8102E] transition-colors group">
+              <div className="w-full h-full bg-white/5 backdrop-blur-sm border border-slate-700/50 rounded-xl p-8 flex items-center justify-center hover:border-[#C8102E]/50 hover:bg-white/10 transition-all duration-300 group shadow-lg hover:shadow-[#C8102E]/20">
                 <img
                   src={logo.url}
                   alt={logo.name}
-                  className="max-w-full max-h-full object-contain opacity-60 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0"
+                  className="max-w-full max-h-full object-contain filter brightness-0 invert opacity-90 group-hover:opacity-100 transition-all duration-300 drop-shadow-lg"
+                  style={{ imageRendering: 'high-quality' }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
                     const parent = target.parentElement;
                     if (parent) {
-                      parent.innerHTML = `<span class="text-[#D1D5DB] text-sm font-medium">${logo.name}</span>`;
+                      parent.innerHTML = `<span class="text-white text-lg font-semibold tracking-wide">${logo.name}</span>`;
                     }
                   }}
                 />
