@@ -97,7 +97,7 @@ export function PublicFooter() {
                   to="/login"
                   className="text-[#D1D5DB] text-sm hover:text-[#C8102E] transition-colors"
                 >
-                  Client Portal
+                  Inspector Portal
                 </Link>
               </li>
             </ul>
