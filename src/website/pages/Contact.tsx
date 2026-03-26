@@ -178,9 +178,12 @@ export function Contact() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-[#F5F7FA] mb-1">Email</h3>
-                      <p className="text-sm text-[#D1D5DB]">
-                        Contact via form or<br />direct email enquiry
-                      </p>
+                      <a
+                        href="mailto:info@prconsulting.nz"
+                        className="text-sm text-[#D1D5DB] hover:text-[#C8102E] transition-colors"
+                      >
+                        info@prconsulting.nz
+                      </a>
                     </div>
                   </div>
                 </div>
