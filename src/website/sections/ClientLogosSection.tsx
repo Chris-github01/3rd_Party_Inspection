@@ -44,12 +44,11 @@ export function ClientLogosSection() {
     return null;
   }
 
-  // Duplicate logos array 3 times for seamless infinite scrolling
-  // This ensures there's always content visible and creates a perfect loop
-  const allLogos = [...logos, ...logos, ...logos];
+  // Duplicate logos array for seamless infinite scrolling
+  const duplicatedLogos = [...logos, ...logos];
 
-  // Faster animation - 4 seconds per logo (doubled speed from 8 seconds)
-  const animationDuration = Math.max(15, logos.length * 4);
+  // Faster animation - 20 seconds base (doubled speed from 40 seconds)
+  const animationDuration = 20;
 
   return (
     <section className="bg-[#0B0F14] border-t border-slate-800 py-12 overflow-hidden">
@@ -68,45 +67,50 @@ export function ClientLogosSection() {
         <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0B0F14] to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0B0F14] to-transparent z-10 pointer-events-none" />
 
-        <div
-          className="flex gap-10"
-          style={{
-            animation: `scroll-logos ${animationDuration}s linear infinite`,
-            willChange: 'transform',
-          }}
-        >
-          {allLogos.map((logo, index) => (
-            <div
-              key={`${logo.id}-${index}`}
-              className="flex-shrink-0 w-64 h-32 flex items-center justify-center"
-            >
-              <div className="w-full h-full bg-white/5 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 flex items-center justify-center hover:border-[#C8102E]/50 hover:bg-white/10 transition-all duration-300 group shadow-lg hover:shadow-[#C8102E]/20">
-                <img
-                  src={logo.logo_url}
-                  alt={logo.name}
-                  className={`w-full h-full object-contain transition-all duration-300 drop-shadow-lg ${
-                    logo.preserve_colors
-                      ? 'opacity-90 group-hover:opacity-100'
-                      : 'filter brightness-0 invert opacity-90 group-hover:opacity-100'
-                  }`}
-                  style={{
-                    imageRendering: 'high-quality',
-                    objectFit: 'contain',
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                  }}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent) {
-                      parent.innerHTML = `<span class="text-white text-lg font-semibold tracking-wide">${logo.name}</span>`;
-                    }
-                  }}
-                />
+        <div className="flex">
+          <div
+            className="flex gap-12 pr-12"
+            style={{
+              animation: `scroll-logos ${animationDuration}s linear infinite`,
+              willChange: 'transform',
+            }}
+          >
+            {duplicatedLogos.map((logo, index) => (
+              <div
+                key={`${logo.id}-${index}`}
+                className="flex-shrink-0 w-56 h-28 flex items-center justify-center"
+              >
+                <div className="w-full h-full bg-white/5 backdrop-blur-sm border border-slate-700/50 rounded-xl p-8 flex items-center justify-center hover:border-[#C8102E]/50 hover:bg-white/10 transition-all duration-300 group shadow-lg hover:shadow-[#C8102E]/20">
+                  <div className="w-full h-full flex items-center justify-center">
+                    <img
+                      src={logo.logo_url}
+                      alt={logo.name}
+                      className={`max-w-full max-h-full object-contain transition-all duration-300 drop-shadow-lg ${
+                        logo.preserve_colors
+                          ? 'opacity-90 group-hover:opacity-100'
+                          : 'filter brightness-0 invert opacity-90 group-hover:opacity-100'
+                      }`}
+                      style={{
+                        width: 'auto',
+                        height: 'auto',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        imageRendering: 'high-quality',
+                      }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `<span class="text-white text-lg font-semibold tracking-wide">${logo.name}</span>`;
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>
