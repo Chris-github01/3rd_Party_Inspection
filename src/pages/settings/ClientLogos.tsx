@@ -390,13 +390,13 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-lg shadow-xl max-w-md w-full">
-        <div className="px-6 py-4 border-b border-slate-800">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-lg shadow-xl max-w-md w-full my-8">
+        <div className="px-6 py-4 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
           <h2 className="text-xl font-bold text-white">Add New Logo</h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Client Name
@@ -507,7 +507,10 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             </div>
           )}
 
-          <div className="flex gap-3 pt-4">
+        </form>
+
+        <div className="px-6 py-4 border-t border-slate-800 sticky bottom-0 bg-slate-900 z-10">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
@@ -517,6 +520,7 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             </button>
             <button
               type="submit"
+              onClick={handleSubmit}
               disabled={saving || uploading}
               className="flex-1 px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
@@ -532,7 +536,7 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
               )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
