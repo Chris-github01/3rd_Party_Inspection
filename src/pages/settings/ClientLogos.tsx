@@ -439,40 +439,71 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             </p>
           </div>
 
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+            <label className="flex items-start gap-3 cursor-pointer group">
               <input
                 type="checkbox"
                 checked={preserveColors}
                 onChange={(e) => setPreserveColors(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-[#C8102E] focus:ring-[#C8102E]"
+                className="w-4 h-4 mt-0.5 rounded border-slate-700 bg-slate-800 text-[#C8102E] focus:ring-[#C8102E]"
               />
-              <span className="text-sm text-slate-300">
-                Preserve original colors (don't apply white filter)
-              </span>
+              <div className="flex-1">
+                <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                  Preserve original colors (don't apply white filter)
+                </span>
+                <p className="mt-1 text-xs text-slate-400">
+                  ✓ Check this for logos with colored graphics or dark backgrounds<br/>
+                  ✓ Examples: Hawkins, Cassidy, or any logo with a black/dark background<br/>
+                  ✗ Uncheck for transparent or white background logos that should appear white
+                </p>
+              </div>
             </label>
-            <p className="mt-1 ml-6 text-xs text-slate-500">
-              Enable for colored logos like Hawkins or Cassidy
-            </p>
           </div>
 
           {logoFile && logoUrl && (
             <div className="pt-4 border-t border-slate-800">
-              <p className="text-sm text-slate-400 mb-2">Preview:</p>
-              <div className="bg-slate-800 rounded-lg p-8 flex items-center justify-center">
-                <div className="w-48 h-24 flex items-center justify-center">
-                  <img
-                    src={logoUrl}
-                    alt="Preview"
-                    className={`max-w-full max-h-full object-contain ${
-                      preserveColors ? '' : 'filter brightness-0 invert'
-                    }`}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '';
-                    }}
-                  />
+              <p className="text-sm text-slate-400 mb-3">Preview (as it will appear on website):</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-500 mb-2">On Dark Background:</p>
+                  <div className="bg-[#0B0F14] border border-slate-700 rounded-lg p-6 flex items-center justify-center">
+                    <div className="w-32 h-20 flex items-center justify-center">
+                      <img
+                        src={logoUrl}
+                        alt="Preview Dark"
+                        className={`max-w-full max-h-full object-contain ${
+                          preserveColors ? '' : 'filter brightness-0 invert'
+                        }`}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '';
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-2">Original:</p>
+                  <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 flex items-center justify-center">
+                    <div className="w-32 h-20 flex items-center justify-center">
+                      <img
+                        src={logoUrl}
+                        alt="Preview Original"
+                        className="max-w-full max-h-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '';
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
+              {!preserveColors && (
+                <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-xs text-blue-300">
+                    💡 If the logo appears as a white box on dark background, check "Preserve original colors" above.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
