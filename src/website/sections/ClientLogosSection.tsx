@@ -47,8 +47,8 @@ export function ClientLogosSection() {
   // Duplicate logos array for seamless infinite scrolling
   const duplicatedLogos = [...logos, ...logos];
 
-  // Faster animation - 20 seconds base (doubled speed from 40 seconds)
-  const animationDuration = 20;
+  // Animation speed - 40 seconds for smooth scrolling (0.5x speed)
+  const animationDuration = 40;
 
   return (
     <section className="bg-[#0B0F14] border-t border-slate-800 py-12 overflow-hidden">
@@ -78,23 +78,20 @@ export function ClientLogosSection() {
             {duplicatedLogos.map((logo, index) => (
               <div
                 key={`${logo.id}-${index}`}
-                className="flex-shrink-0 w-56 h-28 flex items-center justify-center"
+                className="flex-shrink-0 w-64 h-32 flex items-center justify-center"
               >
-                <div className="w-full h-full bg-white/5 backdrop-blur-sm border border-slate-700/50 rounded-xl p-8 flex items-center justify-center hover:border-[#C8102E]/50 hover:bg-white/10 transition-all duration-300 group shadow-lg hover:shadow-[#C8102E]/20">
-                  <div className="w-full h-full flex items-center justify-center">
+                <div className="w-full h-full bg-white/5 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 flex items-center justify-center hover:border-[#C8102E]/50 hover:bg-white/10 transition-all duration-300 group shadow-lg hover:shadow-[#C8102E]/20">
+                  <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
                     <img
                       src={logo.logo_url}
                       alt={logo.name}
-                      className={`max-w-full max-h-full object-contain transition-all duration-300 drop-shadow-lg ${
-                        logo.preserve_colors
-                          ? 'opacity-90 group-hover:opacity-100'
-                          : 'filter brightness-0 invert opacity-90 group-hover:opacity-100'
-                      }`}
+                      className="filter brightness-0 invert opacity-90 group-hover:opacity-100 transition-all duration-300 drop-shadow-lg"
                       style={{
                         width: 'auto',
                         height: 'auto',
                         maxWidth: '100%',
                         maxHeight: '100%',
+                        objectFit: 'contain',
                         imageRendering: 'high-quality',
                       }}
                       onError={(e) => {
