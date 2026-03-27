@@ -1,4 +1,5 @@
 import { HeroSection } from '../sections/HeroSection';
+import { PromoVideoSection } from '../sections/PromoVideoSection';
 import { ServicesOverviewSection } from '../sections/ServicesOverviewSection';
 import { CredentialsSection } from '../sections/CredentialsSection';
 import { SectorCoverageSection } from '../sections/SectorCoverageSection';
@@ -9,6 +10,7 @@ export function Home() {
   return (
     <>
       <HeroSection />
+      <PromoVideoSection />
       <ServicesOverviewSection />
       <CredentialsSection />
       <SectorCoverageSection />
