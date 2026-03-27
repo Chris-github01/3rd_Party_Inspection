@@ -79,7 +79,9 @@ export default function ClientLogos() {
       event.stopPropagation();
     }
 
-    if (!confirm('Are you sure you want to delete this logo?')) return;
+    if (!window.confirm('Are you sure you want to delete this logo?')) {
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -89,7 +91,7 @@ export default function ClientLogos() {
 
       if (error) throw error;
       showToast('Logo deleted', 'success');
-      fetchLogos();
+      await fetchLogos();
     } catch (error) {
       console.error('Error deleting logo:', error);
       showToast('Failed to delete logo', 'error');
@@ -244,7 +246,11 @@ export default function ClientLogos() {
                       <div className="flex items-center justify-center">
                         <button
                           type="button"
-                          onClick={(e) => deleteLogo(logo.id, e)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            deleteLogo(logo.id, e);
+                          }}
                           className="p-2 hover:bg-red-500/20 bg-red-500/10 text-red-400 hover:text-red-300 rounded-lg transition-colors border border-red-500/30 hover:border-red-500/50"
                           title="Delete logo"
                         >
