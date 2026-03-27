@@ -480,12 +480,12 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
               />
               <div className="flex-1">
                 <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
-                  Preserve original colors (don't apply white filter)
+                  Logo has a dark/black background (don't apply white filter)
                 </span>
                 <p className="mt-1 text-xs text-slate-400">
-                  ✓ Check this for logos with colored graphics or dark backgrounds<br/>
-                  ✓ Examples: Hawkins, Cassidy, or any logo with a black/dark background<br/>
-                  ✗ Uncheck for transparent or white background logos that should appear white
+                  ✓ Check this if your logo file has a DARK/BLACK BACKGROUND<br/>
+                  ✓ The logo graphics should already be light/white colored<br/>
+                  ✗ Uncheck for TRANSPARENT background logos (they'll be converted to white)
                 </p>
               </div>
             </label>
@@ -531,7 +531,14 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
               {!preserveColors && (
                 <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                   <p className="text-xs text-blue-300">
-                    💡 If the logo appears as a white box on dark background, check "Preserve original colors" above.
+                    💡 If you see a WHITE BOX on the dark preview, your logo has a dark background. Check the box above to fix it!
+                  </p>
+                </div>
+              )}
+              {preserveColors && (
+                <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <p className="text-xs text-green-300">
+                    ✓ Your logo has a dark background. This setting will preserve it as-is on the website.
                   </p>
                 </div>
               )}

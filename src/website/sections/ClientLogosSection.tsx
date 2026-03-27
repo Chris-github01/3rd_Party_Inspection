@@ -85,7 +85,11 @@ export function ClientLogosSection() {
                     <img
                       src={logo.logo_url}
                       alt={logo.name}
-                      className="filter brightness-0 invert opacity-90 group-hover:opacity-100 transition-all duration-300 drop-shadow-lg"
+                      className={`opacity-90 group-hover:opacity-100 transition-all duration-300 drop-shadow-lg ${
+                        logo.preserve_colors
+                          ? ''
+                          : 'filter brightness-0 invert'
+                      }`}
                       style={{
                         width: 'auto',
                         height: 'auto',
