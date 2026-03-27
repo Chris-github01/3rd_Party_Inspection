@@ -288,19 +288,75 @@ export default function ClientLogos() {
 function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [preserveColors, setPreserveColors] = useState(false);
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.match(/^image\/(png|jpeg|jpg)$/)) {
+      showToast('Please select a PNG or JPEG file', 'error');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File size must be less than 5MB', 'error');
+      return;
+    }
+
+    setLogoFile(file);
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setLogoUrl(previewUrl);
+  }
+
+  async function uploadLogo(file: File): Promise<string> {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = fileName;
+
+    const { error: uploadError } = await supabase.storage
+      .from('client-logos')
+      .upload(filePath, file, {
+        contentType: file.type,
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('client-logos')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !logoUrl.trim()) {
-      showToast('Please fill in all fields', 'error');
+    if (!name.trim()) {
+      showToast('Please enter a client name', 'error');
+      return;
+    }
+
+    if (!logoFile) {
+      showToast('Please select a logo file', 'error');
       return;
     }
 
     setSaving(true);
     try {
+      // Upload the logo file
+      setUploading(true);
+      const uploadedUrl = await uploadLogo(logoFile);
+      setUploading(false);
+
       // Get the highest display_order
       const { data: maxOrderData } = await supabase
         .from('client_logos')
@@ -315,7 +371,7 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
         .from('client_logos')
         .insert({
           name: name.trim(),
-          logo_url: logoUrl.trim(),
+          logo_url: uploadedUrl,
           display_order: newOrder,
           preserve_colors: preserveColors,
           active: true
@@ -329,6 +385,7 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
       showToast('Failed to add logo', 'error');
     } finally {
       setSaving(false);
+      setUploading(false);
     }
   }
 
@@ -356,18 +413,29 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Logo URL
+              Logo File
             </label>
-            <input
-              type="text"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#C8102E] font-mono text-sm"
-              placeholder="/images/clients/logo.png"
-              required
-            />
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                onChange={handleFileChange}
+                className="hidden"
+                id="logo-upload"
+                required
+              />
+              <label
+                htmlFor="logo-upload"
+                className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-slate-800 border-2 border-dashed border-slate-700 hover:border-slate-600 rounded-lg cursor-pointer transition-colors group"
+              >
+                <Upload className="w-5 h-5 text-slate-400 group-hover:text-slate-300" />
+                <span className="text-slate-400 group-hover:text-slate-300">
+                  {logoFile ? logoFile.name : 'Click to upload PNG or JPEG'}
+                </span>
+              </label>
+            </div>
             <p className="mt-1 text-xs text-slate-500">
-              Upload the logo to public/images/clients/ first
+              Maximum file size: 5MB
             </p>
           </div>
 
@@ -388,7 +456,7 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             </p>
           </div>
 
-          {logoUrl && (
+          {logoFile && logoUrl && (
             <div className="pt-4 border-t border-slate-800">
               <p className="text-sm text-slate-400 mb-2">Preview:</p>
               <div className="bg-slate-800 rounded-lg p-8 flex items-center justify-center">
@@ -418,10 +486,12 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploading}
               className="flex-1 px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {saving ? (
+              {uploading ? (
+                <>Uploading...</>
+              ) : saving ? (
                 <>Saving...</>
               ) : (
                 <>
