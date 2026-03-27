@@ -18,25 +18,32 @@ export default function ClientLogos() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
 
   useEffect(() => {
+    console.log('ClientLogos component mounted');
     fetchLogos();
   }, []);
 
   async function fetchLogos() {
     try {
+      console.log('Fetching logos...');
+      setError(null);
       const { data, error } = await supabase
         .from('client_logos')
         .select('*')
         .order('display_order');
 
       if (error) throw error;
+      console.log('Logos fetched:', data);
       setLogos(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching logos:', error);
+      setError(error.message || 'Failed to load logos');
       showToast('Failed to load logos', 'error');
     } finally {
+      console.log('Setting loading to false');
       setLoading(false);
     }
   }
@@ -126,10 +133,34 @@ export default function ClientLogos() {
     }
   }
 
+  console.log('ClientLogos render - loading:', loading, 'logos count:', logos.length, 'showAddModal:', showAddModal, 'error:', error);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-[#0B0F14]">
         <div className="text-slate-400">Loading logos...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0B0F14] py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+            <p className="text-red-300">Error: {error}</p>
+            <button
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                fetchLogos();
+              }}
+              className="mt-4 px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-lg transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -507,10 +538,7 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             </div>
           )}
 
-        </form>
-
-        <div className="px-6 py-4 border-t border-slate-800 sticky bottom-0 bg-slate-900 z-10">
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-4 sticky bottom-0 bg-slate-900 pb-2 -mb-6 -mx-6 px-6 border-t border-slate-800">
             <button
               type="button"
               onClick={onClose}
@@ -520,7 +548,6 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             </button>
             <button
               type="submit"
-              onClick={handleSubmit}
               disabled={saving || uploading}
               className="flex-1 px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
@@ -536,7 +563,7 @@ function AddLogoModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
               )}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
