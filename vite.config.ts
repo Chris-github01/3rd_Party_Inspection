@@ -1,10 +1,24 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { copyFileSync } from 'fs';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   base: '/',
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'copy-pdf-worker',
+      buildStart() {
+        try {
+          copyFileSync(
+            'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
+            'public/pdf.worker.min.mjs'
+          );
+        } catch {}
+      },
+    },
+  ],
   server: {
     host: '0.0.0.0',
     port: 5173,
