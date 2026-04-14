@@ -88,6 +88,11 @@ export function DrawingViewer({
   const pdfDocRef = useRef<any>(null);
 
   useEffect(() => {
+    setImageUrl('');
+    setIsPdf(false);
+    setRenderedWidth(0);
+    setRenderedHeight(0);
+    pdfDocRef.current = null;
     loadPins();
     loadContent();
   }, [drawing.id]);
@@ -97,6 +102,12 @@ export function DrawingViewer({
       renderPdfPage(currentPage);
     }
   }, [currentPage]);
+
+  useEffect(() => {
+    if (!imageLoading && isPdf && pdfDocRef.current && canvasRef.current) {
+      renderPdfPage(currentPage);
+    }
+  }, [imageLoading]);
 
   const loadContent = async () => {
     try {
@@ -503,41 +514,43 @@ export function DrawingViewer({
           }}
         >
           <div ref={contentRef} className="relative" onClick={handleContentClick}>
-            {imageLoading ? (
+            {imageLoading && (
               <div className="flex items-center justify-center min-w-[400px] min-h-[400px]">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
               </div>
-            ) : isPdf ? (
-              <>
-                <canvas
-                  ref={canvasRef}
-                  className="select-none"
-                  style={{ display: 'block' }}
-                />
-                <div className="absolute inset-0 pointer-events-none">
-                  {filteredPins.map((pin) => (
-                    <button
-                      key={pin.id}
-                      onMouseDown={(e) => handlePinMouseDown(pin, e)}
-                      onClick={(e) => handlePinClick(pin, e)}
-                      className={`absolute w-8 h-8 -ml-4 -mt-8 ${getPinColor(
-                        pin.status
-                      )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center pointer-events-auto ${
-                        draggingPin === pin.id ? 'scale-125 cursor-grabbing' : 'cursor-grab'
-                      }`}
-                      style={{
-                        left: `${pin.x * 100}%`,
-                        top: `${pin.y * 100}%`,
-                        transition: draggingPin === pin.id ? 'none' : 'transform 0.2s',
-                      }}
-                      title={pin.label}
-                    >
-                      <MapPin className="w-5 h-5 text-white fill-current" />
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : imageUrl ? (
+            )}
+
+            <canvas
+              ref={canvasRef}
+              className="select-none"
+              style={{ display: !imageLoading && isPdf ? 'block' : 'none' }}
+            />
+            {!imageLoading && isPdf && (
+              <div className="absolute inset-0 pointer-events-none">
+                {filteredPins.map((pin) => (
+                  <button
+                    key={pin.id}
+                    onMouseDown={(e) => handlePinMouseDown(pin, e)}
+                    onClick={(e) => handlePinClick(pin, e)}
+                    className={`absolute w-8 h-8 -ml-4 -mt-8 ${getPinColor(
+                      pin.status
+                    )} rounded-full border-2 border-white shadow-lg hover:scale-125 transition-transform flex items-center justify-center pointer-events-auto ${
+                      draggingPin === pin.id ? 'scale-125 cursor-grabbing' : 'cursor-grab'
+                    }`}
+                    style={{
+                      left: `${pin.x * 100}%`,
+                      top: `${pin.y * 100}%`,
+                      transition: draggingPin === pin.id ? 'none' : 'transform 0.2s',
+                    }}
+                    title={pin.label}
+                  >
+                    <MapPin className="w-5 h-5 text-white fill-current" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!imageLoading && !isPdf && imageUrl && (
               <>
                 <img
                   ref={imageRef}
@@ -568,7 +581,9 @@ export function DrawingViewer({
                   </button>
                 ))}
               </>
-            ) : (
+            )}
+
+            {!imageLoading && !isPdf && !imageUrl && (
               <div className="flex items-center justify-center min-w-[400px] min-h-[400px] text-white">
                 <div className="text-center">
                   <p className="text-lg mb-2">Failed to load drawing</p>
