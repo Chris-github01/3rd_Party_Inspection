@@ -22,10 +22,28 @@ export function distributeTimestampsAcrossRanges(
     }));
   }
 
-  return readingIds.map(id => ({
-    readingId: id,
-    timestamp: new Date()
-  }));
+  const sortedRanges = [...dateTimeRanges].sort((a, b) =>
+    new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime()
+  );
+
+  let currentRangeIndex = 0;
+  let currentTime = parseDateTime(sortedRanges[0]);
+
+  return readingIds.map(id => {
+    const secondsPerReading = 5 + Math.random() * 3;
+    currentTime = new Date(currentTime.getTime() + secondsPerReading * 1000);
+
+    const rangeEndTime = parseDateTime(sortedRanges[currentRangeIndex], true);
+    if (currentTime > rangeEndTime && currentRangeIndex < sortedRanges.length - 1) {
+      currentRangeIndex++;
+      currentTime = parseDateTime(sortedRanges[currentRangeIndex]);
+    }
+
+    return {
+      readingId: id,
+      timestamp: new Date(currentTime)
+    };
+  });
 }
 
 export function distributeMemberTimestamps(
@@ -44,7 +62,23 @@ export function distributeMemberTimestamps(
   const totalMembers = members.length;
   let currentRangeIndex = 0;
   let currentTime = parseDateTime(sortedRanges[0]);
-  const rangeEndTime = parseDateTime(sortedRanges[0], true);
+
+  const advanceTime = (seconds: number): boolean => {
+    currentTime = new Date(currentTime.getTime() + seconds * 1000);
+    let rangeEndTime = parseDateTime(sortedRanges[currentRangeIndex], true);
+
+    while (currentTime > rangeEndTime) {
+      currentRangeIndex++;
+      if (currentRangeIndex >= sortedRanges.length) {
+        currentRangeIndex = sortedRanges.length - 1;
+        currentTime = parseDateTime(sortedRanges[currentRangeIndex], true);
+        return false;
+      }
+      currentTime = parseDateTime(sortedRanges[currentRangeIndex]);
+      rangeEndTime = parseDateTime(sortedRanges[currentRangeIndex], true);
+    }
+    return true;
+  };
 
   for (let memberIndex = 0; memberIndex < totalMembers; memberIndex++) {
     const member = members[memberIndex];
@@ -52,15 +86,7 @@ export function distributeMemberTimestamps(
 
     for (let readingIndex = 0; readingIndex < readingCount; readingIndex++) {
       const secondsPerReading = 5 + Math.random() * 3;
-      currentTime = new Date(currentTime.getTime() + secondsPerReading * 1000);
-
-      if (currentTime > rangeEndTime) {
-        currentRangeIndex++;
-        if (currentRangeIndex >= sortedRanges.length) {
-          currentRangeIndex = sortedRanges.length - 1;
-        }
-        currentTime = parseDateTime(sortedRanges[currentRangeIndex]);
-      }
+      advanceTime(secondsPerReading);
 
       timestamps.push({
         readingId: member.readingIds[readingIndex],
@@ -70,15 +96,7 @@ export function distributeMemberTimestamps(
 
     if (memberIndex < totalMembers - 1) {
       const breakSeconds = 60 + Math.random() * 60;
-      currentTime = new Date(currentTime.getTime() + breakSeconds * 1000);
-
-      if (currentTime > rangeEndTime) {
-        currentRangeIndex++;
-        if (currentRangeIndex >= sortedRanges.length) {
-          break;
-        }
-        currentTime = parseDateTime(sortedRanges[currentRangeIndex]);
-      }
+      advanceTime(breakSeconds);
     }
   }
 
