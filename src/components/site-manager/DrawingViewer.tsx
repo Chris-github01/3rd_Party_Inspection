@@ -88,34 +88,96 @@ export function DrawingViewer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<any>(null);
+  const pendingPageRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    setImageUrl('');
-    setIsPdf(false);
-    setRenderedWidth(0);
-    setRenderedHeight(0);
-    setPdfRendered(false);
-    setLoadError(null);
-    pdfDocRef.current = null;
-    loadPins();
-    loadContent();
-  }, [drawing.id]);
-
-  useEffect(() => {
-    if (isPdf && pdfDocRef.current) {
-      renderPdfPage(currentPage);
+  const renderPdfPage = useCallback(async (pageNum: number) => {
+    if (!pdfDocRef.current) {
+      console.log('[DrawingViewer] Cannot render PDF page: no pdfDoc');
+      return;
     }
-  }, [currentPage, isPdf]);
 
-  useEffect(() => {
-    if (!imageLoading && isPdf && pdfDocRef.current) {
-      requestAnimationFrame(() => {
-        renderPdfPage(currentPage);
+    if (!canvasRef.current) {
+      console.log('[DrawingViewer] Canvas not yet in DOM, scheduling retry');
+      pendingPageRef.current = pageNum;
+      return;
+    }
+
+    pendingPageRef.current = null;
+
+    try {
+      console.log('[DrawingViewer] Rendering page:', pageNum);
+      const page = await pdfDocRef.current.getPage(pageNum);
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
+      const scale = 1.5 * window.devicePixelRatio;
+      const viewport = page.getViewport({ scale });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = `${viewport.width / window.devicePixelRatio}px`;
+      canvas.style.height = `${viewport.height / window.devicePixelRatio}px`;
+
+      setRenderedWidth(viewport.width / window.devicePixelRatio);
+      setRenderedHeight(viewport.height / window.devicePixelRatio);
+
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport,
+        background: 'white',
+      };
+
+      await page.render(renderContext as any).promise;
+      setPdfRendered(true);
+      console.log('[DrawingViewer] Page rendered successfully');
+    } catch (error) {
+      console.error('[DrawingViewer] Error rendering PDF page:', error);
+    }
+  }, []);
+
+  const triggerPdfRenderWhenReady = useCallback((pageNum: number, retries = 0) => {
+    if (!pdfDocRef.current) return;
+    if (canvasRef.current) {
+      renderPdfPage(pageNum);
+    } else if (retries < 20) {
+      setTimeout(() => triggerPdfRenderWhenReady(pageNum, retries + 1), 50);
+    }
+  }, [renderPdfPage]);
+
+  const loadPdf = useCallback(async (url: string) => {
+    try {
+      console.log('[DrawingViewer] Loading PDF from URL:', url);
+      const loadingTask = pdfjsLib.getDocument({
+        url,
+        withCredentials: false,
+        cMapPacked: true,
       });
-    }
-  }, [imageLoading]);
 
-  const loadContent = async () => {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PDF load timed out after 30 seconds')), 30000)
+      );
+
+      const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
+      pdfDocRef.current = pdf;
+      setPageCount(pdf.numPages);
+      const targetPage = drawing.page_number || 1;
+      setCurrentPage(targetPage);
+      pendingPageRef.current = targetPage;
+      console.log('[DrawingViewer] PDF loaded successfully, pages:', pdf.numPages);
+    } catch (error) {
+      console.error('[DrawingViewer] Error loading PDF:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error loading PDF';
+      setLoadError(message);
+    }
+  }, [drawing.page_number]);
+
+  const loadContent = useCallback(async () => {
     try {
       setImageLoading(true);
 
@@ -155,80 +217,9 @@ export function DrawingViewer({
     } finally {
       setImageLoading(false);
     }
-  };
+  }, [drawing.preview_image_path, loadPdf]);
 
-  const loadPdf = async (url: string) => {
-    try {
-      console.log('[DrawingViewer] Loading PDF from URL:', url);
-      const loadingTask = pdfjsLib.getDocument({
-        url,
-        withCredentials: false,
-        cMapPacked: true,
-      });
-
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('PDF load timed out after 30 seconds')), 30000)
-      );
-
-      const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
-      pdfDocRef.current = pdf;
-      setPageCount(pdf.numPages);
-      setCurrentPage(drawing.page_number || 1);
-      console.log('[DrawingViewer] PDF loaded successfully, pages:', pdf.numPages);
-    } catch (error) {
-      console.error('[DrawingViewer] Error loading PDF:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error loading PDF';
-      setLoadError(message);
-    }
-  };
-
-  const renderPdfPage = useCallback(async (pageNum: number) => {
-    if (!pdfDocRef.current) {
-      console.log('[DrawingViewer] Cannot render PDF page: no pdfDoc');
-      return;
-    }
-
-    if (!canvasRef.current) {
-      console.log('[DrawingViewer] Canvas not yet in DOM, will retry after mount');
-      return;
-    }
-
-    try {
-      console.log('[DrawingViewer] Rendering page:', pageNum);
-      const page = await pdfDocRef.current.getPage(pageNum);
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-
-      const scale = 1.5 * window.devicePixelRatio;
-      const viewport = page.getViewport({ scale });
-
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.width = `${viewport.width / window.devicePixelRatio}px`;
-      canvas.style.height = `${viewport.height / window.devicePixelRatio}px`;
-
-      setRenderedWidth(viewport.width / window.devicePixelRatio);
-      setRenderedHeight(viewport.height / window.devicePixelRatio);
-
-      context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-        background: 'white',
-      };
-
-      await page.render(renderContext as any).promise;
-      setPdfRendered(true);
-      console.log('[DrawingViewer] Page rendered successfully');
-    } catch (error) {
-      console.error('[DrawingViewer] Error rendering PDF page:', error);
-    }
-  }, []);
-
-  const loadPins = async () => {
+  const loadPins = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('drawing_pins')
@@ -241,7 +232,33 @@ export function DrawingViewer({
     } catch (error) {
       console.error('Error loading pins:', error);
     }
-  };
+  }, [drawing.id]);
+
+  useEffect(() => {
+    setImageUrl('');
+    setIsPdf(false);
+    setRenderedWidth(0);
+    setRenderedHeight(0);
+    setPdfRendered(false);
+    setLoadError(null);
+    pdfDocRef.current = null;
+    pendingPageRef.current = null;
+    loadPins();
+    loadContent();
+  }, [drawing.id]);
+
+  useEffect(() => {
+    if (!imageLoading && isPdf && pdfDocRef.current && pendingPageRef.current !== null) {
+      const page = pendingPageRef.current;
+      triggerPdfRenderWhenReady(page);
+    }
+  }, [imageLoading, triggerPdfRenderWhenReady]);
+
+  useEffect(() => {
+    if (isPdf && pdfDocRef.current && !imageLoading) {
+      renderPdfPage(currentPage);
+    }
+  }, [currentPage]);
 
   const filteredPins = pins.filter((pin) => {
     if (!isPdf) return true;
@@ -568,7 +585,9 @@ export function DrawingViewer({
               className="select-none"
               style={{
                 display: isPdf ? 'block' : 'none',
-                opacity: !imageLoading && pdfRendered ? 1 : 0,
+                visibility: pdfRendered ? 'visible' : 'hidden',
+                minWidth: isPdf ? '1px' : undefined,
+                minHeight: isPdf ? '1px' : undefined,
               }}
             />
             {!imageLoading && isPdf && (
