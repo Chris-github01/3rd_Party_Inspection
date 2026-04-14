@@ -81,6 +81,7 @@ export function DrawingViewer({
   const [draggingPin, setDraggingPin] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pdfRendered, setPdfRendered] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -94,6 +95,7 @@ export function DrawingViewer({
     setRenderedWidth(0);
     setRenderedHeight(0);
     setPdfRendered(false);
+    setLoadError(null);
     pdfDocRef.current = null;
     loadPins();
     loadContent();
@@ -149,6 +151,7 @@ export function DrawingViewer({
       }
     } catch (error) {
       console.error('Error loading content:', error);
+      setLoadError(error instanceof Error ? error.message : 'Failed to load drawing');
     } finally {
       setImageLoading(false);
     }
@@ -157,14 +160,25 @@ export function DrawingViewer({
   const loadPdf = async (url: string) => {
     try {
       console.log('[DrawingViewer] Loading PDF from URL:', url);
-      const loadingTask = pdfjsLib.getDocument(url);
-      const pdf = await loadingTask.promise;
+      const loadingTask = pdfjsLib.getDocument({
+        url,
+        withCredentials: false,
+        cMapPacked: true,
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PDF load timed out after 30 seconds')), 30000)
+      );
+
+      const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
       pdfDocRef.current = pdf;
       setPageCount(pdf.numPages);
       setCurrentPage(drawing.page_number || 1);
       console.log('[DrawingViewer] PDF loaded successfully, pages:', pdf.numPages);
     } catch (error) {
       console.error('[DrawingViewer] Error loading PDF:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error loading PDF';
+      setLoadError(message);
     }
   };
 
@@ -525,9 +539,27 @@ export function DrawingViewer({
           }}
         >
           <div ref={contentRef} className="relative" onClick={handleContentClick}>
-            {imageLoading && (
+            {imageLoading && !loadError && (
               <div className="flex items-center justify-center min-w-[400px] min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+                  <p className="text-slate-400 text-sm">Loading drawing...</p>
+                </div>
+              </div>
+            )}
+
+            {loadError && (
+              <div className="flex items-center justify-center min-w-[400px] min-h-[400px]">
+                <div className="text-center max-w-sm">
+                  <p className="text-red-400 text-lg mb-2">Failed to load drawing</p>
+                  <p className="text-slate-400 text-sm mb-4">{loadError}</p>
+                  <button
+                    onClick={() => { setLoadError(null); loadContent(); }}
+                    className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 text-sm"
+                  >
+                    Retry
+                  </button>
+                </div>
               </div>
             )}
 

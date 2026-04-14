@@ -13,9 +13,22 @@
 # Disable directory browsing
 Options -Indexes
 
+# Cross-Origin Isolation headers required for PDF.js worker and SharedArrayBuffer
+<IfModule mod_headers.c>
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Embedder-Policy "require-corp"
+  Header always set Cross-Origin-Resource-Policy "same-site"
+
+  # Allow Supabase storage resources to be embedded (required for PDF/image loading)
+  <FilesMatch "\.(pdf|png|jpg|jpeg|gif|svg|mjs|js|wasm)$">
+    Header always set Cross-Origin-Resource-Policy "cross-origin"
+  </FilesMatch>
+</IfModule>
+
 # Set proper MIME types
 <IfModule mod_mime.c>
   AddType application/javascript .js
+  AddType text/javascript .mjs
   AddType text/css .css
   AddType image/svg+xml .svg
   AddType application/json .json
