@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X,
   ZoomIn,
@@ -80,6 +80,7 @@ export function DrawingViewer({
   const [exporting, setExporting] = useState(false);
   const [draggingPin, setDraggingPin] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [pdfRendered, setPdfRendered] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -92,6 +93,7 @@ export function DrawingViewer({
     setIsPdf(false);
     setRenderedWidth(0);
     setRenderedHeight(0);
+    setPdfRendered(false);
     pdfDocRef.current = null;
     loadPins();
     loadContent();
@@ -101,11 +103,13 @@ export function DrawingViewer({
     if (isPdf && pdfDocRef.current) {
       renderPdfPage(currentPage);
     }
-  }, [currentPage]);
+  }, [currentPage, isPdf]);
 
   useEffect(() => {
-    if (!imageLoading && isPdf && pdfDocRef.current && canvasRef.current) {
-      renderPdfPage(currentPage);
+    if (!imageLoading && isPdf && pdfDocRef.current) {
+      requestAnimationFrame(() => {
+        renderPdfPage(currentPage);
+      });
     }
   }, [imageLoading]);
 
@@ -159,18 +163,19 @@ export function DrawingViewer({
       setPageCount(pdf.numPages);
       setCurrentPage(drawing.page_number || 1);
       console.log('[DrawingViewer] PDF loaded successfully, pages:', pdf.numPages);
-      await renderPdfPage(drawing.page_number || 1);
     } catch (error) {
       console.error('[DrawingViewer] Error loading PDF:', error);
     }
   };
 
-  const renderPdfPage = async (pageNum: number) => {
-    if (!pdfDocRef.current || !canvasRef.current) {
-      console.log('[DrawingViewer] Cannot render PDF page:', {
-        hasPdfDoc: !!pdfDocRef.current,
-        hasCanvas: !!canvasRef.current,
-      });
+  const renderPdfPage = useCallback(async (pageNum: number) => {
+    if (!pdfDocRef.current) {
+      console.log('[DrawingViewer] Cannot render PDF page: no pdfDoc');
+      return;
+    }
+
+    if (!canvasRef.current) {
+      console.log('[DrawingViewer] Canvas not yet in DOM, will retry after mount');
       return;
     }
 
@@ -179,6 +184,7 @@ export function DrawingViewer({
       const page = await pdfDocRef.current.getPage(pageNum);
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
+      if (!context) return;
 
       const scale = 1.5 * window.devicePixelRatio;
       const viewport = page.getViewport({ scale });
@@ -191,17 +197,22 @@ export function DrawingViewer({
       setRenderedWidth(viewport.width / window.devicePixelRatio);
       setRenderedHeight(viewport.height / window.devicePixelRatio);
 
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
       const renderContext = {
-        canvasContext: context!,
+        canvasContext: context,
         viewport: viewport,
+        background: 'white',
       };
 
-      await page.render(renderContext).promise;
+      await page.render(renderContext as any).promise;
+      setPdfRendered(true);
       console.log('[DrawingViewer] Page rendered successfully');
     } catch (error) {
       console.error('[DrawingViewer] Error rendering PDF page:', error);
     }
-  };
+  }, []);
 
   const loadPins = async () => {
     try {
@@ -523,7 +534,10 @@ export function DrawingViewer({
             <canvas
               ref={canvasRef}
               className="select-none"
-              style={{ display: !imageLoading && isPdf ? 'block' : 'none' }}
+              style={{
+                display: isPdf ? 'block' : 'none',
+                opacity: !imageLoading && pdfRendered ? 1 : 0,
+              }}
             />
             {!imageLoading && isPdf && (
               <div className="absolute inset-0 pointer-events-none">
