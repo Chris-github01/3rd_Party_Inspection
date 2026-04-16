@@ -144,3 +144,71 @@ export async function fetchAllReports(): Promise<InspectionAIReport[]> {
   if (error) throw new Error(`Failed to fetch reports: ${error.message}`);
   return data || [];
 }
+
+export interface PortfolioProjectStat {
+  project: InspectionAIProject;
+  reportCount: number;
+  totalFindings: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  lastInspectedAt: string | null;
+  systemTypes: string[];
+  defectTypes: string[];
+  hasInspectorOverrides: boolean;
+}
+
+export async function fetchPortfolioStats(): Promise<PortfolioProjectStat[]> {
+  const { data: projects, error: pe } = await supabase
+    .from('inspection_ai_projects')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (pe) throw new Error(pe.message);
+  if (!projects || projects.length === 0) return [];
+
+  const { data: reports, error: re } = await supabase
+    .from('inspection_ai_reports')
+    .select('id, project_id, created_at, status, item_count')
+    .in('project_id', projects.map((p) => p.id))
+    .order('created_at', { ascending: false });
+
+  if (re) throw new Error(re.message);
+
+  const reportIds = (reports || []).map((r) => r.id);
+  let items: Array<{
+    report_id: string;
+    severity: string;
+    system_type: string;
+    defect_type: string;
+    inspector_override: boolean;
+  }> = [];
+
+  if (reportIds.length > 0) {
+    const { data: itemData, error: ie } = await supabase
+      .from('inspection_ai_items')
+      .select('report_id, severity, system_type, defect_type, inspector_override')
+      .in('report_id', reportIds);
+
+    if (!ie) items = itemData || [];
+  }
+
+  return (projects as InspectionAIProject[]).map((project) => {
+    const projectReports = (reports || []).filter((r) => r.project_id === project.id);
+    const projectReportIds = new Set(projectReports.map((r) => r.id));
+    const projectItems = items.filter((i) => projectReportIds.has(i.report_id));
+
+    return {
+      project,
+      reportCount: projectReports.length,
+      totalFindings: projectItems.length,
+      highCount: projectItems.filter((i) => i.severity === 'High').length,
+      mediumCount: projectItems.filter((i) => i.severity === 'Medium').length,
+      lowCount: projectItems.filter((i) => i.severity === 'Low').length,
+      lastInspectedAt: projectReports[0]?.created_at ?? null,
+      systemTypes: [...new Set(projectItems.map((i) => i.system_type).filter(Boolean))],
+      defectTypes: [...new Set(projectItems.map((i) => i.defect_type).filter(Boolean))],
+      hasInspectorOverrides: projectItems.some((i) => i.inspector_override),
+    };
+  });
+}
