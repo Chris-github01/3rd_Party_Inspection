@@ -3,6 +3,7 @@ import { Building2, Save, AlertCircle, ExternalLink, Navigation, MapPin } from '
 import { supabase } from '../../lib/supabase';
 import { ImageUpload } from '../../components/ImageUpload';
 import { useNavigate } from 'react-router-dom';
+import OfficesManager from '../../components/settings/OfficesManager';
 
 interface CompanySettings {
   id: string;
@@ -400,6 +401,22 @@ export function Organization() {
                 {saving ? 'Saving…' : 'Save Travel Settings'}
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Multi-Office Manager */}
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Building2 className="w-6 h-6 text-sky-400" />
+              <h2 className="text-xl font-bold text-white">Office Locations</h2>
+            </div>
+            <p className="text-blue-200 text-sm">
+              Add multiple office or depot locations. The Growth Hub will automatically pick the nearest office when calculating travel pricing for each quote.
+            </p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+            <OfficesManager />
           </div>
         </div>
 

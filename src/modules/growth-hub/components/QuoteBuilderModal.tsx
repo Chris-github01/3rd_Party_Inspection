@@ -19,6 +19,7 @@ import type { WinProbability } from './PricingIntelligencePanel';
 import AIScopeEstimator from './AIScopeEstimator';
 import PricingAnalyticsModal from './PricingAnalyticsModal';
 import TravelPricingWidget from './TravelPricingWidget';
+import type { TravelApplyPayload } from './TravelPricingWidget';
 
 const CATEGORIES = ['Labour', 'Materials', 'Equipment', 'Travel', 'Subcontract', 'Other'];
 const NZ_REGIONS = ['Auckland', 'Wellington', 'Canterbury', 'Waikato', 'Bay of Plenty', 'Otago', "Hawke's Bay", 'Manawatu-Whanganui', 'Northland', 'Other'];
@@ -160,17 +161,15 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
     setActiveTab('details');
   };
 
-  const handleTravelApply = (opts: {
-    travelZone: string;
-    travelKm: number;
-    travelSurcharge: number;
-    suggestedTravelCost: number;
-    parkingNote: string;
-  }) => {
+  const handleTravelApply = (opts: TravelApplyPayload) => {
     setCostInputs(c => ({
       ...c,
       travelZone: opts.travelZone,
       travelKm: opts.travelKm,
+      travelLabourHours: opts.travelLabourHours,
+      travelLabourBillPct: opts.travelLabourBillPct,
+      parking: (c.parking ?? 0) + opts.cbdParking,
+      accommodation: opts.overnightMode ? Math.max(c.accommodation ?? 0, 180) : (c.accommodation ?? 0),
     }));
   };
 
@@ -765,6 +764,7 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
                       ['Callout Fee', costBreakdown.calloutFee],
                       ['Site Labour', costBreakdown.labourCost],
                       ['Report Writing', costBreakdown.reportWritingCost],
+                      ['Travel Labour', costBreakdown.travelLabourCost],
                       ['Access Premium', costBreakdown.accessComplexityPremium],
                       ['After-Hours Premium', costBreakdown.afterHoursPremium],
                       ['Travel Zone Surcharge', costBreakdown.travelZoneSurcharge],

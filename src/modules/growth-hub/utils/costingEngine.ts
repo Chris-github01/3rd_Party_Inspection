@@ -38,6 +38,9 @@ export interface CostInputs {
   parking: number;
   tolls: number;
   accommodation: number;
+  // Travel labour billing
+  travelLabourHours: number;
+  travelLabourBillPct: number;  // 0 | 50 | 100
   // Fees
   calloutFee: number;
   // Access & complexity
@@ -57,6 +60,7 @@ export interface CostBreakdown {
   calloutFee: number;
   labourCost: number;
   reportWritingCost: number;
+  travelLabourCost: number;
   accessComplexityPremium: number;
   afterHoursPremium: number;
   travelZoneSurcharge: number;
@@ -120,6 +124,8 @@ export const DEFAULT_COST_INPUTS: CostInputs = {
   parking: 0,
   tolls: 0,
   accommodation: 0,
+  travelLabourHours: 0,
+  travelLabourBillPct: 0,
   calloutFee: 0,
   accessDifficulty: 'easy',
   serviceTier: 'standard',
@@ -140,8 +146,9 @@ export function calcCostBreakdown(inputs: CostInputs): CostBreakdown {
   const calloutFee = inputs.calloutFee ?? 0;
   const baseLaborCost = inputs.labourHours * loadedRate;
   const reportWritingCost = inputs.reportWritingHours * loadedRate;
+  const travelLabourCost = ((inputs.travelLabourHours ?? 0) * loadedRate) * ((inputs.travelLabourBillPct ?? 0) / 100);
 
-  const preAfterHours = baseLaborCost + reportWritingCost;
+  const preAfterHours = baseLaborCost + reportWritingCost + travelLabourCost;
   const afterHoursPremium = inputs.afterHoursMultiplier > 1
     ? preAfterHours * (inputs.afterHoursMultiplier - 1)
     : 0;
@@ -173,6 +180,7 @@ export function calcCostBreakdown(inputs: CostInputs): CostBreakdown {
     calloutFee,
     labourCost: baseLaborCost,
     reportWritingCost,
+    travelLabourCost,
     accessComplexityPremium,
     afterHoursPremium,
     travelZoneSurcharge,
