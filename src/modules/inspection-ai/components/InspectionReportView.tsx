@@ -14,10 +14,11 @@ import {
   Layers,
   DollarSign,
   Info,
+  FileText,
 } from 'lucide-react';
 import { fetchReport, fetchReportItems } from '../services/storageService';
 import type { InspectionAIReport, InspectionAIItem } from '../types';
-import { generatePDF } from '../utils/pdfGenerator';
+import { generatePDF, generateVariationPDF } from '../utils/pdfGenerator';
 import { CONFIDENCE_REVIEW_THRESHOLD } from '../services/inspectionAIService';
 import { generateCommercialSummary } from '../utils/summaryEngine';
 import { getRiskTailwindClass } from '../utils/riskEngine';
@@ -25,6 +26,7 @@ import type { CommercialSummary } from '../utils/summaryEngine';
 import { estimateCost, estimateTotalCost, COST_DISCLAIMER } from '../utils/costEstimator';
 import { forecastRisk, getForecastColour } from '../utils/forecastEngine';
 import { InspectionDashboard } from './InspectionDashboard';
+import { VariationPanel } from './VariationPanel';
 
 type ReportMode = 'client' | 'internal';
 
@@ -428,13 +430,14 @@ function ModeSwitcher({ mode, onChange }: { mode: ReportMode; onChange: (m: Repo
   );
 }
 
-type ReportTab = 'findings' | 'dashboard';
+type ReportTab = 'findings' | 'dashboard' | 'variation';
 
 export function InspectionReportView({ reportId, onBack }: Props) {
   const [report, setReport] = useState<InspectionAIReport | null>(null);
   const [items, setItems] = useState<InspectionAIItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [variationExporting, setVariationExporting] = useState(false);
   const [mode, setMode] = useState<ReportMode>('client');
   const [tab, setTab] = useState<ReportTab>('findings');
 
@@ -457,6 +460,16 @@ export function InspectionReportView({ reportId, onBack }: Props) {
       await generatePDF(report, items, mode);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleVariationExport = async (merged: boolean) => {
+    if (!report) return;
+    setVariationExporting(true);
+    try {
+      await generateVariationPDF(report, items, mode, merged);
+    } finally {
+      setVariationExporting(false);
     }
   };
 
@@ -514,6 +527,13 @@ export function InspectionReportView({ reportId, onBack }: Props) {
               <BarChart2 className="w-3.5 h-3.5" />
               Intelligence
             </button>
+            <button
+              onClick={() => setTab('variation')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === 'variation' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Variation
+            </button>
           </div>
         )}
       </div>
@@ -544,6 +564,20 @@ export function InspectionReportView({ reportId, onBack }: Props) {
             items={items}
             reportId={reportId}
             projectName={report.project_name}
+          />
+        )}
+
+        {mode === 'internal' && tab === 'variation' && (
+          <VariationPanel
+            items={items}
+            projectName={report.project_name}
+            inspectorName={report.inspector_name}
+            date={new Date(report.created_at).toLocaleDateString('en-NZ', {
+              day: 'numeric', month: 'long', year: 'numeric',
+            })}
+            mode={mode}
+            onExport={handleVariationExport}
+            exporting={variationExporting}
           />
         )}
 

@@ -5,6 +5,8 @@ import { generateCommercialSummary } from './summaryEngine';
 import { getRiskColour } from './riskEngine';
 import { estimateCost, estimateTotalCost, COST_DISCLAIMER } from './costEstimator';
 import { forecastRisk, getForecastPDFRGB } from './forecastEngine';
+import { buildVariationSummary, buildMergedVariation } from './variationSummary';
+import { VARIATION_DISCLAIMER } from './variationEngine';
 
 type ReportMode = 'client' | 'internal';
 
@@ -542,4 +544,267 @@ export async function generatePDF(
   const modeTag = mode === 'internal' ? '_INTERNAL' : '_CLIENT';
   const safeProject = report.project_name.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
   doc.save(`Inspection_AI_Report_${safeProject}${modeTag}_${Date.now()}.pdf`);
+}
+
+export async function generateVariationPDF(
+  report: InspectionAIReport,
+  items: InspectionAIItem[],
+  mode: ReportMode = 'internal',
+  merged = false
+): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const commercial = generateCommercialSummary(items);
+  const variationSummary = buildVariationSummary(commercial.groups);
+  const displayItems = merged && commercial.groups.length > 1
+    ? [buildMergedVariation(commercial.groups)]
+    : variationSummary.items;
+
+  const totalPages = 1 + displayItems.length;
+  const dateStr = new Date(report.created_at).toLocaleDateString('en-NZ', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  addPageBackground(doc);
+  doc.setFillColor(26, 26, 46);
+  doc.rect(0, 0, PAGE_W, 28, 'F');
+  doc.setFillColor(200, 16, 46);
+  doc.rect(0, 28, PAGE_W, 1.5, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('VARIATION SCOPE REPORT', MARGIN, 11);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  const modeLabel = mode === 'internal' ? 'INTERNAL  ·  ' : '';
+  doc.text(`${modeLabel}Page 1 of ${totalPages}`, PAGE_W - MARGIN, 15, { align: 'right' });
+  doc.text(`${report.project_name}  ·  Inspector: ${report.inspector_name}`, MARGIN, 18);
+
+  let y = 40;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.setTextColor(26, 26, 46);
+  doc.text(report.project_name, MARGIN, y);
+  y += 7;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(90, 90, 110);
+  doc.text(`Prepared by: ${report.inspector_name}    ·    Date: ${dateStr}`, MARGIN, y);
+  y += 5;
+  doc.setFillColor(200, 16, 46);
+  doc.rect(MARGIN, y, CONTENT_W, 0.5, 'F');
+  y += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(26, 26, 46);
+  doc.text('VARIATION OVERVIEW', MARGIN, y);
+  y += 7;
+
+  const kpiW = (CONTENT_W - 6) / (mode === 'internal' ? 3 : 2);
+  const kpiCards: Array<{ label: string; value: string; r: number; g: number; b: number }> = [
+    { label: 'Variation Items', value: String(displayItems.length), r: 26, g: 26, b: 46 },
+    { label: 'Total Scope', value: `${variationSummary.total_area_m2.toFixed(1)} m²`, r: 37, g: 99, b: 235 },
+  ];
+  if (mode === 'internal') {
+    kpiCards.push({ label: 'Est. Cost Exposure', value: variationSummary.total_cost_formatted, r: 5, g: 150, b: 105 });
+  }
+  kpiCards.forEach((kpi, ki) => {
+    const kx = MARGIN + ki * (kpiW + 3);
+    doc.setFillColor(248, 249, 252);
+    doc.roundedRect(kx, y, kpiW, 14, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(kpi.r, kpi.g, kpi.b);
+    doc.text(kpi.value, kx + kpiW / 2, y + 7, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 100, 120);
+    doc.text(kpi.label.toUpperCase(), kx + kpiW / 2, y + 11.5, { align: 'center' });
+  });
+  y += 20;
+
+  doc.setFillColor(245, 245, 250);
+  doc.roundedRect(MARGIN, y, CONTENT_W, 16, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(100, 100, 120);
+  doc.text('PURPOSE OF THIS DOCUMENT', MARGIN + 4, y + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(50, 50, 70);
+  const purposeText = 'This document provides structured variation scope descriptions derived from site inspection findings. ' +
+    'Each variation item details the observed defect condition, indicative scope of remedial works, and affected area.';
+  const pLines = doc.splitTextToSize(purposeText, CONTENT_W - 8);
+  doc.text(pLines, MARGIN + 4, y + 10);
+  y += 20;
+
+  doc.setFillColor(255, 251, 235);
+  doc.roundedRect(MARGIN, y, CONTENT_W, 12, 2, 2, 'F');
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  doc.setTextColor(120, 80, 10);
+  const dLines = doc.splitTextToSize(VARIATION_DISCLAIMER, CONTENT_W - 8);
+  doc.text(dLines, MARGIN + 4, y + 5);
+
+  addFooter(doc);
+
+  displayItems.forEach((variation, idx) => {
+    doc.addPage();
+    addPageBackground(doc);
+
+    doc.setFillColor(26, 26, 46);
+    doc.rect(0, 0, PAGE_W, 22, 'F');
+    doc.setFillColor(200, 16, 46);
+    doc.rect(0, 22, PAGE_W, 1.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('VARIATION SCOPE REPORT', MARGIN, 9);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text(`${report.project_name}  ·  ${mode === 'internal' ? 'INTERNAL  ·  ' : ''}Page ${idx + 2} of ${totalPages}`, PAGE_W - MARGIN, 15, { align: 'right' });
+
+    let vy = 32;
+
+    const riskRGBMap: Record<string, [number, number, number]> = {
+      'High Risk': [200, 16, 46],
+      'Medium Risk': [217, 119, 6],
+      'Low Risk': [16, 185, 129],
+    };
+    const [rr, rg, rb] = riskRGBMap[variation.risk_level] ?? [100, 100, 120];
+
+    doc.setFillColor(rr, rg, rb);
+    doc.rect(MARGIN, vy, 3, 18, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(26, 26, 46);
+    const titleLabel = variation.is_merged ? 'COMBINED VARIATION' : `VARIATION ITEM ${idx + 1}`;
+    doc.text(titleLabel, MARGIN + 6, vy + 6);
+    doc.setFontSize(9);
+    doc.setTextColor(60, 60, 80);
+    doc.text(variation.title, MARGIN + 6, vy + 12.5);
+
+    const riskLabel = variation.risk_level.toUpperCase();
+    const rW = doc.getTextWidth(riskLabel) + 8;
+    doc.setFillColor(rr, rg, rb);
+    doc.roundedRect(PAGE_W - MARGIN - rW, vy + 4, rW, 7, 1.5, 1.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(riskLabel, PAGE_W - MARGIN - rW / 2, vy + 9, { align: 'center' });
+    vy += 24;
+
+    doc.setFillColor(200, 16, 46);
+    doc.rect(MARGIN, vy, CONTENT_W, 0.3, 'F');
+    vy += 6;
+
+    const metricsW = (CONTENT_W - 4) / (mode === 'internal' && variation.cost ? 3 : 2);
+    const metrics: Array<{ label: string; value: string }> = [
+      { label: 'Occurrences', value: String(variation.count) },
+      { label: 'Affected Area', value: variation.estimated_area },
+    ];
+    if (mode === 'internal' && variation.cost) {
+      metrics.push({ label: 'Est. Cost Range', value: variation.cost.formatted });
+    }
+    metrics.forEach((m, mi) => {
+      const mx = MARGIN + mi * (metricsW + 2);
+      doc.setFillColor(248, 249, 252);
+      doc.roundedRect(mx, vy, metricsW, 11, 1.5, 1.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(26, 26, 46);
+      doc.text(m.value, mx + metricsW / 2, vy + 5.5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.setTextColor(110, 110, 130);
+      doc.text(m.label.toUpperCase(), mx + metricsW / 2, vy + 9.5, { align: 'center' });
+    });
+    vy += 16;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 100, 120);
+    doc.text('DESCRIPTION', MARGIN, vy);
+    vy += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(40, 40, 55);
+    const descLines = doc.splitTextToSize(variation.description, CONTENT_W);
+    doc.text(descLines, MARGIN, vy);
+    vy += descLines.length * 4.5 + 5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 100, 120);
+    doc.text('SCOPE OF WORKS', MARGIN, vy);
+    vy += 5;
+    const scopeLines = variation.scope.split('\n').filter(Boolean);
+    scopeLines.forEach((line) => {
+      if (vy > PAGE_H - 25) return;
+      doc.setFillColor(245, 247, 250);
+      doc.roundedRect(MARGIN, vy - 3, CONTENT_W, 7, 1, 1, 'F');
+      doc.setFillColor(16, 185, 129);
+      doc.circle(MARGIN + 3, vy + 0.5, 1, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(40, 40, 55);
+      doc.text(line, MARGIN + 7, vy + 0.5);
+      vy += 9;
+    });
+    vy += 3;
+
+    if (variation.locations.length > 0 && vy < PAGE_H - 30) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 100, 120);
+      doc.text('AFFECTED LOCATIONS', MARGIN, vy);
+      vy += 4;
+      const locText = variation.locations.join('  ·  ') +
+        (variation.count > variation.locations.length ? `  +${variation.count - variation.locations.length} more` : '');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(40, 40, 55);
+      doc.text(locText, MARGIN, vy);
+      vy += 8;
+    }
+
+    if (mode === 'internal' && variation.forecast && vy < PAGE_H - 25) {
+      const [fr, fg, fb] = getForecastPDFRGB(variation.forecast.urgency);
+      doc.setFillColor(fr, fg, fb);
+      doc.setOpacity(0.08);
+      doc.roundedRect(MARGIN, vy, CONTENT_W, 14, 2, 2, 'F');
+      doc.setOpacity(1);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(fr, fg, fb);
+      doc.text(variation.forecast.label.toUpperCase(), MARGIN + 4, vy + 6);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(50, 50, 70);
+      const fLines = doc.splitTextToSize(variation.forecast.description, CONTENT_W - 8);
+      doc.text(fLines, MARGIN + 4, vy + 11);
+      vy += 18;
+    }
+
+    if (mode === 'internal' && variation.cost && vy < PAGE_H - 20) {
+      doc.setFillColor(240, 253, 244);
+      doc.roundedRect(MARGIN, vy, CONTENT_W, 9, 1.5, 1.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(5, 150, 105);
+      doc.text(`Est. Cost Range: ${variation.cost.formatted}`, MARGIN + 4, vy + 6);
+      vy += 13;
+    }
+
+    addFooter(doc);
+  });
+
+  const modeTag = mode === 'internal' ? '_INTERNAL' : '_CLIENT';
+  const mergedTag = merged ? '_MERGED' : '';
+  const safeProject = report.project_name.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+  doc.save(`Variation_Report_${safeProject}${modeTag}${mergedTag}_${Date.now()}.pdf`);
 }
