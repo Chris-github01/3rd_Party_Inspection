@@ -25,7 +25,10 @@ const TIER1_MODEL_OPENAI = "gpt-4o-mini";
 const TIER2_MODEL_OPENAI = "gpt-4o";
 const TIER2_MODEL_ANTHROPIC = "claude-opus-4-5";
 
-const TIER1_PROMPT = `You are a coatings and passive fire protection inspector. Analyse the inspection photograph and return a JSON classification.
+const TIER1_PROMPT = `You are a senior coatings and passive fire protection inspector. Analyse the inspection photograph and return a JSON classification.
+
+IMAGE QUALITY CHECK (do this first, before any defect analysis):
+- If the image is blurry, out of focus, poorly lit, overexposed, underexposed, or too low resolution to make reliable observations, set requires_manual_review = true and escalation_reason = "poor image quality — unable to make reliable assessment". Still attempt classification but use confidence < 40.
 
 DEFECT TYPES (choose one only):
 Mechanical Damage | Cracking | Delamination | Missing Coating | Corrosion Breakthrough | Blistering | Spalling | Voids | Incomplete Firestopping | Surface Deterioration | Moisture Damage | Unknown
@@ -51,6 +54,7 @@ Return ONLY valid JSON:
   "escalation_reason": "",
   "remediation_guidance": "",
   "requires_manual_review": false,
+  "corrosivity_category": "C1|C2|C3|C4|C5|Unknown",
   "geometry": {
     "location_on_member": "",
     "pattern": "",
@@ -73,8 +77,34 @@ You specialise in:
 You must classify ONLY visible evidence. Do NOT invent hidden defects unless marked as POSSIBLE. Never default to Mechanical Damage unless you can see a clear physical impact — a gouge, dent, or abrasion mark.
 
 --------------------------------------------------
+STEP 0 — IMAGE QUALITY ASSESSMENT (do this first, before any other analysis)
+Assess whether the photograph provides sufficient clarity to make a reliable inspection finding.
+
+If ANY of these conditions apply, set requires_manual_review = true and set escalation_reason = "poor image quality — [specific reason]":
+- Image is blurry or out of focus
+- Lighting is too dark, too bright, or heavily shadowed over the defect area
+- Resolution is too low to resolve coating texture or defect detail
+- Subject is obscured by glare, flash reflection, or obstruction
+- Camera angle is too oblique to assess defect extent
+
+If image quality is poor, still attempt classification but cap confidence at 40 and note the limitation in observation.
+
+--------------------------------------------------
 STEP 1 — IDENTIFY LIKELY SYSTEM
 Choose one: Intumescent | Cementitious | Protective Coating | Firestopping | Unknown
+
+--------------------------------------------------
+STEP 1B — ISO 12944 CORROSIVITY CLASSIFICATION
+Based on visible clues in the photograph (surface rust, moisture staining, condensation, coastal exposure, industrial contamination, sheltered vs exposed conditions), classify the likely environment:
+
+C1 — Very low: heated interior, dry, no condensation
+C2 — Low: unheated interior, rural/suburban exterior, minimal moisture
+C3 — Medium: coastal/urban exterior, moderate humidity, light industrial
+C4 — High: marine splash zone, industrial chemical exposure, high humidity interior
+C5 — Very high: offshore, severe industrial, permanent condensation or chemical immersion
+
+Add your classification as "corrosivity_category": "C1" through "C5" in the JSON output. If visual clues are insufficient, use "Unknown".
+Note: High corrosivity (C4–C5) combined with any corrosion defect is automatic escalation regardless of severity.
 
 --------------------------------------------------
 STEP 2 — VISUAL OBSERVATIONS
@@ -159,6 +189,7 @@ Return ONLY a valid JSON object. No markdown. No extra text.
   "escalation_reason": "",
   "remediation_guidance": "",
   "requires_manual_review": false,
+  "corrosivity_category": "C1|C2|C3|C4|C5|Unknown",
   "geometry": {
     "location_on_member": "",
     "pattern": "",
@@ -169,13 +200,28 @@ Return ONLY a valid JSON object. No markdown. No extra text.
 }
 
 If confidence < 50, set requires_manual_review = true.
-Never set defect_type = "Mechanical Damage" unless you can see a clear physical impact mark in the image.`;
+Never set defect_type = "Mechanical Damage" unless you can see a clear physical impact mark in the image.
+If corrosivity_category is C4 or C5 and defect involves any corrosion, set escalate = true.`;
 
 const INTUMESCENT_SPECIALIST_ADDENDUM = `
 
 --------------------------------------------------
 INTUMESCENT SPECIALIST MODE — ACTIVE
 You have identified or been told this is an intumescent system. Apply these additional reasoning rules:
+
+FRL CONTINUITY CHECK (mandatory for all intumescent and firestopping assessments):
+The purpose of intumescent coating is to maintain fire resistance continuity. Any visible condition that compromises coating continuity — regardless of how localised — must be treated as a fire safety risk.
+
+AUTOMATIC High severity + escalate = true if ANY of the following are observed:
+- Cracking that penetrates through the coating depth (not surface crazing only)
+- Flaking, spalling, or chunk loss that exposes the steel substrate
+- Delamination leaving bare or near-bare steel
+- Missing coating at any location on a fire-rated member
+- Incomplete seal at a firestopping penetration
+- Visible gaps or voids in cementitious or board-based fire protection
+
+Even a small breach (< 50mm) on a fire-rated element should be escalated. The FRL of the element depends on full continuous coverage — partial failure = system failure in a fire event.
+Set escalation_reason to include: "FRL continuity breach — fire protection integrity compromised"
 
 INTUMESCENT-SPECIFIC DEFECT PATTERNS:
 - Edge cracking at connection plates / bolt groups = movement stress. Classify as Cracking. Escalate always.
@@ -538,20 +584,35 @@ function buildResult(
       }
     : null;
 
+  const validCorrosivityCategories = ["C1", "C2", "C3", "C4", "C5", "Unknown"];
+  const corrosivityCategory = validCorrosivityCategories.includes(String(parsed.corrosivity_category ?? ""))
+    ? String(parsed.corrosivity_category)
+    : "Unknown";
+
+  const defectType = normaliseDefectType(String(parsed.defect_type ?? "Unknown"));
+  const isCorrosionDefect = ["Corrosion Breakthrough", "Missing Coating", "Surface Deterioration"].includes(defectType);
+  const isHighCorrosivity = corrosivityCategory === "C4" || corrosivityCategory === "C5";
+  const corrosivityEscalate = isHighCorrosivity && isCorrosionDefect;
+
+  const escalationReasons: string[] = [];
+  if (parsed.escalation_reason) escalationReasons.push(String(parsed.escalation_reason));
+  if (corrosivityEscalate) escalationReasons.push(`High corrosivity environment (${corrosivityCategory}) with corrosion defect — accelerated deterioration risk`);
+
   return {
     success: true,
-    defect_type: normaliseDefectType(String(parsed.defect_type ?? "Unknown")),
+    defect_type: defectType,
     severity,
     observation: String(parsed.observation ?? ""),
     confidence,
     likely_cause: String(parsed.likely_cause ?? ""),
     visible_evidence: visibleEvidence,
     next_checks: nextChecks,
-    escalate: Boolean(parsed.escalate) || confidence < 70,
-    escalation_reason: String(parsed.escalation_reason ?? ""),
+    escalate: Boolean(parsed.escalate) || confidence < 70 || corrosivityEscalate,
+    escalation_reason: escalationReasons.join("; "),
     remediation_guidance: String(parsed.remediation_guidance ?? ""),
     requires_manual_review: requiresManualReview,
     system_type_detected: String(parsed.system_type ?? ""),
+    corrosivity_category: corrosivityCategory,
     geometry,
     tier_used: tier,
     model_used: provider === "anthropic" ? TIER2_MODEL_ANTHROPIC : (tier === 1 ? TIER1_MODEL_OPENAI : TIER2_MODEL_OPENAI),
