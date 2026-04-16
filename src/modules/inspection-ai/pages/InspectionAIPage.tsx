@@ -39,6 +39,7 @@ import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
 import { DEFECT_TYPES } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
 import { enqueue, isQueueBusy, queueLength, queueDepth, addQueueListener, isQueuePaused, queuePausedForMs } from '../utils/analysisQueue';
+import { enqueueAnalysisJob, triggerWorkerNow } from '../services/jobQueueService';
 import { applyInspectionBrain } from '../utils/inspectionBrain';
 import { InspectionReportView } from '../components/InspectionReportView';
 import { EvidencePhotosPanel } from '../components/EvidencePhotosPanel';
@@ -986,6 +987,9 @@ export default function InspectionAIPage() {
         }
         return next;
       });
+      enqueueAnalysisJob(file, ctx).then(() => {
+        triggerWorkerNow();
+      }).catch(() => {});
     },
     [runAnalysis]
   );
