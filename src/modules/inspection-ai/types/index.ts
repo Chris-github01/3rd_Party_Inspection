@@ -9,6 +9,30 @@ export interface AIAnalysisResult {
   observation: string;
   confidence: number;
   needsReview: boolean;
+  likely_cause?: string;
+  next_checks?: string[];
+  escalate?: boolean;
+  escalation_reason?: string;
+  remediation_guidance?: string;
+}
+
+export type ObservedConcern =
+  | 'Cracking'
+  | 'Rust / Corrosion'
+  | 'Damage'
+  | 'Missing Material'
+  | 'Blistering / Bubbling'
+  | 'Delamination'
+  | 'Unsure';
+
+export type Environment = 'Internal' | 'External' | 'Exposed / Harsh';
+
+export interface CaptureIntakeContext {
+  systemType: SystemType;
+  element: ElementType;
+  environment: Environment;
+  observedConcern: ObservedConcern;
+  isNewInstall: boolean;
 }
 
 export interface InspectionAIProject {
@@ -62,6 +86,9 @@ export interface CapturedItem {
   annotatedImageUrl: string | null;
   systemType: SystemType;
   element: ElementType;
+  environment: Environment;
+  observedConcern: ObservedConcern;
+  isNewInstall: boolean;
   locationLevel: string;
   locationGrid: string;
   locationDescription: string;

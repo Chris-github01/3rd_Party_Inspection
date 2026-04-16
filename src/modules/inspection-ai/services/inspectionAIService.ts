@@ -13,12 +13,20 @@ const FALLBACK_RESULT: AIAnalysisResult = {
   observation: getObservationTemplate('Mechanical Damage'),
   confidence: 0,
   needsReview: true,
+  likely_cause: '',
+  next_checks: [],
+  escalate: false,
+  escalation_reason: '',
+  remediation_guidance: '',
 };
 
 async function attemptAnalyse(
   imageFile: File,
   systemType: string,
-  element: string
+  element: string,
+  environment?: string,
+  observedConcern?: string,
+  isNewInstall?: boolean
 ): Promise<AIAnalysisResult> {
   const base64 = await fileToBase64(imageFile);
   const mimeType = imageFile.type || 'image/jpeg';
@@ -35,6 +43,9 @@ async function attemptAnalyse(
       mime_type: mimeType,
       system_type: systemType,
       element,
+      environment: environment ?? 'Internal',
+      observed_concern: observedConcern ?? 'Unsure',
+      is_new_install: isNewInstall ?? false,
     }),
   });
 
@@ -61,6 +72,11 @@ async function attemptAnalyse(
     observation: data.observation,
     confidence,
     needsReview: confidence < CONFIDENCE_REVIEW_THRESHOLD,
+    likely_cause: String(data.likely_cause ?? ''),
+    next_checks: Array.isArray(data.next_checks) ? data.next_checks.map(String) : [],
+    escalate: Boolean(data.escalate) || confidence < CONFIDENCE_REVIEW_THRESHOLD,
+    escalation_reason: String(data.escalation_reason ?? ''),
+    remediation_guidance: String(data.remediation_guidance ?? ''),
   };
 }
 
@@ -68,10 +84,13 @@ export async function analyseImage(
   imageFile: File,
   systemType: string,
   element: string,
-  onRetry?: () => void
+  onRetry?: () => void,
+  environment?: string,
+  observedConcern?: string,
+  isNewInstall?: boolean
 ): Promise<AIAnalysisResult> {
   try {
-    return await attemptAnalyse(imageFile, systemType, element);
+    return await attemptAnalyse(imageFile, systemType, element, environment, observedConcern, isNewInstall);
   } catch (firstErr) {
     const isRateLimit = (firstErr as { isRateLimit?: boolean }).isRateLimit;
 
@@ -79,7 +98,7 @@ export async function analyseImage(
       onRetry?.();
       await sleep(3000);
       try {
-        return await attemptAnalyse(imageFile, systemType, element);
+        return await attemptAnalyse(imageFile, systemType, element, environment, observedConcern, isNewInstall);
       } catch {
         return { ...FALLBACK_RESULT };
       }

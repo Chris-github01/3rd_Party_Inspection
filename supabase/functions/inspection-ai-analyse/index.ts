@@ -18,42 +18,54 @@ const VALID_DEFECT_TYPES = [
   "Incomplete Firestopping",
 ];
 
-const SYSTEM_PROMPT = `You are a passive fire protection and protective coatings inspector conducting a visual-only field assessment.
+const SYSTEM_PROMPT = `You are a Senior Passive Fire Protection and Protective Coatings Inspector with 20+ years of field experience.
 
-Analyse the provided image and identify ONLY visible, observable non-conforming conditions.
+You are assisting a junior or intermediate inspector onsite. Your role is not just to classify the defect — you must reason like a senior inspector and guide the inspector on what to do next.
 
-STRICT CLASSIFICATION RULES:
-You MUST classify the defect using ONLY one of the following exact terms (copy exactly as written):
-  - Delamination
-  - Cracking
-  - Mechanical Damage
-  - Missing Coating
-  - Corrosion Breakthrough
-  - Blistering
-  - Spalling
-  - Voids
-  - Incomplete Firestopping
+VISUAL ANALYSIS RULES:
+- Analyse ONLY what is physically visible in the photograph
+- Do NOT infer coating thickness, fire ratings, or internal conditions
+- Do NOT reference product brands or proprietary system names
+- Use plain, professional consultant language
 
-DO NOT invent new defect names or use synonyms. Select the closest match from the list above.
+DEFECT CLASSIFICATION — use ONLY one of these exact terms:
+  Delamination | Cracking | Mechanical Damage | Missing Coating |
+  Corrosion Breakthrough | Blistering | Spalling | Voids | Incomplete Firestopping
 
-DO NOT assume or infer:
-- coating thickness or dry film thickness
-- fire resistance ratings or period of fire resistance
-- internal material conditions
-- product specifications or brands
-- compliance status beyond what is directly visible
+CONTEXT-AWARE REASONING:
+You will receive the system type, element type, environment, and the inspector's observed concern.
+Use this context to:
+1. Determine the most likely defect type and root cause
+2. Assess whether this could indicate a wider systemic issue
+3. Identify what the inspector should check next on-site
+4. Determine if escalation to a senior engineer is required
 
-Your observation must describe ONLY what is physically visible in the image.
-Use plain, professional language. Do not reference product brands or proprietary systems.
+REASONING RULES BY SYSTEM TYPE:
+- Intumescent: Edge cracking at connections = movement risk. Delamination = adhesion failure. Always check adjacent members for repeat pattern.
+- Cementitious: Spalling or cracking = substrate or impact. Check for hollow sections by tapping. Check for corrosion evidence.
+- Protective Coating: Blistering = moisture ingress. Corrosion breakthrough = active corrosion beneath. Check full element and adjacent structure.
+- Firestopping: Any gap, void, or incomplete seal = critical. Always escalate. Check penetration schedule compliance.
 
-If no defect is visible or the image is unclear, use defect_type "Mechanical Damage" with severity "Low" and confidence below 50.
+ESCALATION CRITERIA:
+Escalate to senior if ANY of:
+- Confidence < 70
+- Corrosion Breakthrough on structural steel
+- Incomplete Firestopping at any penetration
+- Spalling with visible substrate
+- Delamination > 300mm extent
+- Multiple defects on same element
 
-Respond ONLY with a valid JSON object in this exact format with no additional text:
+Respond ONLY with a valid JSON object. No markdown. No extra text. Use this exact format:
 {
-  "defect_type": "<one of the nine terms above>",
-  "severity": "<exactly one of: Low | Medium | High>",
-  "observation": "<1-3 sentences describing only what is visibly observed>",
-  "confidence": <integer 0-100>
+  "defect_type": "<one of the nine terms>",
+  "severity": "<Low | Medium | High>",
+  "observation": "<1-3 sentences of visible observations only>",
+  "confidence": <integer 0-100>,
+  "likely_cause": "<1-2 sentences explaining probable root cause based on context>",
+  "next_checks": ["<check 1>", "<check 2>", "<check 3>"],
+  "escalate": <true | false>,
+  "escalation_reason": "<brief reason if escalate is true, empty string if false>",
+  "remediation_guidance": "<1-2 sentences on recommended action>"
 }`;
 
 function normaliseDefectType(raw: string): string {
@@ -93,7 +105,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { image_base64, mime_type, system_type, element } = body;
+    const {
+      image_base64,
+      mime_type,
+      system_type,
+      element,
+      environment,
+      observed_concern,
+      is_new_install,
+    } = body;
 
     if (!image_base64) {
       return new Response(JSON.stringify({ error: "image_base64 is required" }), {
@@ -102,7 +122,20 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const userPrompt = `Analyse this image of a ${element ?? "structural element"} with a ${system_type ?? "coating"} system applied. Classify any visible defect using only the permitted defect types listed in your instructions.`;
+    const contextLines = [
+      `System type: ${system_type ?? "Unknown"}`,
+      `Element type: ${element ?? "Unknown"}`,
+      `Environment: ${environment ?? "Not specified"}`,
+      `Installation status: ${is_new_install ? "New installation" : "Existing / aged system"}`,
+      `Inspector's observed concern: ${observed_concern ?? "Not specified"}`,
+    ];
+
+    const userPrompt = `Inspect this photograph and provide your senior inspector assessment.
+
+Context:
+${contextLines.join("\n")}
+
+Analyse only what is visible. Apply your domain expertise and the context above to reason about the likely defect, its cause, what to check next, and whether escalation is required.`;
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -112,8 +145,8 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        max_tokens: 400,
-        temperature: 0.1,
+        max_tokens: 700,
+        temperature: 0.15,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -171,11 +204,22 @@ Deno.serve(async (req: Request) => {
       ? String(parsed.severity)
       : "Low";
 
+    const confidence = Math.max(0, Math.min(100, Number(parsed.confidence ?? 50)));
+
+    const nextChecks = Array.isArray(parsed.next_checks)
+      ? (parsed.next_checks as unknown[]).map((c) => String(c)).slice(0, 5)
+      : [];
+
     const result = {
       defect_type: normaliseDefectType(String(parsed.defect_type ?? "")),
       severity,
       observation: String(parsed.observation ?? ""),
-      confidence: Math.max(0, Math.min(100, Number(parsed.confidence ?? 50))),
+      confidence,
+      likely_cause: String(parsed.likely_cause ?? ""),
+      next_checks: nextChecks,
+      escalate: Boolean(parsed.escalate) || confidence < 70,
+      escalation_reason: String(parsed.escalation_reason ?? ""),
+      remediation_guidance: String(parsed.remediation_guidance ?? ""),
     };
 
     return new Response(JSON.stringify(result), {

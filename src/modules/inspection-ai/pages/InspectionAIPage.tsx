@@ -41,11 +41,15 @@ import { ProjectOverview } from '../components/ProjectOverview';
 import { BlockLevelNavigator } from '../components/spatial/BlockLevelNavigator';
 import { DrawingViewer } from '../components/spatial/DrawingViewer';
 import { ExecutiveDashboard } from '../components/ExecutiveDashboard';
+import { CaptureIntakeWizard } from '../components/CaptureIntakeWizard';
+import { SeniorInspectorCard, AnalysingState } from '../components/SeniorInspectorCard';
 import type { PortfolioProjectStat } from '../services/storageService';
 import type {
   CapturedItem,
   SystemType,
   ElementType,
+  Environment,
+  ObservedConcern,
   Severity,
   Extent,
   AnalysisStatus,
@@ -54,6 +58,7 @@ import type {
   InspectionAIBlock,
   InspectionAILevel,
   InspectionAIDrawing,
+  CaptureIntakeContext,
 } from '../types';
 import { updatePin } from '../services/spatialService';
 import { format } from 'date-fns';
@@ -277,10 +282,12 @@ function InspectorOverridePanel({
   );
 }
 
-function makeBlankItem(file: File, previewUrl: string, systemType: SystemType, element: ElementType): CapturedItem {
+function makeBlankItem(file: File, previewUrl: string, ctx: CaptureIntakeContext): CapturedItem {
   return {
     imageFile: file, imagePreviewUrl: previewUrl, annotatedImageUrl: null,
-    systemType, element, locationLevel: '', locationGrid: '', locationDescription: '',
+    systemType: ctx.systemType, element: ctx.element,
+    environment: ctx.environment, observedConcern: ctx.observedConcern, isNewInstall: ctx.isNewInstall,
+    locationLevel: '', locationGrid: '', locationDescription: '',
     extent: 'Localised', analysisResult: null, nonConformance: '', recommendation: '', risk: '',
     defectTypeOverride: null, severityOverride: null, observationOverride: null,
     inspectorOverride: false, analysisStatus: 'idle', isAnalysing: false, isSaved: false,
@@ -683,6 +690,9 @@ export default function InspectionAIPage() {
     () => (localStorage.getItem(LS_ELEMENT_KEY) as ElementType) ?? 'Beam'
   );
 
+  const [showIntakeWizard, setShowIntakeWizard] = useState(false);
+  const [pendingIntakeCtx, setPendingIntakeCtx] = useState<CaptureIntakeContext | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [startingSession, setStartingSession] = useState(false);
@@ -750,20 +760,14 @@ export default function InspectionAIPage() {
     setScreen('drawing-viewer');
   };
 
-  const handlePinCapture = async (pinId: string, useCamera: boolean) => {
+  const handlePinCapture = async (pinId: string, _useCamera: boolean) => {
     setPendingPinId(pinId);
     if (!reportId && selectedProject && inspectorName.trim()) {
       const r = await createReport(selectedProject.project_name, inspectorName.trim(), selectedProject.id);
       setReportId(r.id);
     }
-    setItems([]);
-    setActiveIdx(null);
     setScreen('capture');
-    if (useCamera) {
-      setTimeout(() => { cameraInputRef.current?.click(); }, 300);
-    } else {
-      setTimeout(() => { fileInputRef.current?.click(); }, 300);
-    }
+    setTimeout(() => setShowIntakeWizard(true), 100);
   };
 
   const setItemStatus = useCallback((idx: number, status: AnalysisStatus) => {
@@ -777,13 +781,13 @@ export default function InspectionAIPage() {
   }, []);
 
   const runAnalysis = useCallback(
-    async (idx: number, systemType: SystemType, element: ElementType, imageFile: File) => {
+    async (idx: number, systemType: SystemType, element: ElementType, imageFile: File, environment?: string, observedConcern?: string, isNewInstall?: boolean) => {
       const alreadyBusy = isQueueBusy() || queueLength() > 0;
       setItemStatus(idx, alreadyBusy ? 'queued' : 'analysing');
 
       await enqueue(async () => {
         setItemStatus(idx, 'analysing');
-        const result = await analyseImage(imageFile, systemType, element, () => setItemStatus(idx, 'retrying'));
+        const result = await analyseImage(imageFile, systemType, element, () => setItemStatus(idx, 'retrying'), environment, observedConcern, isNewInstall);
         const isManual = result.confidence === 0;
         const nc = generateNonConformance(result.defect_type, element);
         const rec = generateRecommendation(result.defect_type, systemType);
@@ -803,23 +807,27 @@ export default function InspectionAIPage() {
   );
 
   const addImageFromFile = useCallback(
-    (file: File, analyseLater = false) => {
+    (file: File, ctx: CaptureIntakeContext, analyseLater = false) => {
       const previewUrl = URL.createObjectURL(file);
-      const newItem = makeBlankItem(file, previewUrl, sessionSystemType, sessionElement);
+      const newItem = makeBlankItem(file, previewUrl, ctx);
       setItems((prev) => {
         const next = [...prev, newItem];
         const newIdx = next.length - 1;
         setActiveIdx(newIdx);
-        if (!analyseLater) setTimeout(() => runAnalysis(newIdx, sessionSystemType, sessionElement, file), 0);
+        if (!analyseLater) setTimeout(() => runAnalysis(newIdx, ctx.systemType, ctx.element, file, ctx.environment, ctx.observedConcern, ctx.isNewInstall), 0);
         return next;
       });
     },
-    [sessionSystemType, sessionElement, runAnalysis]
+    [runAnalysis]
   );
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, analyseLater = false) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, ctx?: CaptureIntakeContext, analyseLater = false) => {
     const file = e.target.files?.[0];
-    if (file) addImageFromFile(file, analyseLater);
+    const activeCtx: CaptureIntakeContext = ctx ?? {
+      systemType: sessionSystemType, element: sessionElement,
+      environment: 'Internal', observedConcern: 'Unsure', isNewInstall: false,
+    };
+    if (file) addImageFromFile(file, activeCtx, analyseLater);
     e.target.value = '';
   };
 
@@ -831,7 +839,7 @@ export default function InspectionAIPage() {
     const item = items[idx];
     if (!item || item.isAnalysing || item.analysisStatus === 'queued') return;
     updateItem(idx, { analysisResult: null, nonConformance: '', recommendation: '', risk: '', defectTypeOverride: null, severityOverride: null, observationOverride: null, inspectorOverride: false, analysisStatus: 'idle', isSaved: false });
-    runAnalysis(idx, item.systemType, item.element, item.imageFile);
+    runAnalysis(idx, item.systemType, item.element, item.imageFile, item.environment, item.observedConcern, item.isNewInstall);
   };
 
   const handleSave = async (idx: number) => {
@@ -973,6 +981,52 @@ export default function InspectionAIPage() {
   const unsavedWithResult = items.filter((i) => (i.analysisResult || i.inspectorOverride) && !i.isSaved);
   const queuedCount = items.filter((i) => i.analysisStatus === 'queued' || i.analysisStatus === 'analysing' || i.analysisStatus === 'retrying').length;
 
+  const defaultCtx: CaptureIntakeContext = {
+    systemType: sessionSystemType, element: sessionElement,
+    environment: 'Internal', observedConcern: 'Unsure', isNewInstall: false,
+  };
+
+  const handleWizardCaptureCamera = (ctx: CaptureIntakeContext) => {
+    setPendingIntakeCtx(ctx);
+    setShowIntakeWizard(false);
+    setSessionSystemType(ctx.systemType);
+    setSessionElement(ctx.element);
+    setTimeout(() => cameraInputRef.current?.click(), 100);
+  };
+
+  const handleWizardCaptureUpload = (ctx: CaptureIntakeContext) => {
+    setPendingIntakeCtx(ctx);
+    setShowIntakeWizard(false);
+    setSessionSystemType(ctx.systemType);
+    setSessionElement(ctx.element);
+    setTimeout(() => fileInputRef.current?.click(), 100);
+  };
+
+  if (showIntakeWizard) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col">
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+          onChange={(e) => {
+            const ctx = pendingIntakeCtx ?? defaultCtx;
+            setPendingIntakeCtx(null);
+            handleFileSelect(e, ctx, false);
+          }} />
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => {
+            const ctx = pendingIntakeCtx ?? defaultCtx;
+            setPendingIntakeCtx(null);
+            handleFileSelect(e, ctx, false);
+          }} />
+        <CaptureIntakeWizard
+          initialContext={defaultCtx}
+          onCaptureCamera={handleWizardCaptureCamera}
+          onCaptureUpload={handleWizardCaptureUpload}
+          onCancel={() => setShowIntakeWizard(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {overrideIdx !== null && items[overrideIdx] && (
@@ -982,6 +1036,19 @@ export default function InspectionAIPage() {
           onClose={() => setOverrideIdx(null)}
         />
       )}
+
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+        onChange={(e) => {
+          const ctx = pendingIntakeCtx ?? defaultCtx;
+          setPendingIntakeCtx(null);
+          handleFileSelect(e, ctx, false);
+        }} />
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => {
+          const ctx = pendingIntakeCtx ?? defaultCtx;
+          setPendingIntakeCtx(null);
+          handleFileSelect(e, ctx, false);
+        }} />
 
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -1020,44 +1087,20 @@ export default function InspectionAIPage() {
       </div>
 
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
-          <TagGrid label="System Type" value={sessionSystemType} options={SYSTEM_TYPES} onChange={setSessionSystemType} />
-          <TagGrid label="Element" value={sessionElement} options={ELEMENT_TYPES} onChange={setSessionElement} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => cameraInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 bg-slate-900 text-white py-5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-slate-800 transition-all active:scale-95">
-            <Camera className="w-7 h-7" />
-            Take Photo
-          </button>
-          <button onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 bg-white text-slate-700 py-5 rounded-2xl font-semibold text-sm border border-slate-200 hover:border-slate-400 transition-all active:scale-95">
-            <Upload className="w-7 h-7" />
-            Upload Image
-          </button>
-        </div>
-
-        <AnalyseLaterRow onAnalyseLater={() => {
-          fileInputRef.current?.setAttribute('data-analyse-later', '1');
-          fileInputRef.current?.click();
-        }} />
-
-        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
-          onChange={(e) => handleFileSelect(e, false)} />
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-          onChange={(e) => {
-            const later = fileInputRef.current?.getAttribute('data-analyse-later') === '1';
-            fileInputRef.current?.removeAttribute('data-analyse-later');
-            handleFileSelect(e, later);
-          }} />
+        <button
+          onClick={() => setShowIntakeWizard(true)}
+          className="w-full flex items-center justify-center gap-3 bg-slate-900 text-white py-5 rounded-2xl font-bold text-base shadow-sm hover:bg-slate-800 transition-all active:scale-95"
+        >
+          <Camera className="w-6 h-6" />
+          Capture Finding
+        </button>
 
         {items.length === 0 && (
           <div className="text-center py-14 text-slate-400">
-            <Camera className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="text-base font-medium">No photos yet</p>
-            <p className="text-sm mt-1">Take a photo — AI analysis starts automatically</p>
-            <p className="text-xs mt-1 text-slate-300">Or use "Analyse Later" to skip AI and classify manually</p>
+            <Camera className="w-12 h-12 mx-auto mb-3 opacity-20" />
+            <p className="text-base font-semibold text-slate-600">No findings yet</p>
+            <p className="text-sm mt-1 text-slate-400">Tap "Capture Finding" to start</p>
+            <p className="text-xs mt-1 text-slate-300">AI will reason like a senior inspector</p>
           </div>
         )}
 
@@ -1066,7 +1109,6 @@ export default function InspectionAIPage() {
           const effectiveSeverity = item.severityOverride ?? item.analysisResult?.severity;
           const hasOverride = !!(item.defectTypeOverride || item.severityOverride || item.observationOverride);
           const isInProgress = item.analysisStatus === 'queued' || item.analysisStatus === 'analysing' || item.analysisStatus === 'retrying';
-          const isManualMode = item.analysisStatus === 'manual';
           const canSave = !item.isSaved && (!!item.analysisResult || item.inspectorOverride);
 
           return (
@@ -1078,7 +1120,7 @@ export default function InspectionAIPage() {
               <button className="w-full text-left" onClick={() => setActiveIdx(activeIdx === idx ? null : idx)}>
                 <div className="flex items-center gap-3 p-4">
                   {item.imagePreviewUrl && (
-                    <img src={item.imagePreviewUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-slate-100" />
+                    <img src={item.imagePreviewUrl} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0 bg-slate-100" />
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -1087,6 +1129,9 @@ export default function InspectionAIPage() {
                       {item.extent !== 'Localised' && <ExtentBadge extent={item.extent} />}
                       {hasOverride && (
                         <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">Overridden</span>
+                      )}
+                      {item.analysisResult?.escalate && !hasOverride && (
+                        <span className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">Review</span>
                       )}
                       {item.isSaved && <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
                       {!item.isSaved && <AnalysisStatusBadge status={item.analysisStatus} />}
@@ -1119,43 +1164,14 @@ export default function InspectionAIPage() {
                   <TagGrid label="Extent of Defect" value={item.extent} options={EXTENT_OPTIONS} cols={3}
                     onChange={(v) => updateItem(idx, { extent: v })} />
 
-                  {isInProgress && (
-                    <div className="flex items-center justify-center gap-3 py-6">
-                      <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-                      <div className="text-center">
-                        <p className="font-semibold text-slate-700">
-                          {item.analysisStatus === 'queued' && 'Queued — waiting for previous analysis…'}
-                          {item.analysisStatus === 'analysing' && 'Analysing image…'}
-                          {item.analysisStatus === 'retrying' && 'Rate limited — retrying in 3s…'}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-1">You can keep adding photos while this runs</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {isManualMode && !item.inspectorOverride && (
-                    <div className="flex items-start gap-2.5 bg-orange-50 border border-orange-200 rounded-xl p-4">
-                      <WifiOff className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-orange-800">AI unavailable — complete manually</p>
-                        <p className="text-xs text-orange-700 mt-0.5 mb-3">
-                          A fallback classification has been pre-filled. Use Inspector Override to set the correct defect type.
-                        </p>
-                        <button onClick={() => setOverrideIdx(idx)}
-                          className="inline-flex items-center gap-1.5 bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
-                          <Pencil className="w-3.5 h-3.5" />
-                          Classify Manually
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {isInProgress && <AnalysingState status={item.analysisStatus} />}
 
                   {item.analysisStatus === 'idle' && !item.analysisResult && (
                     <div className="space-y-2">
-                      <button onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile)}
-                        className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base hover:bg-red-700 transition-all active:scale-95 shadow-sm">
+                      <button onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile, item.environment, item.observedConcern, item.isNewInstall)}
+                        className="w-full flex items-center justify-center gap-2.5 bg-slate-900 text-white py-4 rounded-xl font-bold text-base hover:bg-slate-800 transition-all active:scale-95 shadow-sm">
                         <Zap className="w-5 h-5" />
-                        Analyse Image
+                        Analyse with Senior Inspector AI
                       </button>
                       <button onClick={() => {
                         updateItem(idx, { analysisStatus: 'manual', analysisResult: { defect_type: 'Mechanical Damage', severity: 'Medium', observation: getObservationTemplate('Mechanical Damage'), confidence: 0, needsReview: true } });
@@ -1169,76 +1185,19 @@ export default function InspectionAIPage() {
                   )}
 
                   {!isInProgress && item.analysisResult && (
-                    <div className="space-y-4">
-                      {item.analysisResult.needsReview && !hasOverride && item.analysisResult.confidence > 0 && (
-                        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-semibold text-amber-800">Manual Review Recommended</p>
-                            <p className="text-xs text-amber-700 mt-0.5">AI confidence is below 70%. Verify or use Inspector Override.</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {hasOverride && (
-                        <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl p-3">
-                          <Pencil className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-xs text-blue-800 font-medium">Inspector override applied.</p>
-                        </div>
-                      )}
-
-                      <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="font-bold text-slate-900 text-sm">{item.defectTypeOverride ?? item.analysisResult.defect_type}</p>
-                          <SeverityBadge severity={item.severityOverride ?? item.analysisResult.severity} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Observation</p>
-                          <p className="text-sm text-slate-700 leading-relaxed">{item.observationOverride ?? item.analysisResult.observation}</p>
-                        </div>
-                        {item.analysisResult.confidence > 0 && (
-                          <div>
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                              AI Confidence: {Math.round(item.analysisResult.confidence)}%
-                            </p>
-                            <div className="bg-slate-200 rounded-full h-2 overflow-hidden">
-                              <div
-                                className={`h-2 rounded-full transition-all ${item.analysisResult.confidence >= 70 ? 'bg-emerald-500' : item.analysisResult.confidence >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                style={{ width: `${item.analysisResult.confidence}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {!item.isSaved && (
-                        <button onClick={() => setOverrideIdx(idx)}
-                          className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">
-                          <Pencil className="w-4 h-4" />
-                          {hasOverride ? 'Edit Override' : 'Inspector Override'}
-                        </button>
-                      )}
-
-                      {item.isSaved ? (
-                        <div className="flex items-center justify-center gap-2 text-emerald-600 font-semibold text-sm py-3">
-                          <CheckCircle className="w-5 h-5" />
-                          Saved to report
-                        </div>
-                      ) : (
-                        <button onClick={() => handleSave(idx)} disabled={!canSave}
-                          className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-xl font-bold text-base hover:bg-emerald-700 transition-all active:scale-95 shadow-sm disabled:opacity-40">
-                          <Plus className="w-5 h-5" />
-                          Save to Report
-                        </button>
-                      )}
-
-                      {!item.isSaved && item.analysisResult.confidence > 0 && (
-                        <button onClick={() => handleReanalyse(idx)} disabled={isInProgress}
-                          className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors disabled:opacity-40">
-                          Re-analyse
-                        </button>
-                      )}
-                    </div>
+                    <SeniorInspectorCard
+                      result={item.analysisResult}
+                      defectTypeOverride={item.defectTypeOverride}
+                      severityOverride={item.severityOverride}
+                      observationOverride={item.observationOverride}
+                      inspectorOverride={item.inspectorOverride}
+                      analysisStatus={item.analysisStatus}
+                      isSaved={item.isSaved}
+                      canSave={canSave}
+                      onSave={() => handleSave(idx)}
+                      onOverride={() => setOverrideIdx(idx)}
+                      onReanalyse={item.analysisResult.confidence > 0 && !isInProgress ? () => handleReanalyse(idx) : undefined}
+                    />
                   )}
 
                   <button onClick={() => handleRemoveItem(idx)}
@@ -1264,7 +1223,7 @@ export default function InspectionAIPage() {
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-700">
-              {unsavedWithResult.length} finding{unsavedWithResult.length !== 1 ? 's have' : ' has'} not been saved. Tap "Save to Report" before viewing.
+              {unsavedWithResult.length} finding{unsavedWithResult.length !== 1 ? 's have' : ' has'} not been saved. Expand and tap "Save to Report" before viewing.
             </p>
           </div>
         )}
