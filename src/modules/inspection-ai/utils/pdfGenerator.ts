@@ -3,6 +3,8 @@ import type { InspectionAIReport, InspectionAIItem } from '../types';
 import { CONFIDENCE_REVIEW_THRESHOLD } from '../services/inspectionAIService';
 import { generateCommercialSummary } from './summaryEngine';
 import { getRiskColour } from './riskEngine';
+import { estimateCost, estimateTotalCost, COST_DISCLAIMER } from './costEstimator';
+import { forecastRisk, getForecastPDFRGB } from './forecastEngine';
 
 type ReportMode = 'client' | 'internal';
 
@@ -271,6 +273,66 @@ function addCommercialSummaryPage(
       y += 10;
     }
     y += 3;
+  }
+
+  if (mode === 'internal' && y < PAGE_H - 60) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(26, 26, 46);
+    doc.text('COMMERCIAL IMPACT', MARGIN, y);
+    y += 5;
+
+    const totalCost = estimateTotalCost(summary.groups);
+
+    doc.setFillColor(239, 246, 255);
+    doc.roundedRect(MARGIN, y, CONTENT_W, 10, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(30, 64, 175);
+    doc.text(`Total Estimated Cost Exposure: ${totalCost.formatted}`, MARGIN + 4, y + 6.5);
+    y += 14;
+
+    summary.groups.forEach((group) => {
+      if (y > PAGE_H - 30) return;
+      const cost = estimateCost(group);
+      const forecast = forecastRisk(group);
+      const [fr, fg, fb] = getForecastPDFRGB(forecast.urgency);
+
+      doc.setFillColor(250, 250, 252);
+      doc.roundedRect(MARGIN, y, CONTENT_W, 14, 1.5, 1.5, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(26, 26, 46);
+      doc.text(`${group.defect_type}  (${group.system_type})`, MARGIN + 3, y + 5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(60, 60, 80);
+      doc.text(`Est. cost: ${cost.formatted}   ·   Area: ${group.estimated_area}`, MARGIN + 3, y + 10);
+
+      const fLabel = forecast.label.toUpperCase();
+      const fW = doc.getTextWidth(fLabel) + 6;
+      doc.setFillColor(fr, fg, fb);
+      doc.roundedRect(PAGE_W - MARGIN - fW, y + 2, fW, 5, 1, 1, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text(fLabel, PAGE_W - MARGIN - fW / 2, y + 5.8, { align: 'center' });
+
+      y += 17;
+    });
+
+    if (y < PAGE_H - 20) {
+      doc.setFillColor(255, 251, 235);
+      doc.roundedRect(MARGIN, y, CONTENT_W, 10, 1.5, 1.5, 'F');
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(6.5);
+      doc.setTextColor(120, 80, 10);
+      const cdLines = doc.splitTextToSize(COST_DISCLAIMER, CONTENT_W - 6);
+      doc.text(cdLines, MARGIN + 3, y + 4.5);
+      y += 14;
+    }
   }
 
   if (y < PAGE_H - 35) {

@@ -25,6 +25,8 @@ export interface CommercialSummary {
   groups: GroupedSummaryRow[];
 }
 
+export type { CommercialRiskLevel };
+
 export function generateCommercialSummary(items: InspectionAIItem[]): CommercialSummary {
   const groups = groupFindings(items);
   const totalScope = estimateTotalScope(groups);
