@@ -17,8 +17,8 @@ import {
   FileText,
   Flame,
 } from 'lucide-react';
-import { fetchReport, fetchReportItems } from '../services/storageService';
-import type { InspectionAIReport, InspectionAIItem, InspectionAIPin } from '../types';
+import { fetchReport, fetchReportItems, fetchAllItemImages } from '../services/storageService';
+import type { InspectionAIReport, InspectionAIItem, InspectionAIItemImage, InspectionAIPin } from '../types';
 import { generatePDF, generateVariationPDF } from '../utils/pdfGenerator';
 import { CONFIDENCE_REVIEW_THRESHOLD } from '../services/inspectionAIService';
 import { generateCommercialSummary } from '../utils/summaryEngine';
@@ -329,7 +329,51 @@ function LegacySummarySection({ items }: { items: InspectionAIItem[] }) {
   );
 }
 
-function FindingCard({ item, idx, mode }: { item: InspectionAIItem; idx: number; mode: ReportMode }) {
+function EvidenceGallery({ images }: { images: InspectionAIItemImage[] }) {
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  if (images.length === 0) return null;
+
+  return (
+    <>
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Evidence Photos ({images.length})</p>
+        <div className="grid grid-cols-3 gap-2">
+          {images.map((img) => (
+            <div
+              key={img.id}
+              className="aspect-square rounded-xl overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setLightboxUrl(img.image_url)}
+            >
+              <img src={img.image_url} alt={img.caption || 'Evidence'} className="w-full h-full object-cover" />
+            </div>
+          ))}
+        </div>
+      </div>
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors"
+          >
+            <span className="text-xl leading-none">×</span>
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Evidence"
+            className="max-w-full max-h-full object-contain rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function FindingCard({ item, idx, mode, evidenceImages }: { item: InspectionAIItem; idx: number; mode: ReportMode; evidenceImages: InspectionAIItemImage[] }) {
   const needsReview = item.confidence < CONFIDENCE_REVIEW_THRESHOLD;
   const hasOverride = !!(item.defect_type_override || item.severity_override || item.observation_override);
 
@@ -393,6 +437,12 @@ function FindingCard({ item, idx, mode }: { item: InspectionAIItem; idx: number;
               <p className="text-sm text-slate-700 leading-relaxed">{item.risk}</p>
             </div>
 
+            {evidenceImages.length > 0 && (
+              <div className="pt-3">
+                <EvidenceGallery images={evidenceImages} />
+              </div>
+            )}
+
             {mode === 'internal' && (
               <div className="pt-3">
                 <ConfidenceMeter value={item.confidence} />
@@ -440,6 +490,7 @@ export function InspectionReportView({ reportId, onBack }: Props) {
   const [report, setReport] = useState<InspectionAIReport | null>(null);
   const [items, setItems] = useState<InspectionAIItem[]>([]);
   const [pins, setPins] = useState<InspectionAIPin[]>([]);
+  const [evidenceMap, setEvidenceMap] = useState<Record<string, InspectionAIItemImage[]>>({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [variationExporting, setVariationExporting] = useState(false);
@@ -452,6 +503,22 @@ export function InspectionReportView({ reportId, onBack }: Props) {
         const [r, i] = await Promise.all([fetchReport(reportId), fetchReportItems(reportId)]);
         setReport(r);
         setItems(i);
+
+        if (i.length > 0) {
+          try {
+            const itemIds = i.map((item) => item.id);
+            const allEvidence = await fetchAllItemImages(itemIds);
+            const map: Record<string, InspectionAIItemImage[]> = {};
+            for (const ev of allEvidence) {
+              if (!map[ev.item_id]) map[ev.item_id] = [];
+              map[ev.item_id].push(ev);
+            }
+            setEvidenceMap(map);
+          } catch {
+            // evidence photos are optional
+          }
+        }
+
         if (r?.project_id) {
           try {
             const p = await fetchAllPinsForProject(r.project_id);
@@ -638,7 +705,7 @@ export function InspectionReportView({ reportId, onBack }: Props) {
             )}
 
             {items.map((item, idx) => (
-              <FindingCard key={item.id} item={item} idx={idx} mode={mode} />
+              <FindingCard key={item.id} item={item} idx={idx} mode={mode} evidenceImages={evidenceMap[item.id] ?? []} />
             ))}
 
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">

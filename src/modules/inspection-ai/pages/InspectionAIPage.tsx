@@ -37,6 +37,7 @@ import { DEFECT_TYPES } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
 import { enqueue, isQueueBusy, queueLength } from '../utils/analysisQueue';
 import { InspectionReportView } from '../components/InspectionReportView';
+import { EvidencePhotosPanel } from '../components/EvidencePhotosPanel';
 import { ProjectOverview } from '../components/ProjectOverview';
 import { BlockLevelNavigator } from '../components/spatial/BlockLevelNavigator';
 import { DrawingViewer } from '../components/spatial/DrawingViewer';
@@ -58,6 +59,7 @@ import type {
   InspectionAIBlock,
   InspectionAILevel,
   InspectionAIDrawing,
+  InspectionAIItemImage,
   CaptureIntakeContext,
 } from '../types';
 import { updatePin } from '../services/spatialService';
@@ -692,6 +694,7 @@ export default function InspectionAIPage() {
 
   const [showIntakeWizard, setShowIntakeWizard] = useState(false);
   const [pendingIntakeCtx, setPendingIntakeCtx] = useState<CaptureIntakeContext | null>(null);
+  const [evidencePhotos, setEvidencePhotos] = useState<Record<string, InspectionAIItemImage[]>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -1198,6 +1201,18 @@ export default function InspectionAIPage() {
                       onOverride={() => setOverrideIdx(idx)}
                       onReanalyse={item.analysisResult.confidence > 0 && !isInProgress ? () => handleReanalyse(idx) : undefined}
                     />
+                  )}
+
+                  {item.isSaved && item.savedId && (
+                    <div className="border-t border-slate-100 pt-4">
+                      <EvidencePhotosPanel
+                        itemId={item.savedId}
+                        images={evidencePhotos[item.savedId] ?? []}
+                        onImagesChange={(imgs) =>
+                          setEvidencePhotos((prev) => ({ ...prev, [item.savedId!]: imgs }))
+                        }
+                      />
+                    </div>
                   )}
 
                   <button onClick={() => handleRemoveItem(idx)}

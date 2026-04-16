@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import type { InspectionAIItem, InspectionAIProject, InspectionAIReport } from '../types';
+import type { InspectionAIItem, InspectionAIItemImage, InspectionAIProject, InspectionAIReport } from '../types';
 
 const BUCKET = 'inspection-ai-images';
 
@@ -156,6 +156,75 @@ export interface PortfolioProjectStat {
   systemTypes: string[];
   defectTypes: string[];
   hasInspectorOverrides: boolean;
+}
+
+export async function uploadEvidenceImage(
+  file: File,
+  itemId: string
+): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const filename = `evidence/${itemId}/${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(filename, file, { upsert: false, contentType: file.type });
+
+  if (error) throw new Error(`Evidence upload failed: ${error.message}`);
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+  return data.publicUrl;
+}
+
+export async function addItemImage(
+  itemId: string,
+  imageUrl: string,
+  caption: string,
+  sortOrder: number
+): Promise<InspectionAIItemImage> {
+  const { data, error } = await supabase
+    .from('inspection_ai_item_images')
+    .insert({ item_id: itemId, image_url: imageUrl, caption, sort_order: sortOrder })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to save evidence photo: ${error.message}`);
+  return data;
+}
+
+export async function fetchItemImages(itemId: string): Promise<InspectionAIItemImage[]> {
+  const { data, error } = await supabase
+    .from('inspection_ai_item_images')
+    .select('*')
+    .eq('item_id', itemId)
+    .order('sort_order')
+    .order('created_at');
+
+  if (error) throw new Error(`Failed to fetch evidence photos: ${error.message}`);
+  return data || [];
+}
+
+export async function deleteItemImage(imageId: string): Promise<void> {
+  const { error } = await supabase
+    .from('inspection_ai_item_images')
+    .delete()
+    .eq('id', imageId);
+
+  if (error) throw new Error(`Failed to delete evidence photo: ${error.message}`);
+}
+
+export async function fetchAllItemImages(
+  itemIds: string[]
+): Promise<InspectionAIItemImage[]> {
+  if (itemIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('inspection_ai_item_images')
+    .select('*')
+    .in('item_id', itemIds)
+    .order('sort_order')
+    .order('created_at');
+
+  if (error) throw new Error(`Failed to fetch evidence photos: ${error.message}`);
+  return data || [];
 }
 
 export async function fetchPortfolioStats(): Promise<PortfolioProjectStat[]> {

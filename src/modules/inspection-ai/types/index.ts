@@ -151,3 +151,12 @@ export type AnalysisStatus =
   | 'retrying'
   | 'done'
   | 'manual';
+
+export interface InspectionAIItemImage {
+  id: string;
+  item_id: string;
+  image_url: string;
+  caption: string;
+  sort_order: number;
+  created_at: string;
+}
