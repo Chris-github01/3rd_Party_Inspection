@@ -10,7 +10,7 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const CONFIDENCE_REVIEW_THRESHOLD = 70;
 
-const RETRY_DELAYS_MS = [2000, 5000, 10000];
+const RETRY_DELAYS_MS = [8000];
 
 const HIGH_OVERRIDE_RATE_THRESHOLD = 40;
 let overrideRateCache: Map<string, number> | null = null;
@@ -154,6 +154,10 @@ async function callEdgeFunction(
   };
 }
 
+export interface AnalyseImageResult extends AIAnalysisResult {
+  needsT2Escalation?: boolean;
+}
+
 export async function analyseImage(
   imageFile: File,
   systemType: string,
@@ -164,7 +168,7 @@ export async function analyseImage(
   isNewInstall?: boolean,
   currentQueueDepth?: number,
   forceTier2Override?: boolean
-): Promise<AIAnalysisResult> {
+): Promise<AnalyseImageResult> {
   const env = environment ?? 'Internal';
   const concern = observedConcern ?? 'Unsure';
   const newInstall = isNewInstall ?? false;
@@ -183,22 +187,43 @@ export async function analyseImage(
     return cached;
   }
 
+  const requestId = `${hash.slice(0, 8)}-${Date.now()}`;
+  console.info(`[AI] Request ${requestId} | tier=${forceTier2 ? 2 : 1} | queue=${currentQueueDepth ?? 0}`);
+
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const shouldForceTier2 = forceTier2;
-      const result = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, shouldForceTier2);
-      if (result.tier_used === 1 && result.confidence !== undefined && result.confidence >= 85 && result.defect_type && highOverrideClasses.has(result.defect_type)) {
-        console.info(`[AI] Escalating to Tier 2: "${result.defect_type}" has high override history`);
-        const escalated = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, true);
-        setCachedResult(hash, escalated);
-        return escalated;
+      const result = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, forceTier2);
+
+      const shouldEscalate =
+        !forceTier2 &&
+        result.tier_used === 1 &&
+        result.confidence !== undefined &&
+        result.confidence >= 85 &&
+        result.defect_type &&
+        highOverrideClasses.has(result.defect_type);
+
+      if (shouldEscalate) {
+        console.info(`[AI] T2 escalation flagged for "${result.defect_type}" (request ${requestId}) — caller must re-enqueue`);
+        const flagged: AnalyseImageResult = { ...result, needsT2Escalation: true };
+        return flagged;
       }
+
       setCachedResult(hash, result);
+      console.info(`[AI] Request ${requestId} done | tier=${result.tier_used} | confidence=${result.confidence}`);
       return result;
     } catch (err) {
       lastError = err;
+
+      const source =
+        err instanceof AIUnavailableError && err.reason === 'rate_limit'
+          ? 'rate_limit'
+          : err instanceof AIUnavailableError && err.reason === 'network_error'
+          ? 'network_error'
+          : 'ai_unavailable';
+
+      console.warn(`[AI] Request ${requestId} failed (attempt ${attempt + 1}) | source=${source}`);
 
       if (err instanceof AIUnavailableError && err.reason === 'rate_limit' && attempt < RETRY_DELAYS_MS.length) {
         const delayMs = RETRY_DELAYS_MS[attempt];

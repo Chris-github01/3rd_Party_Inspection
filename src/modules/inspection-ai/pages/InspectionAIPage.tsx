@@ -23,7 +23,7 @@ import {
   Map,
   Brain,
 } from 'lucide-react';
-import { analyseImage, AIUnavailableError } from '../services/inspectionAIService';
+import { analyseImage, AIUnavailableError, type AnalyseImageResult } from '../services/inspectionAIService';
 import {
   uploadInspectionImage,
   createReport,
@@ -812,39 +812,44 @@ export default function InspectionAIPage() {
 
   const runAnalysis = useCallback(
     async (idx: number, systemType: SystemType, element: ElementType, imageFile: File, environment?: string, observedConcern?: string, isNewInstall?: boolean, forceTier2?: boolean) => {
+      const item = items[idx];
+      if (item?.isAnalysing || item?.analysisStatus === 'queued') return;
+
+      const taskId = `item-${idx}-${imageFile.name}-${imageFile.size}${forceTier2 ? '-t2' : ''}`;
       const alreadyBusy = isQueueBusy() || queueLength() > 0;
       setItemStatus(idx, alreadyBusy ? 'queued' : 'analysing');
 
-      await enqueue(async () => {
-        setItemStatus(idx, 'analysing');
-        let aiResult;
-        try {
-          aiResult = await analyseImage(
-            imageFile,
-            systemType,
-            element,
-            (attemptNumber, delayMs) => {
-              setItemStatus(idx, 'retrying');
-              const endsAt = Date.now() + delayMs;
-              const tick = () => {
-                const remaining = Math.ceil((endsAt - Date.now()) / 1000);
-                if (remaining <= 0) {
-                  setRetryCountdowns((prev) => { const next = { ...prev }; delete next[idx]; return next; });
-                  return;
-                }
-                setRetryCountdowns((prev) => ({ ...prev, [idx]: remaining }));
-                setTimeout(tick, 500);
-              };
-              tick();
-              void attemptNumber;
-            },
-            environment,
-            observedConcern,
-            isNewInstall,
-            queueDepth(),
-            forceTier2
-          );
-        } catch (err) {
+      try {
+        await enqueue(async () => {
+          setItemStatus(idx, 'analysing');
+          let aiResult: AnalyseImageResult;
+          try {
+            aiResult = await analyseImage(
+              imageFile,
+              systemType,
+              element,
+              (attemptNumber, delayMs) => {
+                setItemStatus(idx, 'retrying');
+                const endsAt = Date.now() + delayMs;
+                const tick = () => {
+                  const remaining = Math.ceil((endsAt - Date.now()) / 1000);
+                  if (remaining <= 0) {
+                    setRetryCountdowns((prev) => { const next = { ...prev }; delete next[idx]; return next; });
+                    return;
+                  }
+                  setRetryCountdowns((prev) => ({ ...prev, [idx]: remaining }));
+                  setTimeout(tick, 500);
+                };
+                tick();
+                void attemptNumber;
+              },
+              environment,
+              observedConcern,
+              isNewInstall,
+              queueDepth(),
+              forceTier2
+            );
+          } catch (err) {
           const msg = err instanceof AIUnavailableError ? err.message : 'AI analysis failed. Classify manually.';
           const isRateLimit = err instanceof AIUnavailableError && err.reason === 'rate_limit';
           setItems((prev) =>
@@ -914,9 +919,18 @@ export default function InspectionAIPage() {
         );
 
         if (isManual) { setActiveIdx(idx); setOverrideIdx(idx); }
-      }, undefined, forceTier2 ? 'high' : 'normal');
+
+        if (aiResult.needsT2Escalation) {
+          setTimeout(() => runAnalysis(idx, systemType, element, imageFile, environment, observedConcern, isNewInstall, true), 0);
+        }
+      }, taskId, forceTier2 ? 'high' : 'normal');
+      } catch (err) {
+        if (err instanceof Error && err.message === 'debounced') {
+          console.info(`[AI] Debounced duplicate for task ${taskId}`);
+        }
+      }
     },
-    [setItemStatus]
+    [setItemStatus, items]
   );
 
   const addImageFromFile = useCallback(
@@ -1416,7 +1430,7 @@ export default function InspectionAIPage() {
                         onOverride={() => setOverrideIdx(idx)}
                         onReanalyse={item.analysisResult.confidence > 0 && !isInProgress ? () => handleReanalyse(idx) : undefined}
                       />
-                      {item.analysisResult.tier_used === 1 && !item.isSaved && !isInProgress && (
+                      {item.analysisResult.tier_used === 1 && !item.isSaved && !isInProgress && !item.isAnalysing && item.analysisStatus !== 'queued' && (
                         <button
                           onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile, item.environment, item.observedConcern, item.isNewInstall, true)}
                           className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-600 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"

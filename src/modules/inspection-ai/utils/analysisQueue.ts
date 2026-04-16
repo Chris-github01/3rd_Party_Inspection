@@ -9,8 +9,8 @@ interface QueuedEntry {
 
 type QueueListener = () => void;
 
-const MIN_GAP_MS = 1800;
-const DEBOUNCE_MS = 5000;
+const MIN_GAP_MS = 4000;
+const DEBOUNCE_MS = 8000;
 
 let isRunning = false;
 let lastCompletedAt = 0;
