@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import type { InspectionAIItem, InspectionAIReport } from '../types';
+import type { InspectionAIItem, InspectionAIProject, InspectionAIReport } from '../types';
 
 const BUCKET = 'inspection-ai-images';
 
@@ -22,7 +22,8 @@ export async function uploadInspectionImage(
 
 export async function createReport(
   projectName: string,
-  inspectorName: string
+  inspectorName: string,
+  projectId?: string | null
 ): Promise<InspectionAIReport> {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error('Not authenticated');
@@ -33,11 +34,69 @@ export async function createReport(
       project_name: projectName,
       inspector_name: inspectorName,
       user_id: userData.user.id,
+      project_id: projectId ?? null,
+      status: 'draft',
     })
     .select()
     .single();
 
   if (error) throw new Error(`Failed to create report: ${error.message}`);
+  return data;
+}
+
+export async function updateReportStatus(
+  reportId: string,
+  status: 'draft' | 'completed'
+): Promise<void> {
+  const { error } = await supabase
+    .from('inspection_ai_reports')
+    .update({ status })
+    .eq('id', reportId);
+
+  if (error) throw new Error(`Failed to update report status: ${error.message}`);
+}
+
+export async function fetchProjectReports(projectId: string): Promise<InspectionAIReport[]> {
+  const { data, error } = await supabase
+    .from('inspection_ai_reports')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch project reports: ${error.message}`);
+  return data || [];
+}
+
+export async function fetchAllProjects(): Promise<InspectionAIProject[]> {
+  const { data, error } = await supabase
+    .from('inspection_ai_projects')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch projects: ${error.message}`);
+  return data || [];
+}
+
+export async function createProject(
+  projectName: string,
+  clientName: string,
+  siteLocation: string
+): Promise<InspectionAIProject> {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase
+    .from('inspection_ai_projects')
+    .insert({
+      project_name: projectName,
+      client_name: clientName,
+      site_location: siteLocation,
+      user_id: userData.user.id,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to create project: ${error.message}`);
   return data;
 }
 

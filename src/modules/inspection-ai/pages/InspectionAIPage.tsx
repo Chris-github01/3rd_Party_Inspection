@@ -17,26 +17,50 @@ import {
   X,
   Clock,
   WifiOff,
+  FolderOpen,
+  Calendar,
+  Building2,
 } from 'lucide-react';
 import { analyseImage } from '../services/inspectionAIService';
-import { uploadInspectionImage, createReport, saveInspectionItem } from '../services/storageService';
+import {
+  uploadInspectionImage,
+  createReport,
+  saveInspectionItem,
+  fetchAllProjects,
+  createProject,
+  fetchProjectReports,
+} from '../services/storageService';
 import { generateNonConformance } from '../utils/standardsMapper';
 import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
 import { DEFECT_TYPES } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
 import { enqueue, isQueueBusy, queueLength } from '../utils/analysisQueue';
 import { InspectionReportView } from '../components/InspectionReportView';
-import type { CapturedItem, AppPhase, SystemType, ElementType, Severity, Extent, AnalysisStatus } from '../types';
+import { ProjectOverview } from '../components/ProjectOverview';
+import type {
+  CapturedItem,
+  SystemType,
+  ElementType,
+  Severity,
+  Extent,
+  AnalysisStatus,
+  InspectionAIProject,
+  InspectionAIReport,
+} from '../types';
+import { format } from 'date-fns';
 
 const SYSTEM_TYPES: SystemType[] = ['Intumescent', 'Cementitious', 'Protective Coating', 'Firestopping'];
 const ELEMENT_TYPES: ElementType[] = ['Beam', 'Column', 'Slab', 'Penetration', 'Other'];
 const EXTENT_OPTIONS: Extent[] = ['Localised', 'Moderate', 'Widespread'];
 const SEVERITIES: Severity[] = ['Low', 'Medium', 'High'];
 
-const LS_PROJECT_KEY = 'inspection_ai_project_name';
 const LS_INSPECTOR_KEY = 'inspection_ai_inspector_name';
 const LS_SYSTEM_KEY = 'inspection_ai_system_type';
 const LS_ELEMENT_KEY = 'inspection_ai_element_type';
+
+// ─────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────
 
 function AnalysisStatusBadge({ status }: { status: AnalysisStatus }) {
   const map: Record<AnalysisStatus, { label: string; className: string; icon: React.ReactNode }> = {
@@ -50,36 +74,21 @@ function AnalysisStatusBadge({ status }: { status: AnalysisStatus }) {
   const { label, className, icon } = map[status];
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${className}`}>
-      {icon}
-      {label}
+      {icon}{label}
     </span>
   );
 }
 
 function TagGrid<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  cols = 2,
-}: {
-  label: string;
-  value: T;
-  options: T[];
-  onChange: (v: T) => void;
-  cols?: number;
-}) {
+  label, value, options, onChange, cols = 2,
+}: { label: string; value: T; options: T[]; onChange: (v: T) => void; cols?: number }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
-        {label}
-      </label>
+      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</label>
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
         {options.map((opt) => (
           <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(opt)}
+            key={opt} type="button" onClick={() => onChange(opt)}
             className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-all active:scale-95 ${
               value === opt
                 ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
@@ -121,15 +130,9 @@ function ExtentBadge({ extent }: { extent: string }) {
 }
 
 function LocationSection({
-  locationLevel,
-  locationGrid,
-  locationDescription,
-  onChange,
-  disabled,
+  locationLevel, locationGrid, locationDescription, onChange, disabled,
 }: {
-  locationLevel: string;
-  locationGrid: string;
-  locationDescription: string;
+  locationLevel: string; locationGrid: string; locationDescription: string;
   onChange: (field: 'locationLevel' | 'locationGrid' | 'locationDescription', value: string) => void;
   disabled?: boolean;
 }) {
@@ -142,54 +145,31 @@ function LocationSection({
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <label className="block text-xs text-slate-400">Level / Floor</label>
-          <input
-            type="text"
-            value={locationLevel}
-            onChange={(e) => onChange('locationLevel', e.target.value)}
-            placeholder="e.g. Level 3"
-            disabled={disabled}
-            className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400"
-          />
+          <input type="text" value={locationLevel} onChange={(e) => onChange('locationLevel', e.target.value)}
+            placeholder="e.g. Level 3" disabled={disabled}
+            className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400" />
         </div>
         <div className="space-y-1">
           <label className="block text-xs text-slate-400">Grid Ref</label>
-          <input
-            type="text"
-            value={locationGrid}
-            onChange={(e) => onChange('locationGrid', e.target.value)}
-            placeholder="e.g. B4"
-            disabled={disabled}
-            className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400"
-          />
+          <input type="text" value={locationGrid} onChange={(e) => onChange('locationGrid', e.target.value)}
+            placeholder="e.g. B4" disabled={disabled}
+            className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400" />
         </div>
       </div>
       <div className="space-y-1">
         <label className="block text-xs text-slate-400">Description</label>
-        <input
-          type="text"
-          value={locationDescription}
-          onChange={(e) => onChange('locationDescription', e.target.value)}
-          placeholder="e.g. North face secondary beam, approx. 200mm from connection"
-          disabled={disabled}
-          className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400"
-        />
+        <input type="text" value={locationDescription} onChange={(e) => onChange('locationDescription', e.target.value)}
+          placeholder="e.g. North face secondary beam, approx. 200mm from connection" disabled={disabled}
+          className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400" />
       </div>
     </div>
   );
 }
 
 function InspectorOverridePanel({
-  item,
-  onUpdate,
-  onClose,
-}: {
-  item: CapturedItem;
-  onUpdate: (patch: Partial<CapturedItem>) => void;
-  onClose: () => void;
-}) {
-  const [defectType, setDefectType] = useState(
-    item.defectTypeOverride ?? item.analysisResult?.defect_type ?? DEFECT_TYPES[0]
-  );
+  item, onUpdate, onClose,
+}: { item: CapturedItem; onUpdate: (patch: Partial<CapturedItem>) => void; onClose: () => void }) {
+  const [defectType, setDefectType] = useState(item.defectTypeOverride ?? item.analysisResult?.defect_type ?? DEFECT_TYPES[0]);
   const [severity, setSeverity] = useState<Severity>(
     (item.severityOverride as Severity) ?? (item.analysisResult?.severity as Severity) ?? 'Medium'
   );
@@ -213,23 +193,12 @@ function InspectorOverridePanel({
     const aiSeverity = item.analysisResult?.severity ?? 'Medium';
     const aiObs = item.analysisResult?.observation ?? '';
     const hasChange = defectType !== aiDefect || severity !== aiSeverity || observation !== aiObs;
-    onUpdate({
-      defectTypeOverride: defectType,
-      severityOverride: severity,
-      observationOverride: observation,
-      inspectorOverride: hasChange,
-      analysisStatus: 'done',
-    });
+    onUpdate({ defectTypeOverride: defectType, severityOverride: severity, observationOverride: observation, inspectorOverride: hasChange, analysisStatus: 'done' });
     onClose();
   };
 
   const handleClear = () => {
-    onUpdate({
-      defectTypeOverride: null,
-      severityOverride: null,
-      observationOverride: null,
-      inspectorOverride: false,
-    });
+    onUpdate({ defectTypeOverride: null, severityOverride: null, observationOverride: null, inspectorOverride: false });
     onClose();
   };
 
@@ -243,28 +212,18 @@ function InspectorOverridePanel({
             <Pencil className="w-4 h-4 text-slate-700" />
             <h3 className="font-bold text-slate-900 text-base">Inspector Override</h3>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors"><X className="w-5 h-5" /></button>
         </div>
-
         <p className="text-xs text-slate-500 leading-relaxed">
           Override the AI classification with your professional assessment. Overrides are flagged in the report.
         </p>
-
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Defect Type</label>
-          <select
-            value={defectType}
-            onChange={(e) => handleDefectTypeChange(e.target.value)}
-            className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
-          >
-            {DEFECT_TYPES.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
+          <select value={defectType} onChange={(e) => handleDefectTypeChange(e.target.value)}
+            className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white">
+            {DEFECT_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
-
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Severity</label>
           <div className="grid grid-cols-3 gap-2">
@@ -276,56 +235,31 @@ function InspectorOverridePanel({
                 Low: active ? 'bg-emerald-600 text-white border-emerald-600' : 'text-emerald-700 border-emerald-200 hover:border-emerald-400',
               };
               return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSeverity(s)}
-                  className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${colours[s]}`}
-                >
-                  {s}
-                </button>
+                <button key={s} type="button" onClick={() => setSeverity(s)}
+                  className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${colours[s]}`}>{s}</button>
               );
             })}
           </div>
         </div>
-
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Observation</label>
             {templateText && observation !== templateText && (
-              <button
-                type="button"
-                onClick={handleApplyTemplate}
-                className="text-xs text-blue-600 font-semibold hover:text-blue-800 transition-colors"
-              >
-                Use template
-              </button>
+              <button type="button" onClick={handleApplyTemplate}
+                className="text-xs text-blue-600 font-semibold hover:text-blue-800 transition-colors">Use template</button>
             )}
           </div>
-          <textarea
-            value={observation}
-            onChange={(e) => setObservation(e.target.value)}
-            rows={4}
-            className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-none"
-          />
-          {templateText && (
-            <p className="text-xs text-slate-400 leading-relaxed italic">
-              Template: "{templateText}"
-            </p>
-          )}
+          <textarea value={observation} onChange={(e) => setObservation(e.target.value)} rows={4}
+            className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-none" />
+          {templateText && <p className="text-xs text-slate-400 leading-relaxed italic">Template: "{templateText}"</p>}
         </div>
-
         <div className="flex gap-3 pt-1">
-          <button
-            onClick={handleClear}
-            className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
-          >
+          <button onClick={handleClear}
+            className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors">
             Clear Override
           </button>
-          <button
-            onClick={handleApply}
-            className="flex-1 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition-colors"
-          >
+          <button onClick={handleApply}
+            className="flex-1 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition-colors">
             Apply
           </button>
         </div>
@@ -334,39 +268,340 @@ function InspectorOverridePanel({
   );
 }
 
-function makeBlankItem(
-  file: File,
-  previewUrl: string,
-  systemType: SystemType,
-  element: ElementType
-): CapturedItem {
+function makeBlankItem(file: File, previewUrl: string, systemType: SystemType, element: ElementType): CapturedItem {
   return {
-    imageFile: file,
-    imagePreviewUrl: previewUrl,
-    annotatedImageUrl: null,
-    systemType,
-    element,
-    locationLevel: '',
-    locationGrid: '',
-    locationDescription: '',
-    extent: 'Localised',
-    analysisResult: null,
-    nonConformance: '',
-    recommendation: '',
-    risk: '',
-    defectTypeOverride: null,
-    severityOverride: null,
-    observationOverride: null,
-    inspectorOverride: false,
-    analysisStatus: 'idle',
-    isAnalysing: false,
-    isSaved: false,
+    imageFile: file, imagePreviewUrl: previewUrl, annotatedImageUrl: null,
+    systemType, element, locationLevel: '', locationGrid: '', locationDescription: '',
+    extent: 'Localised', analysisResult: null, nonConformance: '', recommendation: '', risk: '',
+    defectTypeOverride: null, severityOverride: null, observationOverride: null,
+    inspectorOverride: false, analysisStatus: 'idle', isAnalysing: false, isSaved: false,
   };
 }
 
+function AnalyseLaterRow({ onAnalyseLater }: { onAnalyseLater: () => void }) {
+  return (
+    <div className="flex items-center justify-between bg-white border border-dashed border-slate-200 rounded-xl px-4 py-3">
+      <div>
+        <p className="text-sm font-semibold text-slate-700">Batch capture mode</p>
+        <p className="text-xs text-slate-400 mt-0.5">Add images without AI — classify manually later</p>
+      </div>
+      <button onClick={onAnalyseLater}
+        className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-3 py-2 rounded-lg transition-colors flex-shrink-0 ml-3">
+        <Clock className="w-4 h-4" />
+        Analyse Later
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// New Project Modal (on home screen)
+// ─────────────────────────────────────────────
+function NewProjectModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (p: InspectionAIProject) => void;
+}) {
+  const [projectName, setProjectName] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [siteLocation, setSiteLocation] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleCreate = async () => {
+    if (!projectName.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      const p = await createProject(projectName.trim(), clientName.trim(), siteLocation.trim());
+      onCreate(p);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create project');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+      <div className="bg-white w-full max-w-lg rounded-t-3xl p-6 space-y-5 max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-slate-700" />
+            <h3 className="font-bold text-slate-900 text-base">New Project</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Project Name <span className="text-red-500">*</span>
+            </label>
+            <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)}
+              placeholder="e.g. 35 Walmsley Road — Passive Fire" autoFocus
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder-slate-300" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Client Name</label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)}
+                placeholder="e.g. Naylor Love Construction"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder-slate-300" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Site Location</label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input type="text" value={siteLocation} onChange={(e) => setSiteLocation(e.target.value)}
+                placeholder="e.g. Auckland CBD"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder-slate-300" />
+            </div>
+          </div>
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+          )}
+        </div>
+        <div className="flex gap-3 pt-1">
+          <button onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={handleCreate} disabled={!projectName.trim() || saving}
+            className="flex-1 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Project'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Home — project list
+// ─────────────────────────────────────────────
+function HomeScreen({
+  projects,
+  loadingProjects,
+  onSelectProject,
+  onCreateProject,
+}: {
+  projects: InspectionAIProject[];
+  loadingProjects: boolean;
+  onSelectProject: (p: InspectionAIProject) => void;
+  onCreateProject: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col">
+      <div className="flex-1 flex flex-col px-5 py-10 max-w-md mx-auto w-full">
+        <div className="mb-8">
+          <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center mb-5 shadow-lg">
+            <Zap className="w-7 h-7 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-1.5">Inspection AI</h1>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            Capture defects, classify with AI, generate defensible reports.
+          </p>
+        </div>
+
+        <button
+          onClick={onCreateProject}
+          className="w-full flex items-center justify-center gap-2.5 bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-bold text-base transition-all active:scale-95 shadow-lg mb-5"
+        >
+          <Plus className="w-5 h-5" />
+          New Project
+        </button>
+
+        {loadingProjects ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-7 h-7 animate-spin text-slate-500" />
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="text-center py-12">
+            <FolderOpen className="w-12 h-12 mx-auto text-slate-600 mb-3" />
+            <p className="text-slate-400 text-sm">No projects yet</p>
+            <p className="text-slate-600 text-xs mt-1">Create a project to start inspecting</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1">
+              Recent Projects
+            </p>
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onSelectProject(p)}
+                className="w-full bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/10 rounded-2xl p-4 flex items-center gap-3 transition-all active:scale-98 text-left"
+              >
+                <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <FolderOpen className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-white text-sm truncate">{p.project_name}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {p.client_name && (
+                      <span className="flex items-center gap-1 text-xs text-slate-400 truncate">
+                        <Building2 className="w-3 h-3 flex-shrink-0" />
+                        {p.client_name}
+                      </span>
+                    )}
+                    {p.site_location && (
+                      <span className="flex items-center gap-1 text-xs text-slate-400 truncate">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        {p.site_location}
+                      </span>
+                    )}
+                    {!p.client_name && !p.site_location && (
+                      <span className="text-xs text-slate-500">
+                        {format(new Date(p.created_at), 'd MMM yyyy')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-500 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Setup screen (inspector name + start)
+// ─────────────────────────────────────────────
+function SetupScreen({
+  project,
+  inspectorName,
+  setInspectorName,
+  onBack,
+  onStart,
+  starting,
+  existingReports,
+  onOpenReport,
+}: {
+  project: InspectionAIProject;
+  inspectorName: string;
+  setInspectorName: (v: string) => void;
+  onBack: () => void;
+  onStart: () => void;
+  starting: boolean;
+  existingReports: InspectionAIReport[];
+  onOpenReport: (r: InspectionAIReport) => void;
+}) {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col">
+      <div className="sticky top-0 z-10 bg-transparent px-5 pt-5 pb-2 max-w-md mx-auto w-full">
+        <button onClick={onBack}
+          className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          <span className="text-sm font-medium">Projects</span>
+        </button>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-center px-5 pb-10 max-w-md mx-auto w-full space-y-5">
+        <div className="mb-2">
+          <div className="flex items-center gap-2.5 mb-1">
+            <FolderOpen className="w-5 h-5 text-red-400" />
+            <h2 className="text-xl font-bold text-white">{project.project_name}</h2>
+          </div>
+          {(project.client_name || project.site_location) && (
+            <p className="text-slate-400 text-sm">
+              {[project.client_name, project.site_location].filter(Boolean).join(' · ')}
+            </p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-2xl space-y-5">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Inspector Name
+            </label>
+            <input
+              type="text"
+              value={inspectorName}
+              onChange={(e) => setInspectorName(e.target.value)}
+              placeholder="Your full name"
+              className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent placeholder-slate-300"
+            />
+          </div>
+          <button
+            onClick={onStart}
+            disabled={!inspectorName.trim() || starting}
+            className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 disabled:opacity-40 hover:bg-slate-800 transition-all active:scale-98 shadow-sm"
+          >
+            {starting ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Start New Inspection <ChevronRight className="w-5 h-5" /></>}
+          </button>
+        </div>
+
+        {existingReports.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-1">
+              Previous Sessions
+            </p>
+            {existingReports.slice(0, 5).map((r) => (
+              <button
+                key={r.id}
+                onClick={() => onOpenReport(r)}
+                className="w-full bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl px-4 py-3 flex items-center gap-3 text-left transition-all active:scale-98"
+              >
+                <FileText className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{r.inspector_name}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="flex items-center gap-1 text-xs text-slate-400">
+                      <Calendar className="w-3 h-3" />
+                      {format(new Date(r.created_at), 'd MMM yyyy, h:mm a')}
+                    </span>
+                    {(r.item_count ?? 0) > 0 && (
+                      <span className="text-xs text-slate-400">
+                        · {r.item_count} finding{r.item_count !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${
+                  r.status === 'completed'
+                    ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700'
+                    : 'bg-amber-900/40 text-amber-300 border-amber-700'
+                }`}>
+                  {r.status === 'completed' ? 'Complete' : 'Draft'}
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        <p className="text-center text-slate-600 text-xs">
+          Visual inspection only · No compliance certification
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Main page
+// ─────────────────────────────────────────────
+
+type Screen = 'home' | 'project-overview' | 'setup' | 'capture';
+
 export default function InspectionAIPage() {
-  const [phase, setPhase] = useState<AppPhase>('setup');
-  const [projectName, setProjectName] = useState(() => localStorage.getItem(LS_PROJECT_KEY) ?? '');
+  const [screen, setScreen] = useState<Screen>('home');
+  const [projects, setProjects] = useState<InspectionAIProject[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+
+  const [selectedProject, setSelectedProject] = useState<InspectionAIProject | null>(null);
+  const [projectReports, setProjectReports] = useState<InspectionAIReport[]>([]);
+
   const [inspectorName, setInspectorName] = useState(() => localStorage.getItem(LS_INSPECTOR_KEY) ?? '');
   const [reportId, setReportId] = useState<string | null>(null);
   const [viewingReportId, setViewingReportId] = useState<string | null>(null);
@@ -386,18 +621,49 @@ export default function InspectionAIPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [startingSession, setStartingSession] = useState(false);
 
-  useEffect(() => { localStorage.setItem(LS_PROJECT_KEY, projectName); }, [projectName]);
   useEffect(() => { localStorage.setItem(LS_INSPECTOR_KEY, inspectorName); }, [inspectorName]);
   useEffect(() => { localStorage.setItem(LS_SYSTEM_KEY, sessionSystemType); }, [sessionSystemType]);
   useEffect(() => { localStorage.setItem(LS_ELEMENT_KEY, sessionElement); }, [sessionElement]);
 
+  useEffect(() => {
+    fetchAllProjects()
+      .then(setProjects)
+      .finally(() => setLoadingProjects(false));
+  }, []);
+
+  const loadProjectReports = async (projectId: string) => {
+    const reports = await fetchProjectReports(projectId);
+    setProjectReports(reports);
+    return reports;
+  };
+
+  const handleSelectProject = async (p: InspectionAIProject) => {
+    setSelectedProject(p);
+    await loadProjectReports(p.id);
+    setScreen('setup');
+  };
+
+  const handleCreateProject = (p: InspectionAIProject) => {
+    setProjects((prev) => [p, ...prev]);
+    setShowNewProjectModal(false);
+    setSelectedProject(p);
+    setProjectReports([]);
+    setScreen('setup');
+  };
+
   const handleStartInspection = async () => {
-    if (!projectName.trim() || !inspectorName.trim()) return;
+    if (!inspectorName.trim() || !selectedProject) return;
     setStartingSession(true);
     try {
-      const r = await createReport(projectName.trim(), inspectorName.trim());
+      const r = await createReport(
+        selectedProject.project_name,
+        inspectorName.trim(),
+        selectedProject.id
+      );
       setReportId(r.id);
-      setPhase('capture');
+      setItems([]);
+      setActiveIdx(null);
+      setScreen('capture');
     } finally {
       setStartingSession(false);
     }
@@ -420,14 +686,7 @@ export default function InspectionAIPage() {
 
       await enqueue(async () => {
         setItemStatus(idx, 'analysing');
-
-        const result = await analyseImage(
-          imageFile,
-          systemType,
-          element,
-          () => setItemStatus(idx, 'retrying')
-        );
-
+        const result = await analyseImage(imageFile, systemType, element, () => setItemStatus(idx, 'retrying'));
         const isManual = result.confidence === 0;
         const nc = generateNonConformance(result.defect_type, element);
         const rec = generateRecommendation(result.defect_type, systemType);
@@ -436,22 +695,11 @@ export default function InspectionAIPage() {
         setItems((prev) =>
           prev.map((item, i) => {
             if (i !== idx) return item;
-            return {
-              ...item,
-              analysisResult: result,
-              nonConformance: nc,
-              recommendation: rec,
-              risk,
-              analysisStatus: isManual ? 'manual' : 'done',
-              isAnalysing: false,
-            };
+            return { ...item, analysisResult: result, nonConformance: nc, recommendation: rec, risk, analysisStatus: isManual ? 'manual' : 'done', isAnalysing: false };
           })
         );
 
-        if (isManual) {
-          setActiveIdx(idx);
-          setOverrideIdx(idx);
-        }
+        if (isManual) { setActiveIdx(idx); setOverrideIdx(idx); }
       });
     },
     [setItemStatus]
@@ -461,14 +709,11 @@ export default function InspectionAIPage() {
     (file: File, analyseLater = false) => {
       const previewUrl = URL.createObjectURL(file);
       const newItem = makeBlankItem(file, previewUrl, sessionSystemType, sessionElement);
-
       setItems((prev) => {
         const next = [...prev, newItem];
         const newIdx = next.length - 1;
         setActiveIdx(newIdx);
-        if (!analyseLater) {
-          setTimeout(() => runAnalysis(newIdx, sessionSystemType, sessionElement, file), 0);
-        }
+        if (!analyseLater) setTimeout(() => runAnalysis(newIdx, sessionSystemType, sessionElement, file), 0);
         return next;
       });
     },
@@ -488,29 +733,16 @@ export default function InspectionAIPage() {
   const handleReanalyse = (idx: number) => {
     const item = items[idx];
     if (!item || item.isAnalysing || item.analysisStatus === 'queued') return;
-    updateItem(idx, {
-      analysisResult: null,
-      nonConformance: '',
-      recommendation: '',
-      risk: '',
-      defectTypeOverride: null,
-      severityOverride: null,
-      observationOverride: null,
-      inspectorOverride: false,
-      analysisStatus: 'idle',
-      isSaved: false,
-    });
+    updateItem(idx, { analysisResult: null, nonConformance: '', recommendation: '', risk: '', defectTypeOverride: null, severityOverride: null, observationOverride: null, inspectorOverride: false, analysisStatus: 'idle', isSaved: false });
     runAnalysis(idx, item.systemType, item.element, item.imageFile);
   };
 
   const handleSave = async (idx: number) => {
     const item = items[idx];
     if (!reportId || item.isSaved) return;
-
     const effectiveDefect = item.defectTypeOverride ?? item.analysisResult?.defect_type ?? 'Mechanical Damage';
     const effectiveSeverity = item.severityOverride ?? item.analysisResult?.severity ?? 'Medium';
     const effectiveObservation = item.observationOverride ?? item.analysisResult?.observation ?? getObservationTemplate('Mechanical Damage');
-
     const nc = generateNonConformance(effectiveDefect, item.element);
     const rec = generateRecommendation(effectiveDefect, item.systemType);
     const risk = generateRisk(effectiveSeverity as Severity);
@@ -518,26 +750,12 @@ export default function InspectionAIPage() {
     try {
       const imageUrl = await uploadInspectionImage(item.imageFile, reportId);
       const saved = await saveInspectionItem({
-        report_id: reportId,
-        image_url: imageUrl,
-        system_type: item.systemType,
-        element: item.element,
-        defect_type: effectiveDefect,
-        severity: effectiveSeverity,
-        observation: effectiveObservation,
-        non_conformance: nc,
-        recommendation: rec,
-        risk,
-        confidence: item.analysisResult?.confidence ?? 0,
-        location_level: item.locationLevel,
-        location_grid: item.locationGrid,
-        location_description: item.locationDescription,
-        extent: item.extent,
-        defect_type_override: item.defectTypeOverride,
-        severity_override: item.severityOverride,
-        observation_override: item.observationOverride,
-        inspector_override: item.inspectorOverride,
-        annotated_image_url: item.annotatedImageUrl,
+        report_id: reportId, image_url: imageUrl, system_type: item.systemType, element: item.element,
+        defect_type: effectiveDefect, severity: effectiveSeverity, observation: effectiveObservation,
+        non_conformance: nc, recommendation: rec, risk, confidence: item.analysisResult?.confidence ?? 0,
+        location_level: item.locationLevel, location_grid: item.locationGrid, location_description: item.locationDescription,
+        extent: item.extent, defect_type_override: item.defectTypeOverride, severity_override: item.severityOverride,
+        observation_override: item.observationOverride, inspector_override: item.inspectorOverride, annotated_image_url: item.annotatedImageUrl,
       });
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
     } catch (err) {
@@ -554,66 +772,69 @@ export default function InspectionAIPage() {
     });
   };
 
+  // ── View report from history (read-only, no capture state)
   if (viewingReportId) {
-    return <InspectionReportView reportId={viewingReportId} onBack={() => setViewingReportId(null)} />;
-  }
-
-  if (phase === 'setup') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col">
-        <div className="flex-1 flex flex-col justify-center px-6 py-12 max-w-md mx-auto w-full">
-          <div className="mb-10">
-            <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center mb-5 shadow-lg">
-              <Zap className="w-7 h-7 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Inspection AI</h1>
-            <p className="text-slate-400 text-base leading-relaxed">
-              Capture photos, classify defects with AI, and generate standards-aligned inspection reports.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-6 shadow-2xl space-y-5">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Project Name</label>
-              <input
-                type="text"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder="e.g. 35 Walmsley Road"
-                className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent placeholder-slate-300"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Inspector Name</label>
-              <input
-                type="text"
-                value={inspectorName}
-                onChange={(e) => setInspectorName(e.target.value)}
-                placeholder="Your full name"
-                className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent placeholder-slate-300"
-              />
-            </div>
-            <button
-              onClick={handleStartInspection}
-              disabled={!projectName.trim() || !inspectorName.trim() || startingSession}
-              className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 disabled:opacity-40 hover:bg-slate-800 transition-all active:scale-98 shadow-sm"
-            >
-              {startingSession ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>Start Inspection <ChevronRight className="w-5 h-5" /></>
-              )}
-            </button>
-          </div>
-
-          <p className="text-center text-slate-500 text-xs mt-6">
-            Visual inspection only · No compliance certification
-          </p>
-        </div>
-      </div>
+      <InspectionReportView
+        reportId={viewingReportId}
+        onBack={() => {
+          setViewingReportId(null);
+          if (screen === 'project-overview') return;
+          if (selectedProject) setScreen('setup');
+        }}
+      />
     );
   }
 
+  // ── Home
+  if (screen === 'home') {
+    return (
+      <>
+        {showNewProjectModal && (
+          <NewProjectModal
+            onClose={() => setShowNewProjectModal(false)}
+            onCreate={handleCreateProject}
+          />
+        )}
+        <HomeScreen
+          projects={projects}
+          loadingProjects={loadingProjects}
+          onSelectProject={handleSelectProject}
+          onCreateProject={() => setShowNewProjectModal(true)}
+        />
+      </>
+    );
+  }
+
+  // ── Project overview (all sessions for a project)
+  if (screen === 'project-overview' && selectedProject) {
+    return (
+      <ProjectOverview
+        project={selectedProject}
+        onBack={() => setScreen('home')}
+        onOpenReport={(r) => setViewingReportId(r.id)}
+        onNewReport={() => setScreen('setup')}
+      />
+    );
+  }
+
+  // ── Setup (inspector name + start / load previous)
+  if (screen === 'setup' && selectedProject) {
+    return (
+      <SetupScreen
+        project={selectedProject}
+        inspectorName={inspectorName}
+        setInspectorName={setInspectorName}
+        onBack={() => setScreen('home')}
+        onStart={handleStartInspection}
+        starting={startingSession}
+        existingReports={projectReports}
+        onOpenReport={(r) => setViewingReportId(r.id)}
+      />
+    );
+  }
+
+  // ── Capture
   const savedCount = items.filter((i) => i.isSaved).length;
   const unsavedWithResult = items.filter((i) => (i.analysisResult || i.inspectorOverride) && !i.isSaved);
   const queuedCount = items.filter((i) => i.analysisStatus === 'queued' || i.analysisStatus === 'analysing' || i.analysisStatus === 'retrying').length;
@@ -631,14 +852,16 @@ export default function InspectionAIPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <button
-            onClick={() => setPhase('setup')}
+            onClick={() => setScreen('setup')}
             className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium text-sm">Setup</span>
           </button>
           <div className="text-center">
-            <p className="font-bold text-slate-900 text-sm leading-tight truncate max-w-[160px]">{projectName}</p>
+            <p className="font-bold text-slate-900 text-sm leading-tight truncate max-w-[160px]">
+              {selectedProject?.project_name ?? 'Inspection'}
+            </p>
             <p className="text-xs text-slate-500">
               {items.length} captured · {savedCount} saved
               {queuedCount > 0 && ` · ${queuedCount} in queue`}
@@ -663,17 +886,13 @@ export default function InspectionAIPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => cameraInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 bg-slate-900 text-white py-5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-slate-800 transition-all active:scale-95"
-          >
+          <button onClick={() => cameraInputRef.current?.click()}
+            className="flex flex-col items-center justify-center gap-2 bg-slate-900 text-white py-5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-slate-800 transition-all active:scale-95">
             <Camera className="w-7 h-7" />
             Take Photo
           </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 bg-white text-slate-700 py-5 rounded-2xl font-semibold text-sm border border-slate-200 hover:border-slate-400 transition-all active:scale-95"
-          >
+          <button onClick={() => fileInputRef.current?.click()}
+            className="flex flex-col items-center justify-center gap-2 bg-white text-slate-700 py-5 rounded-2xl font-semibold text-sm border border-slate-200 hover:border-slate-400 transition-all active:scale-95">
             <Upload className="w-7 h-7" />
             Upload Image
           </button>
@@ -684,25 +903,14 @@ export default function InspectionAIPage() {
           fileInputRef.current?.click();
         }} />
 
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => handleFileSelect(e, false)}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+          onChange={(e) => handleFileSelect(e, false)} />
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
           onChange={(e) => {
             const later = fileInputRef.current?.getAttribute('data-analyse-later') === '1';
             fileInputRef.current?.removeAttribute('data-analyse-later');
             handleFileSelect(e, later);
-          }}
-        />
+          }} />
 
         {items.length === 0 && (
           <div className="text-center py-14 text-slate-400">
@@ -722,8 +930,7 @@ export default function InspectionAIPage() {
           const canSave = !item.isSaved && (!!item.analysisResult || item.inspectorOverride);
 
           return (
-            <div
-              key={idx}
+            <div key={idx}
               className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
                 activeIdx === idx ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
               }`}
@@ -739,9 +946,7 @@ export default function InspectionAIPage() {
                       {effectiveSeverity && <SeverityBadge severity={effectiveSeverity} />}
                       {item.extent !== 'Localised' && <ExtentBadge extent={item.extent} />}
                       {hasOverride && (
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">
-                          Overridden
-                        </span>
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">Overridden</span>
                       )}
                       {item.isSaved && <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
                       {!item.isSaved && <AnalysisStatusBadge status={item.analysisStatus} />}
@@ -765,20 +970,14 @@ export default function InspectionAIPage() {
                   )}
 
                   <LocationSection
-                    locationLevel={item.locationLevel}
-                    locationGrid={item.locationGrid}
+                    locationLevel={item.locationLevel} locationGrid={item.locationGrid}
                     locationDescription={item.locationDescription}
                     onChange={(field, value) => updateItem(idx, { [field]: value })}
                     disabled={item.isSaved}
                   />
 
-                  <TagGrid
-                    label="Extent of Defect"
-                    value={item.extent}
-                    options={EXTENT_OPTIONS}
-                    cols={3}
-                    onChange={(v) => updateItem(idx, { extent: v })}
-                  />
+                  <TagGrid label="Extent of Defect" value={item.extent} options={EXTENT_OPTIONS} cols={3}
+                    onChange={(v) => updateItem(idx, { extent: v })} />
 
                   {isInProgress && (
                     <div className="flex items-center justify-center gap-3 py-6">
@@ -800,12 +999,10 @@ export default function InspectionAIPage() {
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-orange-800">AI unavailable — complete manually</p>
                         <p className="text-xs text-orange-700 mt-0.5 mb-3">
-                          A fallback classification has been pre-filled. Use Inspector Override to set the correct defect type, severity and observation.
+                          A fallback classification has been pre-filled. Use Inspector Override to set the correct defect type.
                         </p>
-                        <button
-                          onClick={() => setOverrideIdx(idx)}
-                          className="inline-flex items-center gap-1.5 bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-                        >
+                        <button onClick={() => setOverrideIdx(idx)}
+                          className="inline-flex items-center gap-1.5 bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                           Classify Manually
                         </button>
@@ -815,29 +1012,16 @@ export default function InspectionAIPage() {
 
                   {item.analysisStatus === 'idle' && !item.analysisResult && (
                     <div className="space-y-2">
-                      <button
-                        onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile)}
-                        className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base hover:bg-red-700 transition-all active:scale-95 shadow-sm"
-                      >
+                      <button onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile)}
+                        className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base hover:bg-red-700 transition-all active:scale-95 shadow-sm">
                         <Zap className="w-5 h-5" />
                         Analyse Image
                       </button>
-                      <button
-                        onClick={() => {
-                          updateItem(idx, {
-                            analysisStatus: 'manual',
-                            analysisResult: {
-                              defect_type: 'Mechanical Damage',
-                              severity: 'Medium',
-                              observation: getObservationTemplate('Mechanical Damage'),
-                              confidence: 0,
-                              needsReview: true,
-                            },
-                          });
-                          setOverrideIdx(idx);
-                        }}
-                        className="w-full flex items-center justify-center gap-2 border border-slate-200 text-slate-600 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
-                      >
+                      <button onClick={() => {
+                        updateItem(idx, { analysisStatus: 'manual', analysisResult: { defect_type: 'Mechanical Damage', severity: 'Medium', observation: getObservationTemplate('Mechanical Damage'), confidence: 0, needsReview: true } });
+                        setOverrideIdx(idx);
+                      }}
+                        className="w-full flex items-center justify-center gap-2 border border-slate-200 text-slate-600 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">
                         <Pencil className="w-4 h-4" />
                         Classify Manually
                       </button>
@@ -851,9 +1035,7 @@ export default function InspectionAIPage() {
                           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                           <div>
                             <p className="text-sm font-semibold text-amber-800">Manual Review Recommended</p>
-                            <p className="text-xs text-amber-700 mt-0.5">
-                              AI confidence is below 70%. Verify the finding or use Inspector Override.
-                            </p>
+                            <p className="text-xs text-amber-700 mt-0.5">AI confidence is below 70%. Verify or use Inspector Override.</p>
                           </div>
                         </div>
                       )}
@@ -861,27 +1043,19 @@ export default function InspectionAIPage() {
                       {hasOverride && (
                         <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl p-3">
                           <Pencil className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                          <p className="text-xs text-blue-800 font-medium">
-                            Inspector override applied. AI classification has been modified.
-                          </p>
+                          <p className="text-xs text-blue-800 font-medium">Inspector override applied.</p>
                         </div>
                       )}
 
                       <div className="bg-slate-50 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <p className="font-bold text-slate-900 text-sm">
-                            {item.defectTypeOverride ?? item.analysisResult.defect_type}
-                          </p>
+                          <p className="font-bold text-slate-900 text-sm">{item.defectTypeOverride ?? item.analysisResult.defect_type}</p>
                           <SeverityBadge severity={item.severityOverride ?? item.analysisResult.severity} />
                         </div>
-
                         <div>
                           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Observation</p>
-                          <p className="text-sm text-slate-700 leading-relaxed">
-                            {item.observationOverride ?? item.analysisResult.observation}
-                          </p>
+                          <p className="text-sm text-slate-700 leading-relaxed">{item.observationOverride ?? item.analysisResult.observation}</p>
                         </div>
-
                         {item.analysisResult.confidence > 0 && (
                           <div>
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
@@ -889,13 +1063,7 @@ export default function InspectionAIPage() {
                             </p>
                             <div className="bg-slate-200 rounded-full h-2 overflow-hidden">
                               <div
-                                className={`h-2 rounded-full transition-all ${
-                                  item.analysisResult.confidence >= 70
-                                    ? 'bg-emerald-500'
-                                    : item.analysisResult.confidence >= 50
-                                    ? 'bg-amber-500'
-                                    : 'bg-red-500'
-                                }`}
+                                className={`h-2 rounded-full transition-all ${item.analysisResult.confidence >= 70 ? 'bg-emerald-500' : item.analysisResult.confidence >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
                                 style={{ width: `${item.analysisResult.confidence}%` }}
                               />
                             </div>
@@ -904,10 +1072,8 @@ export default function InspectionAIPage() {
                       </div>
 
                       {!item.isSaved && (
-                        <button
-                          onClick={() => setOverrideIdx(idx)}
-                          className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
-                        >
+                        <button onClick={() => setOverrideIdx(idx)}
+                          className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">
                           <Pencil className="w-4 h-4" />
                           {hasOverride ? 'Edit Override' : 'Inspector Override'}
                         </button>
@@ -919,32 +1085,24 @@ export default function InspectionAIPage() {
                           Saved to report
                         </div>
                       ) : (
-                        <button
-                          onClick={() => handleSave(idx)}
-                          disabled={!canSave}
-                          className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-xl font-bold text-base hover:bg-emerald-700 transition-all active:scale-95 shadow-sm disabled:opacity-40"
-                        >
+                        <button onClick={() => handleSave(idx)} disabled={!canSave}
+                          className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-xl font-bold text-base hover:bg-emerald-700 transition-all active:scale-95 shadow-sm disabled:opacity-40">
                           <Plus className="w-5 h-5" />
                           Save to Report
                         </button>
                       )}
 
                       {!item.isSaved && item.analysisResult.confidence > 0 && (
-                        <button
-                          onClick={() => handleReanalyse(idx)}
-                          disabled={isInProgress}
-                          className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors disabled:opacity-40"
-                        >
+                        <button onClick={() => handleReanalyse(idx)} disabled={isInProgress}
+                          className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors disabled:opacity-40">
                           Re-analyse
                         </button>
                       )}
                     </div>
                   )}
 
-                  <button
-                    onClick={() => handleRemoveItem(idx)}
-                    className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-600 text-sm py-2 transition-colors"
-                  >
+                  <button onClick={() => handleRemoveItem(idx)}
+                    className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-600 text-sm py-2 transition-colors">
                     <Trash2 className="w-4 h-4" />
                     Remove finding
                   </button>
@@ -955,10 +1113,8 @@ export default function InspectionAIPage() {
         })}
 
         {savedCount > 0 && reportId && (
-          <button
-            onClick={() => setViewingReportId(reportId)}
-            className="w-full flex items-center justify-center gap-2.5 bg-white border border-slate-200 text-slate-800 py-4 rounded-2xl font-bold text-base hover:border-slate-400 transition-all active:scale-95 shadow-sm"
-          >
+          <button onClick={() => setViewingReportId(reportId)}
+            className="w-full flex items-center justify-center gap-2.5 bg-white border border-slate-200 text-slate-800 py-4 rounded-2xl font-bold text-base hover:border-slate-400 transition-all active:scale-95 shadow-sm">
             <FileText className="w-5 h-5" />
             View Report ({savedCount} finding{savedCount !== 1 ? 's' : ''})
           </button>
@@ -973,24 +1129,6 @@ export default function InspectionAIPage() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function AnalyseLaterRow({ onAnalyseLater }: { onAnalyseLater: () => void }) {
-  return (
-    <div className="flex items-center justify-between bg-white border border-dashed border-slate-200 rounded-xl px-4 py-3">
-      <div>
-        <p className="text-sm font-semibold text-slate-700">Batch capture mode</p>
-        <p className="text-xs text-slate-400 mt-0.5">Add images without AI — classify manually later</p>
-      </div>
-      <button
-        onClick={onAnalyseLater}
-        className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-3 py-2 rounded-lg transition-colors flex-shrink-0 ml-3"
-      >
-        <Clock className="w-4 h-4" />
-        Analyse Later
-      </button>
     </div>
   );
 }

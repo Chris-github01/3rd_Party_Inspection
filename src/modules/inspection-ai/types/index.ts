@@ -11,12 +11,24 @@ export interface AIAnalysisResult {
   needsReview: boolean;
 }
 
+export interface InspectionAIProject {
+  id: string;
+  user_id: string;
+  project_name: string;
+  client_name: string;
+  site_location: string;
+  created_at: string;
+}
+
 export interface InspectionAIReport {
   id: string;
   project_name: string;
   inspector_name: string;
   created_at: string;
   user_id?: string;
+  project_id?: string | null;
+  status?: 'draft' | 'completed';
+  item_count?: number;
 }
 
 export interface InspectionAIItem {
