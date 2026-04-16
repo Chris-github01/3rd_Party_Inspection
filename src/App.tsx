@@ -20,6 +20,7 @@ import { Organization } from './pages/settings/Organization';
 import { Organizations } from './pages/settings/Organizations';
 import { Onboarding } from './pages/settings/Onboarding';
 import ClientLogos from './pages/settings/ClientLogos';
+import InspectionAITelemetry from './pages/settings/InspectionAITelemetry';
 import { SiteMode } from './pages/SiteMode';
 import { InspectionPackages } from './pages/site/InspectionPackages';
 import { DrawingsView } from './pages/site/DrawingsView';
@@ -243,6 +244,14 @@ function App() {
             element={
               <PrivateRoute>
                 <ClientLogos />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/settings/inspection-ai-telemetry"
+            element={
+              <PrivateRoute>
+                <InspectionAITelemetry />
               </PrivateRoute>
             }
           />

@@ -53,6 +53,7 @@ export function Layout({ children }: LayoutProps) {
         { label: 'Templates', icon: LayoutIcon, path: '/settings/templates' },
         { label: 'Onboarding', icon: ClipboardList, path: '/settings/onboarding' },
         { label: 'Client Logos', icon: Image, path: '/settings/client-logos' },
+        { label: 'AI Telemetry', icon: Zap, path: '/settings/inspection-ai-telemetry' },
       ],
     },
   ];
