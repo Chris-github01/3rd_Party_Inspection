@@ -14,6 +14,10 @@ export interface AIAnalysisResult {
   escalate?: boolean;
   escalation_reason?: string;
   remediation_guidance?: string;
+  _brainMode?: 'ai-only' | 'rules-only' | 'ai-rules-agree' | 'ai-rules-conflict';
+  _confidenceBoost?: number;
+  _triggeredRules?: Array<{ ruleId: string; ruleName: string; [key: string]: unknown }>;
+  _hiddenRisks?: string[];
 }
 
 export type ObservedConcern =

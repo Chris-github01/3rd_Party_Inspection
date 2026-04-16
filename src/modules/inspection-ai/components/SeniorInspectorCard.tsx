@@ -14,6 +14,9 @@ import {
   Wrench,
   Clock,
   WifiOff,
+  BookOpen,
+  TrendingUp,
+  EyeOff,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { AIAnalysisResult, Severity } from '../types';
@@ -84,6 +87,11 @@ export function SeniorInspectorCard({
     result.likely_cause ||
     result.remediation_guidance
   );
+  const brainMode = result._brainMode;
+  const confidenceBoost = result._confidenceBoost ?? 0;
+  const triggeredRules = result._triggeredRules ?? [];
+  const hiddenRisks = result._hiddenRisks ?? [];
+  const [showRules, setShowRules] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -158,6 +166,46 @@ export function SeniorInspectorCard({
             <p className="text-sm text-slate-600 leading-relaxed">{effectiveObservation}</p>
 
             {result.confidence > 0 && <ConfidenceBar value={result.confidence} />}
+
+            {brainMode && brainMode !== 'ai-only' && (
+              <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                {brainMode === 'ai-rules-agree' && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    <TrendingUp className="w-3 h-3" />
+                    AI + Rulebook agree
+                    {confidenceBoost > 0 && <span className="text-emerald-500">+{confidenceBoost}%</span>}
+                  </span>
+                )}
+                {brainMode === 'ai-rules-conflict' && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    <AlertTriangle className="w-3 h-3" />
+                    AI + Rulebook differ — verify
+                  </span>
+                )}
+                {triggeredRules.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRules((v) => !v)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full transition-colors"
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    {triggeredRules.length} rule{triggeredRules.length !== 1 ? 's' : ''} matched
+                    {showRules ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {showRules && triggeredRules.length > 0 && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl divide-y divide-slate-100 mt-1">
+                {triggeredRules.map((rule) => (
+                  <div key={rule.ruleId} className="px-3 py-2 flex items-start gap-2">
+                    <span className="text-[10px] font-bold text-slate-400 font-mono mt-0.5 flex-shrink-0">{String(rule.ruleId)}</span>
+                    <span className="text-xs text-slate-700">{String(rule.ruleName)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -196,6 +244,23 @@ export function SeniorInspectorCard({
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5">Recommended Action</p>
                   <p className="text-xs text-slate-700 leading-relaxed">{result.remediation_guidance}</p>
+                </div>
+              </div>
+            )}
+
+            {hiddenRisks.length > 0 && (
+              <div className="px-4 py-3 flex items-start gap-2.5">
+                <EyeOff className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Hidden Risks</p>
+                  <ul className="space-y-1">
+                    {hiddenRisks.map((risk, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-red-700 leading-relaxed">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0 mt-1.5" />
+                        {risk}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             )}

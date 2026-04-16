@@ -36,6 +36,7 @@ import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
 import { DEFECT_TYPES } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
 import { enqueue, isQueueBusy, queueLength } from '../utils/analysisQueue';
+import { applyInspectionBrain } from '../utils/inspectionBrain';
 import { InspectionReportView } from '../components/InspectionReportView';
 import { EvidencePhotosPanel } from '../components/EvidencePhotosPanel';
 import { ProjectOverview } from '../components/ProjectOverview';
@@ -790,8 +791,36 @@ export default function InspectionAIPage() {
 
       await enqueue(async () => {
         setItemStatus(idx, 'analysing');
-        const result = await analyseImage(imageFile, systemType, element, () => setItemStatus(idx, 'retrying'), environment, observedConcern, isNewInstall);
-        const isManual = result.confidence === 0;
+        const aiResult = await analyseImage(imageFile, systemType, element, () => setItemStatus(idx, 'retrying'), environment, observedConcern, isNewInstall);
+        const isManual = aiResult.confidence === 0;
+
+        let result = aiResult;
+        if (!isManual) {
+          const brainResult = applyInspectionBrain(aiResult, {
+            systemType,
+            element,
+            environment: (environment ?? 'Internal') as import('../types').Environment,
+            observedConcern: (observedConcern ?? 'Unsure') as import('../types').ObservedConcern,
+            isNewInstall: isNewInstall ?? false,
+          });
+          result = {
+            defect_type: brainResult.defect_type,
+            severity: brainResult.severity,
+            observation: brainResult.observation,
+            confidence: brainResult.confidence,
+            needsReview: brainResult.needsReview,
+            likely_cause: brainResult.likely_cause,
+            next_checks: brainResult.next_checks,
+            escalate: brainResult.escalate,
+            escalation_reason: brainResult.escalation_reason,
+            remediation_guidance: brainResult.remediation_guidance,
+            _brainMode: brainResult.brainMode,
+            _confidenceBoost: brainResult.confidenceBoost,
+            _triggeredRules: brainResult.rulebook.triggeredRules,
+            _hiddenRisks: brainResult.rulebook.hiddenRisks,
+          } as AIAnalysisResult & Record<string, unknown>;
+        }
+
         const nc = generateNonConformance(result.defect_type, element);
         const rec = generateRecommendation(result.defect_type, systemType);
         const risk = generateRisk(result.severity as Severity);
