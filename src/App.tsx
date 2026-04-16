@@ -27,6 +27,7 @@ import { PinsList } from './pages/site/PinsList';
 import { PinInspection } from './pages/site/PinInspection';
 import InspectPDF from './pages/InspectPDF';
 import InspectionReport from './pages/InspectionReport';
+import InspectionAIPage from './modules/inspection-ai/pages/InspectionAIPage';
 import { PublicLayout } from './website/layout/PublicLayout';
 import { Home } from './website/pages/Home';
 import { About } from './website/pages/About';
@@ -125,6 +126,14 @@ function App() {
             element={
               <PrivateRoute>
                 <InspectionReport />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/inspection-ai"
+            element={
+              <PrivateRoute>
+                <InspectionAIPage />
               </PrivateRoute>
             }
           />
