@@ -259,15 +259,18 @@ export function exportQuotePDF(quote: Quote, orgName: string = 'P&R Consulting L
 
     // Cost breakdown table
     const breakdownRows: [string, string][] = [
-      ['Site Labour', fmtCurrency(breakdown.siteLabour)],
-      ['Report Writing', fmtCurrency(breakdown.reportWriting)],
+      ['Site Labour (loaded cost)', fmtCurrency(breakdown.labourCost)],
+      ['Report Writing (loaded cost)', fmtCurrency(breakdown.reportWritingCost)],
     ];
+    if (breakdown.accessComplexityPremium > 0) breakdownRows.push(['Access / Complexity Premium', fmtCurrency(breakdown.accessComplexityPremium)]);
     if (breakdown.afterHoursPremium > 0) breakdownRows.push(['After-Hours Premium', fmtCurrency(breakdown.afterHoursPremium)]);
-    if (breakdown.travel > 0) breakdownRows.push(['Travel', fmtCurrency(breakdown.travel)]);
-    if (breakdown.parking > 0) breakdownRows.push(['Parking & Tolls', fmtCurrency(breakdown.parking)]);
+    if (breakdown.travelZoneSurcharge > 0) breakdownRows.push(['Travel Zone Surcharge', fmtCurrency(breakdown.travelZoneSurcharge)]);
+    if (breakdown.travelCost > 0) breakdownRows.push(['Mileage', fmtCurrency(breakdown.travelCost)]);
+    if (breakdown.parkingTolls > 0) breakdownRows.push(['Parking & Tolls', fmtCurrency(breakdown.parkingTolls)]);
     if (breakdown.accommodation > 0) breakdownRows.push(['Accommodation', fmtCurrency(breakdown.accommodation)]);
-    if (breakdown.subcontractors > 0) breakdownRows.push(['Subcontractors', fmtCurrency(breakdown.subcontractors)]);
-    if (breakdown.urgentSurcharge > 0) breakdownRows.push(['Urgent Turnaround Surcharge', fmtCurrency(breakdown.urgentSurcharge)]);
+    if (breakdown.subcontractorCost > 0) breakdownRows.push(['Subcontractors', fmtCurrency(breakdown.subcontractorCost)]);
+    if (breakdown.serviceTierPremium > 0) breakdownRows.push(['Service Tier Premium', fmtCurrency(breakdown.serviceTierPremium)]);
+    if (breakdown.urgentSurcharge > 0) breakdownRows.push(['Urgent Surcharge', fmtCurrency(breakdown.urgentSurcharge)]);
     if (breakdown.adminOverhead > 0) breakdownRows.push(['Admin Overhead', fmtCurrency(breakdown.adminOverhead)]);
 
     autoTable(doc, {
@@ -361,17 +364,20 @@ export function exportQuotePDF(quote: Quote, orgName: string = 'P&R Consulting L
     doc.setTextColor(...mid);
 
     const inputRows: [string, string][] = [
-      ['Site Labour Hours', `${inputs.siteLabourHours} hrs`],
+      ['Site / Inspection Hours', `${inputs.labourHours} hrs`],
       ['Inspector Grade', inspectorRate?.label ?? inputs.inspectorType],
       ['Report Writing Hours', `${inputs.reportWritingHours} hrs`],
     ];
+    if (inputs.travelZone) inputRows.push(['Travel Zone', inputs.travelZone]);
+    if (inputs.accessDifficulty && inputs.accessDifficulty !== 'easy') inputRows.push(['Access Difficulty', inputs.accessDifficulty]);
+    if (inputs.serviceTier && inputs.serviceTier !== 'standard') inputRows.push(['Service Tier', inputs.serviceTier]);
     if (inputs.afterHoursMultiplier > 1) inputRows.push(['After-Hours Multiplier', `${inputs.afterHoursMultiplier}×`]);
     if (inputs.travelKm > 0) inputRows.push(['Travel Distance', `${inputs.travelKm} km @ $${inputs.kmRate}/km`]);
     if (inputs.parking > 0) inputRows.push(['Parking & Tolls', fmtCurrency(inputs.parking)]);
     if (inputs.accommodation > 0) inputRows.push(['Accommodation', fmtCurrency(inputs.accommodation)]);
-    if (inputs.subcontractorCosts > 0) inputRows.push(['Subcontractor Costs', fmtCurrency(inputs.subcontractorCosts)]);
-    if (inputs.urgentSurchargePct > 0) inputRows.push(['Urgent Surcharge', `${inputs.urgentSurchargePct}%`]);
-    if (inputs.adminOverheadPct > 0) inputRows.push(['Admin Overhead', `${inputs.adminOverheadPct}%`]);
+    if (inputs.subcontractorCost > 0) inputRows.push(['Subcontractor Costs', fmtCurrency(inputs.subcontractorCost)]);
+    if (inputs.urgentSurchargePercent > 0) inputRows.push(['Urgent Surcharge', `${inputs.urgentSurchargePercent}%`]);
+    if (inputs.adminOverheadPercent > 0) inputRows.push(['Admin Overhead', `${inputs.adminOverheadPercent}%`]);
 
     const colMid = pageW / 2;
     inputRows.forEach((row, i) => {

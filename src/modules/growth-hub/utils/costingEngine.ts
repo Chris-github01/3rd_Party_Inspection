@@ -2,6 +2,28 @@ export interface InspectorRate {
   type: string;
   label: string;
   hourlyRate: number;
+  loadedCostRate: number;
+}
+
+export interface TravelZone {
+  id: string;
+  label: string;
+  description: string;
+  baseSurcharge: number;
+  travelTimeBilled: boolean;
+}
+
+export interface AccessDifficulty {
+  id: string;
+  label: string;
+  multiplier: number;
+}
+
+export interface ServiceTier {
+  id: string;
+  label: string;
+  description: string;
+  premiumPct: number;
 }
 
 export interface CostInputs {
@@ -10,11 +32,18 @@ export interface CostInputs {
   labourHours: number;
   reportWritingHours: number;
   // Travel
+  travelZone: string;
   travelKm: number;
   kmRate: number;
   parking: number;
   tolls: number;
   accommodation: number;
+  // Fees
+  calloutFee: number;
+  // Access & complexity
+  accessDifficulty: string;
+  // Service tier
+  serviceTier: string;
   // Subcontractors
   subcontractorCost: number;
   // Surcharges
@@ -25,37 +54,75 @@ export interface CostInputs {
 }
 
 export interface CostBreakdown {
+  calloutFee: number;
   labourCost: number;
   reportWritingCost: number;
+  accessComplexityPremium: number;
+  afterHoursPremium: number;
+  travelZoneSurcharge: number;
   travelCost: number;
   parkingTolls: number;
   accommodation: number;
   subcontractorCost: number;
+  serviceTierPremium: number;
   urgentSurcharge: number;
-  afterHoursPremium: number;
   adminOverhead: number;
   totalInternalCost: number;
+  minimumEnforced: boolean;
+  minimumAmount: number;
 }
 
 export const INSPECTOR_RATES: InspectorRate[] = [
-  { type: 'junior',    label: 'Junior Inspector',       hourlyRate: 85  },
-  { type: 'senior',    label: 'Senior Inspector',        hourlyRate: 120 },
-  { type: 'principal', label: 'Principal Inspector',     hourlyRate: 160 },
-  { type: 'engineer',  label: 'Fire Engineer',           hourlyRate: 195 },
-  { type: 'specialist',label: 'Specialist / Director',   hourlyRate: 240 },
+  { type: 'junior',     label: 'Junior Inspector',      hourlyRate: 110, loadedCostRate: 55 },
+  { type: 'senior',     label: 'Senior Inspector',       hourlyRate: 145, loadedCostRate: 72 },
+  { type: 'principal',  label: 'Principal Inspector',    hourlyRate: 175, loadedCostRate: 90 },
+  { type: 'engineer',   label: 'Fire Engineer',          hourlyRate: 210, loadedCostRate: 110 },
+  { type: 'specialist', label: 'Specialist / Director',  hourlyRate: 260, loadedCostRate: 135 },
 ];
 
-export const KM_RATE_DEFAULT = 0.98;
+export const TRAVEL_ZONES: TravelZone[] = [
+  { id: 'local',    label: 'Zone A — Local Metro (0–25 km)',      description: 'Auckland / Wellington / Christchurch metro core', baseSurcharge: 0,   travelTimeBilled: false },
+  { id: 'extended', label: 'Zone B — Extended Metro (25–60 km)',  description: 'Outer suburbs and satellite towns',               baseSurcharge: 120, travelTimeBilled: false },
+  { id: 'regional', label: 'Zone C — Regional Day Trip (60–150 km)', description: 'Travel time billed + mileage',                baseSurcharge: 0,   travelTimeBilled: true  },
+  { id: 'national', label: 'Zone D — National (flights / overnight)', description: 'Flights, hire car, accommodation charged at cost', baseSurcharge: 0, travelTimeBilled: true },
+];
+
+export const ACCESS_DIFFICULTIES: AccessDifficulty[] = [
+  { id: 'easy',      label: 'Easy — ground level / open access',      multiplier: 1.00 },
+  { id: 'scissor',   label: 'EWP / Scissor lift required',             multiplier: 1.15 },
+  { id: 'confined',  label: 'Confined space / ceiling void',            multiplier: 1.25 },
+  { id: 'critical',  label: 'Live critical environment (hospital etc)', multiplier: 1.35 },
+  { id: 'shutdown',  label: 'Night shutdown / after-hours access',      multiplier: 1.50 },
+];
+
+export const SERVICE_TIERS: ServiceTier[] = [
+  { id: 'standard',   label: 'Standard',   description: '3–5 business days',   premiumPct: 0   },
+  { id: 'priority',   label: 'Priority',   description: '24–48 hours',          premiumPct: 20  },
+  { id: 'emergency',  label: 'Emergency',  description: 'Same day / next day',  premiumPct: 50  },
+];
+
+export const CALLOUT_MINIMUMS: Record<string, number> = {
+  local:    420,
+  extended: 550,
+  regional: 750,
+  national: 1200,
+};
+
+export const KM_RATE_DEFAULT = 1.20;
 
 export const DEFAULT_COST_INPUTS: CostInputs = {
   inspectorType: 'senior',
   labourHours: 4,
   reportWritingHours: 2,
+  travelZone: 'local',
   travelKm: 0,
   kmRate: KM_RATE_DEFAULT,
   parking: 0,
   tolls: 0,
   accommodation: 0,
+  calloutFee: 0,
+  accessDifficulty: 'easy',
+  serviceTier: 'standard',
   subcontractorCost: 0,
   urgentSurchargePercent: 0,
   afterHoursMultiplier: 1,
@@ -63,39 +130,62 @@ export const DEFAULT_COST_INPUTS: CostInputs = {
 };
 
 export function calcCostBreakdown(inputs: CostInputs): CostBreakdown {
-  const rate = INSPECTOR_RATES.find(r => r.type === inputs.inspectorType)?.hourlyRate ?? 120;
+  const rateObj = INSPECTOR_RATES.find(r => r.type === inputs.inspectorType) ?? INSPECTOR_RATES[1];
+  const loadedRate = rateObj.loadedCostRate;
 
-  const labourCost = inputs.labourHours * rate;
-  const reportWritingCost = inputs.reportWritingHours * rate;
+  const zone = TRAVEL_ZONES.find(z => z.id === inputs.travelZone) ?? TRAVEL_ZONES[0];
+  const access = ACCESS_DIFFICULTIES.find(a => a.id === inputs.accessDifficulty) ?? ACCESS_DIFFICULTIES[0];
+  const tier = SERVICE_TIERS.find(t => t.id === inputs.serviceTier) ?? SERVICE_TIERS[0];
+
+  const calloutFee = inputs.calloutFee ?? 0;
+  const baseLaborCost = inputs.labourHours * loadedRate;
+  const reportWritingCost = inputs.reportWritingHours * loadedRate;
+
+  const preAfterHours = baseLaborCost + reportWritingCost;
+  const afterHoursPremium = inputs.afterHoursMultiplier > 1
+    ? preAfterHours * (inputs.afterHoursMultiplier - 1)
+    : 0;
+
+  const labourWithAccess = (preAfterHours + afterHoursPremium) * access.multiplier;
+  const accessComplexityPremium = labourWithAccess - (preAfterHours + afterHoursPremium);
+
+  const travelZoneSurcharge = zone.baseSurcharge;
   const travelCost = inputs.travelKm * (inputs.kmRate ?? KM_RATE_DEFAULT);
   const parkingTolls = (inputs.parking ?? 0) + (inputs.tolls ?? 0);
   const accommodation = inputs.accommodation ?? 0;
   const subcontractorCost = inputs.subcontractorCost ?? 0;
 
-  const preAfterHours = labourCost + reportWritingCost;
-  const afterHoursPremium = inputs.afterHoursMultiplier > 1
-    ? preAfterHours * (inputs.afterHoursMultiplier - 1)
-    : 0;
+  const preTierBase = calloutFee + labourWithAccess + travelZoneSurcharge + travelCost + parkingTolls + accommodation + subcontractorCost;
+  const serviceTierPremium = preTierBase * (tier.premiumPct / 100);
 
-  const baseBeforeUrgent = preAfterHours + afterHoursPremium + travelCost + parkingTolls + accommodation + subcontractorCost;
-  const urgentSurcharge = baseBeforeUrgent * ((inputs.urgentSurchargePercent ?? 0) / 100);
+  const preUrgent = preTierBase + serviceTierPremium;
+  const urgentSurcharge = preUrgent * ((inputs.urgentSurchargePercent ?? 0) / 100);
 
-  const subtotalBeforeAdmin = baseBeforeUrgent + urgentSurcharge;
+  const subtotalBeforeAdmin = preUrgent + urgentSurcharge;
   const adminOverhead = subtotalBeforeAdmin * ((inputs.adminOverheadPercent ?? 15) / 100);
 
   const totalInternalCost = subtotalBeforeAdmin + adminOverhead;
 
+  const minimum = CALLOUT_MINIMUMS[inputs.travelZone] ?? 420;
+  const minimumEnforced = totalInternalCost < minimum;
+
   return {
-    labourCost,
+    calloutFee,
+    labourCost: baseLaborCost,
     reportWritingCost,
+    accessComplexityPremium,
+    afterHoursPremium,
+    travelZoneSurcharge,
     travelCost,
     parkingTolls,
     accommodation,
     subcontractorCost,
+    serviceTierPremium,
     urgentSurcharge,
-    afterHoursPremium,
     adminOverhead,
-    totalInternalCost,
+    totalInternalCost: minimumEnforced ? minimum : totalInternalCost,
+    minimumEnforced,
+    minimumAmount: minimum,
   };
 }
 
@@ -105,18 +195,37 @@ export function calcMargin(revenue: number, internalCost: number): { grossMargin
   return { grossMargin, grossMarginPct };
 }
 
-export function marginColor(pct: number): string {
-  if (pct >= 40) return 'text-emerald-400';
-  if (pct >= 25) return 'text-amber-400';
-  if (pct >= 10) return 'text-orange-400';
+export function getTargetMargin(serviceType?: string | null): number {
+  if (!serviceType) return 45;
+  const targets: Record<string, number> = {
+    inspection: 45,
+    reinspection: 45,
+    intumescent_audit: 52,
+    fire_stopping_survey: 50,
+    witness_inspection: 50,
+  };
+  return targets[serviceType] ?? 45;
+}
+
+export function marginColor(pct: number, target = 45): string {
+  if (pct >= target) return 'text-emerald-400';
+  if (pct >= target * 0.7) return 'text-amber-400';
+  if (pct >= target * 0.4) return 'text-orange-400';
   return 'text-red-400';
 }
 
-export function marginBgColor(pct: number): string {
-  if (pct >= 40) return 'bg-emerald-900/30 border-emerald-800';
-  if (pct >= 25) return 'bg-amber-900/30 border-amber-800';
-  if (pct >= 10) return 'bg-orange-900/30 border-orange-800';
+export function marginBgColor(pct: number, target = 45): string {
+  if (pct >= target) return 'bg-emerald-900/30 border-emerald-800';
+  if (pct >= target * 0.7) return 'bg-amber-900/30 border-amber-800';
+  if (pct >= target * 0.4) return 'bg-orange-900/30 border-orange-800';
   return 'bg-red-900/30 border-red-800';
+}
+
+export function marginLabel(pct: number, target = 45): string {
+  if (pct >= target) return 'Strong margin';
+  if (pct >= target * 0.7) return 'Acceptable — below target';
+  if (pct >= target * 0.4) return 'Low margin — review pricing';
+  return 'Warning: very low margin';
 }
 
 export interface QuoteTemplate {
@@ -146,6 +255,9 @@ export const QUOTE_TEMPLATES: QuoteTemplate[] = [
       inspectorType: 'senior',
       labourHours: 4,
       reportWritingHours: 2,
+      travelZone: 'local',
+      accessDifficulty: 'easy',
+      serviceTier: 'standard',
       adminOverheadPercent: 15,
     },
     defaultLineItems: [
@@ -163,6 +275,9 @@ export const QUOTE_TEMPLATES: QuoteTemplate[] = [
       inspectorType: 'senior',
       labourHours: 2,
       reportWritingHours: 1,
+      travelZone: 'local',
+      accessDifficulty: 'easy',
+      serviceTier: 'standard',
       adminOverheadPercent: 15,
     },
     defaultLineItems: [
@@ -180,6 +295,9 @@ export const QUOTE_TEMPLATES: QuoteTemplate[] = [
       inspectorType: 'principal',
       labourHours: 8,
       reportWritingHours: 4,
+      travelZone: 'local',
+      accessDifficulty: 'scissor',
+      serviceTier: 'standard',
       adminOverheadPercent: 15,
     },
     defaultLineItems: [
@@ -198,6 +316,9 @@ export const QUOTE_TEMPLATES: QuoteTemplate[] = [
       inspectorType: 'senior',
       labourHours: 6,
       reportWritingHours: 3,
+      travelZone: 'local',
+      accessDifficulty: 'easy',
+      serviceTier: 'standard',
       adminOverheadPercent: 15,
     },
     defaultLineItems: [
@@ -215,6 +336,9 @@ export const QUOTE_TEMPLATES: QuoteTemplate[] = [
       inspectorType: 'senior',
       labourHours: 8,
       reportWritingHours: 1.5,
+      travelZone: 'local',
+      accessDifficulty: 'easy',
+      serviceTier: 'standard',
       adminOverheadPercent: 15,
     },
     defaultLineItems: [
