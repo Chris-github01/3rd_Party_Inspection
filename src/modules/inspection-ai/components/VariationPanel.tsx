@@ -12,6 +12,7 @@ import {
   CheckCircle,
   MapPin,
   ClipboardList,
+  Flame,
 } from 'lucide-react';
 import type { InspectionAIItem } from '../types';
 import { generateCommercialSummary } from '../utils/summaryEngine';
@@ -21,6 +22,8 @@ import type { VariationItem } from '../utils/variationEngine';
 import { getRiskTailwindClass } from '../utils/riskEngine';
 import { getForecastColour } from '../utils/forecastEngine';
 import { COST_DISCLAIMER } from '../utils/costEstimator';
+import type { PinCluster } from '../utils/clusterEngine';
+import { clusterSummaryText } from '../utils/clusterEngine';
 
 interface Props {
   items: InspectionAIItem[];
@@ -30,6 +33,7 @@ interface Props {
   mode: 'client' | 'internal';
   onExport: (merged: boolean) => void;
   exporting: boolean;
+  spatialClusters?: PinCluster[];
 }
 
 function ScopeLines({ scope }: { scope: string }) {
@@ -163,7 +167,7 @@ function VariationCard({
   );
 }
 
-export function VariationPanel({ items, projectName, inspectorName, date, mode, onExport, exporting }: Props) {
+export function VariationPanel({ items, projectName, inspectorName, date, mode, onExport, exporting, spatialClusters }: Props) {
   const [useMerged, setUseMerged] = useState(false);
 
   const summary = useMemo(() => {
@@ -225,6 +229,36 @@ export function VariationPanel({ items, projectName, inspectorName, date, mode, 
             </>
           )}
         </div>
+
+        {spatialClusters && spatialClusters.length > 0 && (
+          <div className="mt-3 bg-slate-900 border border-slate-700 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Flame className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <p className="text-xs font-bold text-white">Spatial Intelligence</p>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed mb-2">
+              {clusterSummaryText(spatialClusters)}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {spatialClusters.slice(0, 4).map((c) => {
+                const colour =
+                  c.dominantSeverity === 'High'
+                    ? 'bg-red-900/50 text-red-300 border-red-800'
+                    : c.dominantSeverity === 'Medium'
+                    ? 'bg-amber-900/50 text-amber-300 border-amber-800'
+                    : 'bg-emerald-900/50 text-emerald-300 border-emerald-800';
+                return (
+                  <span
+                    key={c.id}
+                    className={`text-[10px] font-semibold px-2 py-1 rounded-lg border ${colour}`}
+                  >
+                    {c.pins.length} findings · {c.dominantSeverity}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {summary.has_high_risk && (
           <div className="flex items-center gap-2 mt-3 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">

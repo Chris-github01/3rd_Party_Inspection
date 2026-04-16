@@ -11,9 +11,15 @@ import {
   Trash2,
   AlertTriangle,
   CheckCircle,
+  Flame,
+  Eye,
+  EyeOff,
+  Info,
 } from 'lucide-react';
-import { fetchPins, createPin, deletePin, updatePin } from '../../services/spatialService';
+import { fetchPins, createPin, deletePin } from '../../services/spatialService';
 import type { InspectionAIDrawing, InspectionAIPin } from '../../types';
+import { clusterPins } from '../../utils/clusterEngine';
+import { HeatmapCanvas, ClusterOverlay, HeatmapLegend } from './HeatmapOverlay';
 
 // ─── Severity colours ─────────────────────────
 const SEVERITY_COLOUR: Record<string, string> = {
@@ -213,6 +219,35 @@ function CaptureSheet({
   );
 }
 
+// ─── View mode toggle ─────────────────────────
+type ViewMode = 'pins' | 'heatmap' | 'clusters';
+
+function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+  const options: { value: ViewMode; label: string; icon: React.ReactNode }[] = [
+    { value: 'pins',     label: 'Pins',     icon: <MapPin className="w-3.5 h-3.5" /> },
+    { value: 'heatmap',  label: 'Heat',     icon: <Flame className="w-3.5 h-3.5" /> },
+    { value: 'clusters', label: 'Zones',    icon: <Info className="w-3.5 h-3.5" /> },
+  ];
+  return (
+    <div className="flex rounded-lg border border-slate-700 overflow-hidden">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+            mode === o.value
+              ? 'bg-white text-slate-900'
+              : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+          }`}
+        >
+          {o.icon}
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────
 interface DrawingViewerProps {
   drawing: InspectionAIDrawing;
@@ -228,6 +263,9 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const [pins, setPins] = useState<InspectionAIPin[]>([]);
   const [loadingPins, setLoadingPins] = useState(true);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('pins');
+  const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
+  const [showClusterPanel, setShowClusterPanel] = useState(false);
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -238,7 +276,9 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null);
   const [showCaptureSheet, setShowCaptureSheet] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
-  const [newPinId, setNewPinId] = useState<string | null>(null);
+
+  const clusters = clusterPins(pins);
+  const highClusters = clusters.filter((c) => c.dominantSeverity === 'High' && c.pins.length >= 2);
 
   useEffect(() => {
     fetchPins(drawing.id)
@@ -302,7 +342,6 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
     try {
       const pin = await createPin(drawing.id, pendingPin.x, pendingPin.y);
       setPins((prev) => [...prev, pin]);
-      setNewPinId(pin.id);
       return pin.id;
     } finally {
       setSavingPin(false);
@@ -353,32 +392,23 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
         </div>
       )}
 
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 z-10 flex-shrink-0">
-        <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors">
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-900 border-b border-slate-800 z-10 flex-shrink-0">
+        <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors flex-shrink-0">
           <X className="w-5 h-5" />
         </button>
-        <div className="text-center flex-1 mx-3">
-          <p className="font-semibold text-white text-sm truncate">{drawing.name}</p>
-          <p className="text-xs text-slate-500">Tap drawing to place pin</p>
+        <div className="flex-1 min-w-0 mx-1">
+          <p className="font-semibold text-white text-xs truncate">{drawing.name}</p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => handleZoom('out')}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
-          >
-            <ZoomOut className="w-4 h-4" />
+        <ViewToggle mode={viewMode} onChange={(m) => { setViewMode(m); setShowClusterPanel(m === 'clusters'); }} />
+        <div className="flex items-center gap-1 ml-1">
+          <button onClick={() => handleZoom('out')} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
+            <ZoomOut className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={() => handleZoom('in')}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
-          >
-            <ZoomIn className="w-4 h-4" />
+          <button onClick={() => handleZoom('in')} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
+            <ZoomIn className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={handleReset}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
-          >
-            <Maximize2 className="w-4 h-4" />
+          <button onClick={handleReset} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
+            <Maximize2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -411,6 +441,10 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
                 src={drawing.file_url}
                 alt={drawing.name}
                 draggable={false}
+                onLoad={(e) => {
+                  const el = e.currentTarget;
+                  setImgSize({ width: el.offsetWidth, height: el.offsetHeight });
+                }}
                 className="block max-w-full max-h-[70vh] object-contain"
                 style={{ userSelect: 'none', pointerEvents: 'none' }}
               />
@@ -422,7 +456,15 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
               </div>
             )}
 
-            {!loadingPins && pins.map((pin, i) => (
+            {viewMode === 'heatmap' && pins.length > 0 && imgSize.width > 0 && (
+              <HeatmapCanvas pins={pins} width={imgSize.width} height={imgSize.height} />
+            )}
+
+            {viewMode === 'clusters' && imgSize.width > 0 && (
+              <ClusterOverlay clusters={clusters} imgWidth={imgSize.width} imgHeight={imgSize.height} />
+            )}
+
+            {(viewMode === 'pins' || viewMode === 'clusters') && !loadingPins && pins.map((pin, i) => (
               <PinMarker
                 key={pin.id}
                 pin={pin}
@@ -438,38 +480,75 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
         </div>
       </div>
 
-      <div className="bg-slate-900 border-t border-slate-800 px-4 py-3 flex-shrink-0">
+      {viewMode === 'heatmap' && pins.length > 0 && <HeatmapLegend />}
+
+      {showClusterPanel && clusters.length > 0 && (
+        <div className="absolute left-0 right-0 bottom-0 z-20 bg-slate-900/95 backdrop-blur-sm border-t border-slate-800 max-h-48 overflow-y-auto">
+          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+            <p className="text-xs font-bold text-white uppercase tracking-wide">Defect Zones</p>
+            <span className="text-xs text-slate-400">{clusters.length} zone{clusters.length !== 1 ? 's' : ''}</span>
+          </div>
+          {clusters.map((c) => {
+            const colour = c.dominantSeverity === 'High' ? 'text-red-400' : c.dominantSeverity === 'Medium' ? 'text-amber-400' : 'text-emerald-400';
+            const dot = c.dominantSeverity === 'High' ? 'bg-red-500' : c.dominantSeverity === 'Medium' ? 'bg-amber-500' : 'bg-emerald-500';
+            return (
+              <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-800">
+                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dot}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold ${colour} truncate`}>{c.label}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {c.severityCounts.High > 0 && `${c.severityCounts.High} High  `}
+                    {c.severityCounts.Medium > 0 && `${c.severityCounts.Medium} Medium  `}
+                    {c.severityCounts.Low > 0 && `${c.severityCounts.Low} Low`}
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-white bg-slate-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                  {c.pins.length}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="bg-slate-900 border-t border-slate-800 px-4 py-2.5 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {highCount > 0 && (
               <span className="flex items-center gap-1 text-xs font-semibold text-red-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />
-                {highCount} High
+                <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                {highCount}H
               </span>
             )}
             {medCount > 0 && (
               <span className="flex items-center gap-1 text-xs font-semibold text-amber-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
-                {medCount} Med
+                <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                {medCount}M
               </span>
             )}
             {lowCount > 0 && (
               <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                {lowCount} Low
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                {lowCount}L
               </span>
             )}
             {pins.length === 0 && (
-              <span className="text-xs text-slate-500">No pins placed</span>
+              <span className="text-xs text-slate-500">Tap drawing to place a pin</span>
+            )}
+            {highClusters.length > 0 && (
+              <span className="flex items-center gap-1 text-xs font-semibold text-red-400 border border-red-800 px-2 py-0.5 rounded-full">
+                <Flame className="w-3 h-3" />
+                {highClusters.length} critical zone{highClusters.length !== 1 ? 's' : ''}
+              </span>
             )}
           </div>
           <span className="text-xs text-slate-500">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
         </div>
 
-        {!reportId && (
-          <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Select a project and start an inspection to link pins to findings
+        {!reportId && pins.length > 0 && (
+          <p className="text-xs text-amber-400 mt-1.5 flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            Start an inspection to link pins to findings
           </p>
         )}
       </div>
