@@ -1,6 +1,7 @@
 export type SystemType = 'Intumescent' | 'Cementitious' | 'Protective Coating' | 'Firestopping';
 export type ElementType = 'Beam' | 'Column' | 'Slab' | 'Penetration' | 'Other';
 export type Severity = 'Low' | 'Medium' | 'High';
+export type Extent = 'Localised' | 'Moderate' | 'Widespread';
 
 export interface AIAnalysisResult {
   defect_type: string;
@@ -31,6 +32,13 @@ export interface InspectionAIItem {
   recommendation: string;
   risk: string;
   confidence: number;
+  location_level: string;
+  location_grid: string;
+  location_description: string;
+  extent: Extent;
+  defect_type_override: string | null;
+  severity_override: string | null;
+  observation_override: string | null;
   created_at: string;
 }
 
@@ -39,10 +47,17 @@ export interface CapturedItem {
   imagePreviewUrl: string;
   systemType: SystemType;
   element: ElementType;
+  locationLevel: string;
+  locationGrid: string;
+  locationDescription: string;
+  extent: Extent;
   analysisResult: AIAnalysisResult | null;
   nonConformance: string;
   recommendation: string;
   risk: string;
+  defectTypeOverride: string | null;
+  severityOverride: string | null;
+  observationOverride: string | null;
   isAnalysing: boolean;
   isSaved: boolean;
   savedId?: string;

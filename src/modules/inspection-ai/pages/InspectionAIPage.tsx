@@ -12,16 +12,22 @@ import {
   ChevronRight,
   Trash2,
   Eye,
+  MapPin,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { analyseImage } from '../services/inspectionAIService';
 import { uploadInspectionImage, createReport, saveInspectionItem } from '../services/storageService';
 import { generateNonConformance } from '../utils/standardsMapper';
 import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
+import { DEFECT_TYPES } from '../utils/defectDictionary';
 import { InspectionReportView } from '../components/InspectionReportView';
-import type { CapturedItem, AppPhase, SystemType, ElementType, Severity } from '../types';
+import type { CapturedItem, AppPhase, SystemType, ElementType, Severity, Extent } from '../types';
 
 const SYSTEM_TYPES: SystemType[] = ['Intumescent', 'Cementitious', 'Protective Coating', 'Firestopping'];
 const ELEMENT_TYPES: ElementType[] = ['Beam', 'Column', 'Slab', 'Penetration', 'Other'];
+const EXTENT_OPTIONS: Extent[] = ['Localised', 'Moderate', 'Widespread'];
+const SEVERITIES: Severity[] = ['Low', 'Medium', 'High'];
 
 const LS_PROJECT_KEY = 'inspection_ai_project_name';
 const LS_INSPECTOR_KEY = 'inspection_ai_inspector_name';
@@ -33,24 +39,26 @@ function TagGrid<T extends string>({
   value,
   options,
   onChange,
+  cols = 2,
 }: {
   label: string;
   value: T;
   options: T[];
   onChange: (v: T) => void;
+  cols?: number;
 }) {
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
         {label}
       </label>
-      <div className="grid grid-cols-2 gap-2">
+      <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
         {options.map((opt) => (
           <button
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
-            className={`py-3 px-3 rounded-xl text-sm font-medium border transition-all active:scale-95 ${
+            className={`py-2.5 px-3 rounded-xl text-sm font-medium border transition-all active:scale-95 ${
               value === opt
                 ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
                 : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
@@ -77,6 +85,194 @@ function SeverityBadge({ severity }: { severity: string }) {
   );
 }
 
+function ExtentBadge({ extent }: { extent: string }) {
+  const styles: Record<string, string> = {
+    Localised: 'bg-blue-50 text-blue-700 border-blue-200',
+    Moderate: 'bg-amber-50 text-amber-700 border-amber-200',
+    Widespread: 'bg-red-50 text-red-700 border-red-200',
+  };
+  return (
+    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${styles[extent] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+      {extent}
+    </span>
+  );
+}
+
+function LocationSection({
+  locationLevel,
+  locationGrid,
+  locationDescription,
+  onChange,
+  disabled,
+}: {
+  locationLevel: string;
+  locationGrid: string;
+  locationDescription: string;
+  onChange: (field: 'locationLevel' | 'locationGrid' | 'locationDescription', value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-2">
+        <MapPin className="w-4 h-4 text-slate-400" />
+        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Location</label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <label className="block text-xs text-slate-400">Level / Floor</label>
+          <input
+            type="text"
+            value={locationLevel}
+            onChange={(e) => onChange('locationLevel', e.target.value)}
+            placeholder="e.g. Level 3"
+            disabled={disabled}
+            className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs text-slate-400">Grid Ref</label>
+          <input
+            type="text"
+            value={locationGrid}
+            onChange={(e) => onChange('locationGrid', e.target.value)}
+            placeholder="e.g. B4"
+            disabled={disabled}
+            className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400"
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <label className="block text-xs text-slate-400">Description</label>
+        <input
+          type="text"
+          value={locationDescription}
+          onChange={(e) => onChange('locationDescription', e.target.value)}
+          placeholder="e.g. North face secondary beam, approx. 200mm from connection"
+          disabled={disabled}
+          className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent placeholder-slate-300 disabled:bg-slate-50 disabled:text-slate-400"
+        />
+      </div>
+    </div>
+  );
+}
+
+function InspectorOverridePanel({
+  item,
+  onUpdate,
+  onClose,
+}: {
+  item: CapturedItem;
+  onUpdate: (patch: Partial<CapturedItem>) => void;
+  onClose: () => void;
+}) {
+  const [defectType, setDefectType] = useState(item.defectTypeOverride ?? item.analysisResult?.defect_type ?? '');
+  const [severity, setSeverity] = useState<Severity>(
+    (item.severityOverride as Severity) ?? (item.analysisResult?.severity ?? 'Low')
+  );
+  const [observation, setObservation] = useState(
+    item.observationOverride ?? item.analysisResult?.observation ?? ''
+  );
+
+  const handleApply = () => {
+    const aiDefect = item.analysisResult?.defect_type ?? '';
+    const aiSeverity = item.analysisResult?.severity ?? 'Low';
+    const aiObs = item.analysisResult?.observation ?? '';
+    onUpdate({
+      defectTypeOverride: defectType !== aiDefect ? defectType : null,
+      severityOverride: severity !== aiSeverity ? severity : null,
+      observationOverride: observation !== aiObs ? observation : null,
+    });
+    onClose();
+  };
+
+  const handleClear = () => {
+    onUpdate({ defectTypeOverride: null, severityOverride: null, observationOverride: null });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+      <div className="bg-white w-full max-w-lg rounded-t-3xl p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-slate-700" />
+            <h3 className="font-bold text-slate-900 text-base">Inspector Override</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Override the AI classification with your professional assessment. Overrides are flagged in the report.
+        </p>
+
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Defect Type</label>
+          <select
+            value={defectType}
+            onChange={(e) => setDefectType(e.target.value)}
+            className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
+          >
+            {DEFECT_TYPES.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Severity</label>
+          <div className="grid grid-cols-3 gap-2">
+            {SEVERITIES.map((s) => {
+              const active = severity === s;
+              const colours: Record<string, string> = {
+                High: active ? 'bg-red-600 text-white border-red-600' : 'text-red-700 border-red-200 hover:border-red-400',
+                Medium: active ? 'bg-amber-500 text-white border-amber-500' : 'text-amber-700 border-amber-200 hover:border-amber-400',
+                Low: active ? 'bg-emerald-600 text-white border-emerald-600' : 'text-emerald-700 border-emerald-200 hover:border-emerald-400',
+              };
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSeverity(s)}
+                  className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${colours[s]}`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Observation</label>
+          <textarea
+            value={observation}
+            onChange={(e) => setObservation(e.target.value)}
+            rows={4}
+            className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-none"
+          />
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={handleClear}
+            className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
+          >
+            Clear Override
+          </button>
+          <button
+            onClick={handleApply}
+            className="flex-1 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition-colors"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InspectionAIPage() {
   const [phase, setPhase] = useState<AppPhase>('setup');
   const [projectName, setProjectName] = useState(() => localStorage.getItem(LS_PROJECT_KEY) ?? '');
@@ -86,6 +282,7 @@ export default function InspectionAIPage() {
 
   const [items, setItems] = useState<CapturedItem[]>([]);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [overrideIdx, setOverrideIdx] = useState<number | null>(null);
 
   const [sessionSystemType, setSessionSystemType] = useState<SystemType>(
     () => (localStorage.getItem(LS_SYSTEM_KEY) as SystemType) ?? 'Intumescent'
@@ -98,21 +295,10 @@ export default function InspectionAIPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [startingSession, setStartingSession] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem(LS_PROJECT_KEY, projectName);
-  }, [projectName]);
-
-  useEffect(() => {
-    localStorage.setItem(LS_INSPECTOR_KEY, inspectorName);
-  }, [inspectorName]);
-
-  useEffect(() => {
-    localStorage.setItem(LS_SYSTEM_KEY, sessionSystemType);
-  }, [sessionSystemType]);
-
-  useEffect(() => {
-    localStorage.setItem(LS_ELEMENT_KEY, sessionElement);
-  }, [sessionElement]);
+  useEffect(() => { localStorage.setItem(LS_PROJECT_KEY, projectName); }, [projectName]);
+  useEffect(() => { localStorage.setItem(LS_INSPECTOR_KEY, inspectorName); }, [inspectorName]);
+  useEffect(() => { localStorage.setItem(LS_SYSTEM_KEY, sessionSystemType); }, [sessionSystemType]);
+  useEffect(() => { localStorage.setItem(LS_ELEMENT_KEY, sessionElement); }, [sessionElement]);
 
   const handleStartInspection = async () => {
     if (!projectName.trim() || !inspectorName.trim()) return;
@@ -126,10 +312,13 @@ export default function InspectionAIPage() {
     }
   };
 
-  const runAnalysis = useCallback(async (idx: number, systemType: SystemType, element: ElementType, imageFile: File) => {
-    setItems((prev) =>
-      prev.map((item, i) => (i === idx ? { ...item, isAnalysing: true } : item))
-    );
+  const runAnalysis = useCallback(async (
+    idx: number,
+    systemType: SystemType,
+    element: ElementType,
+    imageFile: File
+  ) => {
+    setItems((prev) => prev.map((item, i) => i === idx ? { ...item, isAnalysing: true } : item));
     try {
       const result = await analyseImage(imageFile, systemType, element);
       const nc = generateNonConformance(result.defect_type, element);
@@ -144,9 +333,7 @@ export default function InspectionAIPage() {
       );
     } catch (err) {
       console.error('Analysis error:', err);
-      setItems((prev) =>
-        prev.map((item, i) => (i === idx ? { ...item, isAnalysing: false } : item))
-      );
+      setItems((prev) => prev.map((item, i) => i === idx ? { ...item, isAnalysing: false } : item));
       alert('Analysis failed. Please check your connection and try again.');
     }
   }, []);
@@ -159,10 +346,17 @@ export default function InspectionAIPage() {
         imagePreviewUrl: previewUrl,
         systemType: sessionSystemType,
         element: sessionElement,
+        locationLevel: '',
+        locationGrid: '',
+        locationDescription: '',
+        extent: 'Localised',
         analysisResult: null,
         nonConformance: '',
         recommendation: '',
         risk: '',
+        defectTypeOverride: null,
+        severityOverride: null,
+        observationOverride: null,
         isAnalysing: false,
         isSaved: false,
       };
@@ -184,19 +378,37 @@ export default function InspectionAIPage() {
   };
 
   const updateItem = (idx: number, patch: Partial<CapturedItem>) => {
-    setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, ...patch } : item)));
+    setItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
   };
 
   const handleReanalyse = (idx: number) => {
     const item = items[idx];
     if (!item || item.isAnalysing) return;
-    updateItem(idx, { analysisResult: null, nonConformance: '', recommendation: '', risk: '', isSaved: false });
+    updateItem(idx, {
+      analysisResult: null,
+      nonConformance: '',
+      recommendation: '',
+      risk: '',
+      defectTypeOverride: null,
+      severityOverride: null,
+      observationOverride: null,
+      isSaved: false,
+    });
     runAnalysis(idx, item.systemType, item.element, item.imageFile);
   };
 
   const handleSave = async (idx: number) => {
     const item = items[idx];
     if (!item?.analysisResult || !reportId || item.isSaved) return;
+
+    const effectiveDefect = item.defectTypeOverride ?? item.analysisResult.defect_type;
+    const effectiveSeverity = item.severityOverride ?? item.analysisResult.severity;
+    const effectiveObservation = item.observationOverride ?? item.analysisResult.observation;
+
+    const nc = generateNonConformance(effectiveDefect, item.element);
+    const rec = generateRecommendation(effectiveDefect, item.systemType);
+    const risk = generateRisk(effectiveSeverity as Severity);
+
     try {
       const imageUrl = await uploadInspectionImage(item.imageFile, reportId);
       const saved = await saveInspectionItem({
@@ -204,13 +416,20 @@ export default function InspectionAIPage() {
         image_url: imageUrl,
         system_type: item.systemType,
         element: item.element,
-        defect_type: item.analysisResult.defect_type,
-        severity: item.analysisResult.severity,
-        observation: item.analysisResult.observation,
-        non_conformance: item.nonConformance,
-        recommendation: item.recommendation,
-        risk: item.risk,
+        defect_type: effectiveDefect,
+        severity: effectiveSeverity,
+        observation: effectiveObservation,
+        non_conformance: nc,
+        recommendation: rec,
+        risk,
         confidence: item.analysisResult.confidence,
+        location_level: item.locationLevel,
+        location_grid: item.locationGrid,
+        location_description: item.locationDescription,
+        extent: item.extent,
+        defect_type_override: item.defectTypeOverride,
+        severity_override: item.severityOverride,
+        observation_override: item.observationOverride,
       });
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
     } catch (err) {
@@ -248,9 +467,7 @@ export default function InspectionAIPage() {
 
           <div className="bg-white rounded-3xl p-6 shadow-2xl space-y-5">
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Project Name
-              </label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Project Name</label>
               <input
                 type="text"
                 value={projectName}
@@ -259,11 +476,8 @@ export default function InspectionAIPage() {
                 className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent placeholder-slate-300"
               />
             </div>
-
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Inspector Name
-              </label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Inspector Name</label>
               <input
                 type="text"
                 value={inspectorName}
@@ -272,7 +486,6 @@ export default function InspectionAIPage() {
                 className="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent placeholder-slate-300"
               />
             </div>
-
             <button
               onClick={handleStartInspection}
               disabled={!projectName.trim() || !inspectorName.trim() || startingSession}
@@ -281,10 +494,7 @@ export default function InspectionAIPage() {
               {startingSession ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <>
-                  Start Inspection
-                  <ChevronRight className="w-5 h-5" />
-                </>
+                <>Start Inspection <ChevronRight className="w-5 h-5" /></>
               )}
             </button>
           </div>
@@ -302,6 +512,14 @@ export default function InspectionAIPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      {overrideIdx !== null && items[overrideIdx] && (
+        <InspectorOverridePanel
+          item={items[overrideIdx]}
+          onUpdate={(patch) => updateItem(overrideIdx, patch)}
+          onClose={() => setOverrideIdx(null)}
+        />
+      )}
+
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <button
@@ -329,28 +547,8 @@ export default function InspectionAIPage() {
 
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
-          <TagGrid
-            label="System Type"
-            value={sessionSystemType}
-            options={SYSTEM_TYPES}
-            onChange={(v) => {
-              setSessionSystemType(v);
-              items.forEach((item, idx) => {
-                if (!item.isSaved) updateItem(idx, { systemType: v });
-              });
-            }}
-          />
-          <TagGrid
-            label="Element"
-            value={sessionElement}
-            options={ELEMENT_TYPES}
-            onChange={(v) => {
-              setSessionElement(v);
-              items.forEach((item, idx) => {
-                if (!item.isSaved) updateItem(idx, { element: v });
-              });
-            }}
-          />
+          <TagGrid label="System Type" value={sessionSystemType} options={SYSTEM_TYPES} onChange={setSessionSystemType} />
+          <TagGrid label="Element" value={sessionElement} options={ELEMENT_TYPES} onChange={setSessionElement} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -381,159 +579,196 @@ export default function InspectionAIPage() {
           </div>
         )}
 
-        {items.map((item, idx) => (
-          <div
-            key={idx}
-            className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
-              activeIdx === idx ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
-            }`}
-          >
-            <button className="w-full text-left" onClick={() => setActiveIdx(activeIdx === idx ? null : idx)}>
-              <div className="flex items-center gap-3 p-4">
-                {item.imagePreviewUrl && (
-                  <img src={item.imagePreviewUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-slate-100" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <p className="font-semibold text-slate-900 text-sm">Finding {idx + 1}</p>
-                    {item.analysisResult && <SeverityBadge severity={item.analysisResult.severity} />}
-                    {item.analysisResult?.needsReview && (
-                      <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Review
-                      </span>
-                    )}
-                    {item.isSaved && <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
-                    {item.isAnalysing && <Loader2 className="w-4 h-4 text-slate-400 animate-spin flex-shrink-0" />}
+        {items.map((item, idx) => {
+          const effectiveDefect = item.defectTypeOverride ?? item.analysisResult?.defect_type;
+          const effectiveSeverity = item.severityOverride ?? item.analysisResult?.severity;
+          const hasOverride = !!(item.defectTypeOverride || item.severityOverride || item.observationOverride);
+
+          return (
+            <div
+              key={idx}
+              className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
+                activeIdx === idx ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
+              }`}
+            >
+              <button className="w-full text-left" onClick={() => setActiveIdx(activeIdx === idx ? null : idx)}>
+                <div className="flex items-center gap-3 p-4">
+                  {item.imagePreviewUrl && (
+                    <img src={item.imagePreviewUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-slate-100" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <p className="font-semibold text-slate-900 text-sm">Finding {idx + 1}</p>
+                      {effectiveSeverity && <SeverityBadge severity={effectiveSeverity} />}
+                      {item.extent !== 'Localised' && <ExtentBadge extent={item.extent} />}
+                      {hasOverride && (
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">
+                          Overridden
+                        </span>
+                      )}
+                      {item.analysisResult?.needsReview && !hasOverride && (
+                        <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Review
+                        </span>
+                      )}
+                      {item.isSaved && <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
+                      {item.isAnalysing && <Loader2 className="w-4 h-4 text-slate-400 animate-spin flex-shrink-0" />}
+                    </div>
+                    <p className="text-xs text-slate-500 truncate">
+                      {item.systemType} · {item.element}
+                      {effectiveDefect ? ` · ${effectiveDefect}` : item.isAnalysing ? ' · Analysing…' : ' · Pending'}
+                      {item.locationLevel ? ` · ${item.locationLevel}` : ''}
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-500 truncate">
-                    {item.systemType} · {item.element}
-                    {item.analysisResult ? ` · ${item.analysisResult.defect_type}` : item.isAnalysing ? ' · Analysing…' : ' · Pending'}
-                  </p>
+                  <ChevronRight className={`w-5 h-5 text-slate-400 flex-shrink-0 transition-transform ${activeIdx === idx ? 'rotate-90' : ''}`} />
                 </div>
-                <ChevronRight className={`w-5 h-5 text-slate-400 flex-shrink-0 transition-transform ${activeIdx === idx ? 'rotate-90' : ''}`} />
-              </div>
-            </button>
+              </button>
 
-            {activeIdx === idx && (
-              <div className="border-t border-slate-100 p-4 space-y-5">
-                {item.imagePreviewUrl && (
-                  <div className="aspect-video bg-slate-100 rounded-xl overflow-hidden">
-                    <img src={item.imagePreviewUrl} alt="" className="w-full h-full object-contain" />
-                  </div>
-                )}
+              {activeIdx === idx && (
+                <div className="border-t border-slate-100 p-4 space-y-5">
+                  {item.imagePreviewUrl && (
+                    <div className="aspect-video bg-slate-100 rounded-xl overflow-hidden">
+                      <img src={item.imagePreviewUrl} alt="" className="w-full h-full object-contain" />
+                    </div>
+                  )}
 
-                {item.isAnalysing && (
-                  <div className="flex items-center justify-center gap-3 py-6 text-slate-500">
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    <span className="font-medium">Analysing image…</span>
-                  </div>
-                )}
+                  <LocationSection
+                    locationLevel={item.locationLevel}
+                    locationGrid={item.locationGrid}
+                    locationDescription={item.locationDescription}
+                    onChange={(field, value) => updateItem(idx, { [field]: value })}
+                    disabled={item.isSaved}
+                  />
 
-                {!item.isAnalysing && !item.analysisResult && (
-                  <button
-                    onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile)}
-                    className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base hover:bg-red-700 transition-all active:scale-95 shadow-sm"
-                  >
-                    <Zap className="w-5 h-5" />
-                    Analyse Image
-                  </button>
-                )}
+                  <TagGrid
+                    label="Extent of Defect"
+                    value={item.extent}
+                    options={EXTENT_OPTIONS}
+                    cols={3}
+                    onChange={(v) => updateItem(idx, { extent: v })}
+                  />
 
-                {!item.isAnalysing && item.analysisResult && (
-                  <div className="space-y-4">
-                    {item.analysisResult.needsReview && (
-                      <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-semibold text-amber-800">Manual Review Recommended</p>
-                          <p className="text-xs text-amber-700 mt-0.5">
-                            AI confidence is below 70%. Verify the finding before saving to the report.
+                  {item.isAnalysing && (
+                    <div className="flex items-center justify-center gap-3 py-6 text-slate-500">
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <span className="font-medium">Analysing image…</span>
+                    </div>
+                  )}
+
+                  {!item.isAnalysing && !item.analysisResult && (
+                    <button
+                      onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile)}
+                      className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base hover:bg-red-700 transition-all active:scale-95 shadow-sm"
+                    >
+                      <Zap className="w-5 h-5" />
+                      Analyse Image
+                    </button>
+                  )}
+
+                  {!item.isAnalysing && item.analysisResult && (
+                    <div className="space-y-4">
+                      {item.analysisResult.needsReview && !hasOverride && (
+                        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-semibold text-amber-800">Manual Review Recommended</p>
+                            <p className="text-xs text-amber-700 mt-0.5">
+                              AI confidence is below 70%. Verify the finding or use Inspector Override.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {hasOverride && (
+                        <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl p-3">
+                          <Pencil className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-blue-800 font-medium">
+                            Inspector override applied. AI classification has been modified.
                           </p>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-slate-900 text-sm">{item.analysisResult.defect_type}</p>
-                        <SeverityBadge severity={item.analysisResult.severity} />
-                      </div>
+                      <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-slate-900 text-sm">
+                            {item.defectTypeOverride ?? item.analysisResult.defect_type}
+                          </p>
+                          <SeverityBadge severity={item.severityOverride ?? item.analysisResult.severity} />
+                        </div>
 
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Observation</p>
-                        <p className="text-sm text-slate-700 leading-relaxed">{item.analysisResult.observation}</p>
-                      </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Observation</p>
+                          <p className="text-sm text-slate-700 leading-relaxed">
+                            {item.observationOverride ?? item.analysisResult.observation}
+                          </p>
+                        </div>
 
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Non-Conformance</p>
-                        <p className="text-sm text-slate-700 leading-relaxed">{item.nonConformance}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Recommendation</p>
-                        <p className="text-sm text-slate-700 leading-relaxed">{item.recommendation}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Risk</p>
-                        <p className="text-sm text-slate-700 leading-relaxed">{item.risk}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                          AI Confidence: {Math.round(item.analysisResult.confidence)}%
-                        </p>
-                        <div className="bg-slate-200 rounded-full h-2 overflow-hidden">
-                          <div
-                            className={`h-2 rounded-full transition-all ${
-                              item.analysisResult.confidence >= 70
-                                ? 'bg-emerald-500'
-                                : item.analysisResult.confidence >= 50
-                                ? 'bg-amber-500'
-                                : 'bg-red-500'
-                            }`}
-                            style={{ width: `${item.analysisResult.confidence}%` }}
-                          />
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+                            AI Confidence: {Math.round(item.analysisResult.confidence)}%
+                          </p>
+                          <div className="bg-slate-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-2 rounded-full transition-all ${
+                                item.analysisResult.confidence >= 70
+                                  ? 'bg-emerald-500'
+                                  : item.analysisResult.confidence >= 50
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500'
+                              }`}
+                              style={{ width: `${item.analysisResult.confidence}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {item.isSaved ? (
-                      <div className="flex items-center justify-center gap-2 text-emerald-600 font-semibold text-sm py-3">
-                        <CheckCircle className="w-5 h-5" />
-                        Saved to report
-                      </div>
-                    ) : (
+                      {!item.isSaved && (
+                        <button
+                          onClick={() => setOverrideIdx(idx)}
+                          className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          {hasOverride ? 'Edit Override' : 'Inspector Override'}
+                        </button>
+                      )}
+
+                      {item.isSaved ? (
+                        <div className="flex items-center justify-center gap-2 text-emerald-600 font-semibold text-sm py-3">
+                          <CheckCircle className="w-5 h-5" />
+                          Saved to report
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleSave(idx)}
+                          className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-xl font-bold text-base hover:bg-emerald-700 transition-all active:scale-95 shadow-sm"
+                        >
+                          <Plus className="w-5 h-5" />
+                          Save to Report
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => handleSave(idx)}
-                        className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-xl font-bold text-base hover:bg-emerald-700 transition-all active:scale-95 shadow-sm"
+                        onClick={() => handleReanalyse(idx)}
+                        className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors"
                       >
-                        <Plus className="w-5 h-5" />
-                        Save to Report
+                        Re-analyse
                       </button>
-                    )}
+                    </div>
+                  )}
 
-                    <button
-                      onClick={() => handleReanalyse(idx)}
-                      className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors"
-                    >
-                      Re-analyse
-                    </button>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => handleRemoveItem(idx)}
-                  className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-600 text-sm py-2 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Remove finding
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+                  <button
+                    onClick={() => handleRemoveItem(idx)}
+                    className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-600 text-sm py-2 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Remove finding
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {savedCount > 0 && reportId && (
           <button
