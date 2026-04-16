@@ -31,6 +31,7 @@ import {
   createProject,
   fetchProjectReports,
 } from '../services/storageService';
+import { saveOverride } from '../utils/overrideLearning';
 import { generateNonConformance } from '../utils/standardsMapper';
 import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
 import { DEFECT_TYPES } from '../utils/defectDictionary';
@@ -43,6 +44,7 @@ import { ProjectOverview } from '../components/ProjectOverview';
 import { BlockLevelNavigator } from '../components/spatial/BlockLevelNavigator';
 import { DrawingViewer } from '../components/spatial/DrawingViewer';
 import { ExecutiveDashboard } from '../components/ExecutiveDashboard';
+import { OverrideAnalyticsPanel } from '../components/OverrideAnalyticsPanel';
 import { CaptureIntakeWizard } from '../components/CaptureIntakeWizard';
 import { SeniorInspectorCard, AnalysingState } from '../components/SeniorInspectorCard';
 import type { PortfolioProjectStat } from '../services/storageService';
@@ -64,6 +66,7 @@ import type {
   CaptureIntakeContext,
 } from '../types';
 import { updatePin } from '../services/spatialService';
+import { supabase } from '../../../lib/supabase';
 import { format } from 'date-fns';
 
 const SYSTEM_TYPES: SystemType[] = ['Intumescent', 'Cementitious', 'Protective Coating', 'Firestopping'];
@@ -417,7 +420,7 @@ function HomeScreen({
   onCreateProject: () => void;
   onSelectPortfolioProject: (stat: PortfolioProjectStat) => void;
 }) {
-  const [tab, setTab] = useState<'projects' | 'executive'>('projects');
+  const [tab, setTab] = useState<'projects' | 'executive' | 'learning'>('projects');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col">
@@ -462,6 +465,17 @@ function HomeScreen({
             >
               <Map className="w-3.5 h-3.5" />
               Portfolio
+            </button>
+            <button
+              onClick={() => setTab('learning')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                tab === 'learning'
+                  ? 'bg-white text-slate-900 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              v4
             </button>
           </div>
         </div>
@@ -526,6 +540,10 @@ function HomeScreen({
 
         {tab === 'executive' && (
           <ExecutiveDashboard onSelectProject={onSelectPortfolioProject} />
+        )}
+
+        {tab === 'learning' && (
+          <OverrideAnalyticsPanel />
         )}
       </div>
     </div>
@@ -906,6 +924,36 @@ export default function InspectionAIPage() {
         observation_override: item.observationOverride, inspector_override: item.inspectorOverride, annotated_image_url: item.annotatedImageUrl,
       });
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
+
+      if (item.inspectorOverride && item.analysisResult) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const changedFields: string[] = [];
+          if (item.defectTypeOverride && item.defectTypeOverride !== item.analysisResult.defect_type) changedFields.push('defect_type');
+          if (item.severityOverride && item.severityOverride !== item.analysisResult.severity) changedFields.push('severity');
+          if (item.observationOverride && item.observationOverride !== item.analysisResult.observation) changedFields.push('observation');
+
+          if (changedFields.length > 0) {
+            saveOverride({
+              itemId: saved.id,
+              reportId,
+              userId: userData.user.id,
+              systemType: item.systemType,
+              elementType: item.element,
+              environment: item.environment,
+              observedConcern: item.observedConcern,
+              v3FamilyHint: item.analysisResult._v3FamilyHint ?? null,
+              aiDefectType: item.analysisResult.defect_type,
+              aiSeverity: item.analysisResult.severity,
+              aiConfidence: item.analysisResult.confidence,
+              finalDefectType: effectiveDefect,
+              finalSeverity: effectiveSeverity,
+              changedFields,
+            });
+          }
+        }
+      }
+
       if (pendingPinId) {
         await updatePin(pendingPinId, {
           item_id: saved.id,

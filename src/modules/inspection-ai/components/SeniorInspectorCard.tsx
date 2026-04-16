@@ -19,6 +19,8 @@ import {
   EyeOff,
   Layers,
   FlaskConical,
+  GraduationCap,
+  Brain,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { AIAnalysisResult, Severity } from '../types';
@@ -103,6 +105,11 @@ export function SeniorInspectorCard({
   const v3FamilyConfidence = result._v3FamilyConfidence as 'low' | 'medium' | 'high' | undefined;
   const v3ReviewTriggers = result._v3ReviewTriggers as string[] | undefined;
   const v3ManufacturerLogicNotes = result._v3ManufacturerLogicNotes as string[] | undefined;
+  const v4SuggestedDefect = result._v4SuggestedDefectType as string | undefined;
+  const v4MatchCount = result._v4MatchCount as number | undefined;
+  const v4CoachingNote = result._v4CoachingNote as string | undefined;
+  const v4ConfidenceShift = result._v4ConfidenceShift as number | undefined;
+  const hasV4Signal = !!v4MatchCount && v4MatchCount >= 2;
   const [showRules, setShowRules] = useState(false);
   const [showStandards, setShowStandards] = useState(false);
   const [showFamilyDetail, setShowFamilyDetail] = useState(false);
@@ -315,6 +322,38 @@ export function SeniorInspectorCard({
             )}
           </div>
         </div>
+
+        {hasV4Signal && (
+          <div className="border-t border-slate-100 px-4 py-3">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                  <Brain className="w-3.5 h-3.5 text-slate-400" />
+                  Brain v4 — Learning Signal
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                  Based on {v4MatchCount} past correction{v4MatchCount !== 1 ? 's' : ''}
+                </span>
+                {v4ConfidenceShift && v4ConfidenceShift > 0 && (
+                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
+                    +{v4ConfidenceShift}% confidence
+                  </span>
+                )}
+              </div>
+              {v4SuggestedDefect && v4SuggestedDefect !== effectiveDefect && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                  <GraduationCap className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Common override pattern: senior inspectors often classify this as <strong>{v4SuggestedDefect}</strong>.
+                  </p>
+                </div>
+              )}
+              {v4CoachingNote && (
+                <p className="text-[11px] text-slate-500 leading-relaxed px-0.5">{v4CoachingNote}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {v3FamilyHint && (
           <div className="border-t border-slate-100 px-4 py-3">

@@ -29,6 +29,11 @@ export interface AIAnalysisResult {
   _v3ReviewTriggers?: string[];
   _v3ManufacturerLogicNotes?: string[];
   _v3MatchedRuleIds?: string[];
+  _v4SuggestedDefectType?: string;
+  _v4SuggestedSeverity?: string;
+  _v4MatchCount?: number;
+  _v4CoachingNote?: string;
+  _v4ConfidenceShift?: number;
 }
 
 export type ObservedConcern =
