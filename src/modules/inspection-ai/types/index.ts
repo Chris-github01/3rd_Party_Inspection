@@ -83,6 +83,40 @@ export interface CapturedItem {
 
 export type AppPhase = 'setup' | 'capture' | 'report';
 
+export interface InspectionAIBlock {
+  id: string;
+  project_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface InspectionAILevel {
+  id: string;
+  block_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface InspectionAIDrawing {
+  id: string;
+  level_id: string;
+  name: string;
+  file_url: string;
+  file_type: 'image' | 'pdf';
+  created_at: string;
+}
+
+export interface InspectionAIPin {
+  id: string;
+  drawing_id: string;
+  item_id: string | null;
+  x_percent: number;
+  y_percent: number;
+  severity: string;
+  label: string;
+  created_at: string;
+}
+
 export type AnalysisStatus =
   | 'idle'
   | 'queued'

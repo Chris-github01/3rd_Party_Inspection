@@ -20,6 +20,7 @@ import {
   FolderOpen,
   Calendar,
   Building2,
+  Map,
 } from 'lucide-react';
 import { analyseImage } from '../services/inspectionAIService';
 import {
@@ -37,6 +38,8 @@ import { getObservationTemplate } from '../utils/observationTemplates';
 import { enqueue, isQueueBusy, queueLength } from '../utils/analysisQueue';
 import { InspectionReportView } from '../components/InspectionReportView';
 import { ProjectOverview } from '../components/ProjectOverview';
+import { BlockLevelNavigator } from '../components/spatial/BlockLevelNavigator';
+import { DrawingViewer } from '../components/spatial/DrawingViewer';
 import type {
   CapturedItem,
   SystemType,
@@ -46,7 +49,11 @@ import type {
   AnalysisStatus,
   InspectionAIProject,
   InspectionAIReport,
+  InspectionAIBlock,
+  InspectionAILevel,
+  InspectionAIDrawing,
 } from '../types';
+import { updatePin } from '../services/spatialService';
 import { format } from 'date-fns';
 
 const SYSTEM_TYPES: SystemType[] = ['Intumescent', 'Cementitious', 'Protective Coating', 'Firestopping'];
@@ -485,6 +492,7 @@ function SetupScreen({
   starting,
   existingReports,
   onOpenReport,
+  onOpenDrawings,
 }: {
   project: InspectionAIProject;
   inspectorName: string;
@@ -494,6 +502,7 @@ function SetupScreen({
   starting: boolean;
   existingReports: InspectionAIReport[];
   onOpenReport: (r: InspectionAIReport) => void;
+  onOpenDrawings: () => void;
 }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col">
@@ -538,6 +547,16 @@ function SetupScreen({
           >
             {starting ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Start New Inspection <ChevronRight className="w-5 h-5" /></>}
           </button>
+          <div className="border-t border-slate-100 pt-4">
+            <button
+              onClick={onOpenDrawings}
+              className="w-full flex items-center gap-3 border border-slate-200 text-slate-700 py-3.5 px-4 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
+            >
+              <Map className="w-4 h-4 text-slate-500" />
+              <span>Drawings & Pins</span>
+              <ChevronRight className="w-4 h-4 text-slate-400 ml-auto" />
+            </button>
+          </div>
         </div>
 
         {existingReports.length > 0 && (
@@ -591,7 +610,7 @@ function SetupScreen({
 // Main page
 // ─────────────────────────────────────────────
 
-type Screen = 'home' | 'project-overview' | 'setup' | 'capture';
+type Screen = 'home' | 'project-overview' | 'setup' | 'capture' | 'spatial-nav' | 'drawing-viewer';
 
 export default function InspectionAIPage() {
   const [screen, setScreen] = useState<Screen>('home');
@@ -601,6 +620,11 @@ export default function InspectionAIPage() {
 
   const [selectedProject, setSelectedProject] = useState<InspectionAIProject | null>(null);
   const [projectReports, setProjectReports] = useState<InspectionAIReport[]>([]);
+
+  const [activeDrawing, setActiveDrawing] = useState<InspectionAIDrawing | null>(null);
+  const [activeDrawingLevel, setActiveDrawingLevel] = useState<InspectionAILevel | null>(null);
+  const [activeDrawingBlock, setActiveDrawingBlock] = useState<InspectionAIBlock | null>(null);
+  const [pendingPinId, setPendingPinId] = useState<string | null>(null);
 
   const [inspectorName, setInspectorName] = useState(() => localStorage.getItem(LS_INSPECTOR_KEY) ?? '');
   const [reportId, setReportId] = useState<string | null>(null);
@@ -666,6 +690,37 @@ export default function InspectionAIPage() {
       setScreen('capture');
     } finally {
       setStartingSession(false);
+    }
+  };
+
+  const handleOpenDrawings = () => {
+    setScreen('spatial-nav');
+  };
+
+  const handleSelectDrawing = (
+    drawing: InspectionAIDrawing,
+    level: InspectionAILevel,
+    block: InspectionAIBlock
+  ) => {
+    setActiveDrawing(drawing);
+    setActiveDrawingLevel(level);
+    setActiveDrawingBlock(block);
+    setScreen('drawing-viewer');
+  };
+
+  const handlePinCapture = async (pinId: string, useCamera: boolean) => {
+    setPendingPinId(pinId);
+    if (!reportId && selectedProject && inspectorName.trim()) {
+      const r = await createReport(selectedProject.project_name, inspectorName.trim(), selectedProject.id);
+      setReportId(r.id);
+    }
+    setItems([]);
+    setActiveIdx(null);
+    setScreen('capture');
+    if (useCamera) {
+      setTimeout(() => { cameraInputRef.current?.click(); }, 300);
+    } else {
+      setTimeout(() => { fileInputRef.current?.click(); }, 300);
     }
   };
 
@@ -758,6 +813,14 @@ export default function InspectionAIPage() {
         observation_override: item.observationOverride, inspector_override: item.inspectorOverride, annotated_image_url: item.annotatedImageUrl,
       });
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
+      if (pendingPinId) {
+        await updatePin(pendingPinId, {
+          item_id: saved.id,
+          severity: effectiveSeverity,
+          label: effectiveDefect,
+        });
+        setPendingPinId(null);
+      }
     } catch (err) {
       console.error('Save error:', err);
     }
@@ -830,7 +893,35 @@ export default function InspectionAIPage() {
         starting={startingSession}
         existingReports={projectReports}
         onOpenReport={(r) => setViewingReportId(r.id)}
+        onOpenDrawings={handleOpenDrawings}
       />
+    );
+  }
+
+  // ── Spatial navigator (block → level → drawings)
+  if (screen === 'spatial-nav' && selectedProject) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col">
+        <BlockLevelNavigator
+          project={selectedProject}
+          onSelectDrawing={handleSelectDrawing}
+          onBack={() => setScreen('setup')}
+        />
+      </div>
+    );
+  }
+
+  // ── Drawing viewer (zoom/pan/pins)
+  if (screen === 'drawing-viewer' && activeDrawing) {
+    return (
+      <div className="h-screen flex flex-col">
+        <DrawingViewer
+          drawing={activeDrawing}
+          reportId={reportId}
+          onBack={() => setScreen('spatial-nav')}
+          onStartCapture={handlePinCapture}
+        />
+      </div>
     );
   }
 
@@ -866,6 +957,12 @@ export default function InspectionAIPage() {
               {items.length} captured · {savedCount} saved
               {queuedCount > 0 && ` · ${queuedCount} in queue`}
             </p>
+            {pendingPinId && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full mt-0.5">
+                <Map className="w-3 h-3" />
+                Linking to pin
+              </span>
+            )}
           </div>
           {reportId && (
             <button
