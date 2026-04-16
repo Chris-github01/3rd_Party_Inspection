@@ -29,6 +29,10 @@ import { PinInspection } from './pages/site/PinInspection';
 import InspectPDF from './pages/InspectPDF';
 import InspectionReport from './pages/InspectionReport';
 import InspectionAIPage from './modules/inspection-ai/pages/InspectionAIPage';
+import GrowthDashboard from './modules/growth-hub/pages/GrowthDashboard';
+import LeadsKanban from './modules/growth-hub/pages/LeadsKanban';
+import QuotesPage from './modules/growth-hub/pages/QuotesPage';
+import CampaignsPage from './modules/growth-hub/pages/CampaignsPage';
 import { PublicLayout } from './website/layout/PublicLayout';
 import { Home } from './website/pages/Home';
 import { About } from './website/pages/About';
@@ -135,6 +139,38 @@ function App() {
             element={
               <PrivateRoute>
                 <InspectionAIPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/growth/dashboard"
+            element={
+              <PrivateRoute>
+                <GrowthDashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/growth/leads"
+            element={
+              <PrivateRoute>
+                <LeadsKanban />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/growth/quotes"
+            element={
+              <PrivateRoute>
+                <QuotesPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/growth/campaigns"
+            element={
+              <PrivateRoute>
+                <CampaignsPage />
               </PrivateRoute>
             }
           />

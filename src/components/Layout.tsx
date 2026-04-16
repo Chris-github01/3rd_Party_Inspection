@@ -1,7 +1,7 @@
 import { useState, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, FolderOpen, Settings, LogOut, Menu, X, ChevronDown, ChevronRight, Package, Layers, FileText, LayoutGrid as LayoutIcon, Building2, ClipboardList, Image, Zap } from 'lucide-react';
+import { LayoutDashboard, Users, FolderOpen, Settings, LogOut, Menu, X, ChevronDown, ChevronRight, Package, Layers, FileText, LayoutGrid as LayoutIcon, Building2, ClipboardList, Image, Zap, TrendingUp, Kanban, FileCheck, Megaphone } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -20,6 +20,7 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
+  const [growthExpanded, setGrowthExpanded] = useState(false);
 
   const navItems: NavItem[] = [
     {
@@ -43,6 +44,16 @@ export function Layout({ children }: LayoutProps) {
       path: '/app/inspection-ai',
     },
     {
+      label: 'Growth Hub',
+      icon: TrendingUp,
+      children: [
+        { label: 'Dashboard', icon: LayoutDashboard, path: '/app/growth/dashboard' },
+        { label: 'Leads', icon: Kanban, path: '/app/growth/leads' },
+        { label: 'Quotes', icon: FileCheck, path: '/app/growth/quotes' },
+        { label: 'Campaigns', icon: Megaphone, path: '/app/growth/campaigns' },
+      ],
+    },
+    {
       label: 'Settings',
       icon: Settings,
       children: [
@@ -64,12 +75,24 @@ export function Layout({ children }: LayoutProps) {
     return location.pathname.startsWith(path);
   };
 
+  const isGroupActive = (item: NavItem) => {
+    if (!item.children) return false;
+    return item.children.some(c => c.path && location.pathname.startsWith(c.path));
+  };
+
   const handleNavClick = (item: NavItem) => {
     if (item.children) {
-      setSettingsExpanded(!settingsExpanded);
+      if (item.label === 'Settings') setSettingsExpanded(!settingsExpanded);
+      else if (item.label === 'Growth Hub') setGrowthExpanded(!growthExpanded);
     } else if (item.path) {
       navigate(item.path);
     }
+  };
+
+  const isExpanded = (item: NavItem) => {
+    if (item.label === 'Settings') return settingsExpanded;
+    if (item.label === 'Growth Hub') return growthExpanded;
+    return false;
   };
 
   const handleSignOut = async () => {
@@ -130,7 +153,7 @@ export function Layout({ children }: LayoutProps) {
                     }
                   }}
                   className={`w-full flex items-center px-3 py-2 rounded-lg transition-colors ${
-                    active
+                    active || isGroupActive(item)
                       ? 'bg-[#C8102E] text-white'
                       : 'text-[#D1D5DB] hover:bg-slate-800'
                   }`}
@@ -139,7 +162,7 @@ export function Layout({ children }: LayoutProps) {
                   <span className="ml-3 flex-1 text-left">{item.label}</span>
                   {item.children && (
                     <span className="ml-auto">
-                      {settingsExpanded ? (
+                      {isExpanded(item) ? (
                         <ChevronDown className="w-4 h-4" />
                       ) : (
                         <ChevronRight className="w-4 h-4" />
@@ -149,7 +172,7 @@ export function Layout({ children }: LayoutProps) {
                 </button>
 
                 {/* Sub-items */}
-                {item.children && settingsExpanded && (
+                {item.children && isExpanded(item) && (
                   <div className="ml-4 mt-1 space-y-1">
                     {item.children.map((child) => {
                       const ChildIcon = child.icon;
