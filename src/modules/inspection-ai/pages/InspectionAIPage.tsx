@@ -21,6 +21,7 @@ import { uploadInspectionImage, createReport, saveInspectionItem } from '../serv
 import { generateNonConformance } from '../utils/standardsMapper';
 import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
 import { DEFECT_TYPES } from '../utils/defectDictionary';
+import { getObservationTemplate } from '../utils/observationTemplates';
 import { InspectionReportView } from '../components/InspectionReportView';
 import type { CapturedItem, AppPhase, SystemType, ElementType, Severity, Extent } from '../types';
 
@@ -173,22 +174,39 @@ function InspectorOverridePanel({
     item.observationOverride ?? item.analysisResult?.observation ?? ''
   );
 
+  const handleDefectTypeChange = (newDefect: string) => {
+    setDefectType(newDefect);
+    const template = getObservationTemplate(newDefect);
+    if (template && observation === (item.observationOverride ?? item.analysisResult?.observation ?? '')) {
+      setObservation(template);
+    }
+  };
+
+  const handleApplyTemplate = () => {
+    const template = getObservationTemplate(defectType);
+    if (template) setObservation(template);
+  };
+
   const handleApply = () => {
     const aiDefect = item.analysisResult?.defect_type ?? '';
     const aiSeverity = item.analysisResult?.severity ?? 'Low';
     const aiObs = item.analysisResult?.observation ?? '';
+    const hasChange = defectType !== aiDefect || severity !== aiSeverity || observation !== aiObs;
     onUpdate({
       defectTypeOverride: defectType !== aiDefect ? defectType : null,
       severityOverride: severity !== aiSeverity ? severity : null,
       observationOverride: observation !== aiObs ? observation : null,
+      inspectorOverride: hasChange,
     });
     onClose();
   };
 
   const handleClear = () => {
-    onUpdate({ defectTypeOverride: null, severityOverride: null, observationOverride: null });
+    onUpdate({ defectTypeOverride: null, severityOverride: null, observationOverride: null, inspectorOverride: false });
     onClose();
   };
+
+  const templateText = getObservationTemplate(defectType);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
@@ -211,7 +229,7 @@ function InspectorOverridePanel({
           <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Defect Type</label>
           <select
             value={defectType}
-            onChange={(e) => setDefectType(e.target.value)}
+            onChange={(e) => handleDefectTypeChange(e.target.value)}
             className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white"
           >
             {DEFECT_TYPES.map((d) => (
@@ -245,13 +263,29 @@ function InspectorOverridePanel({
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Observation</label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Observation</label>
+            {templateText && observation !== templateText && (
+              <button
+                type="button"
+                onClick={handleApplyTemplate}
+                className="text-xs text-blue-600 font-semibold hover:text-blue-800 transition-colors flex items-center gap-1"
+              >
+                Use template
+              </button>
+            )}
+          </div>
           <textarea
             value={observation}
             onChange={(e) => setObservation(e.target.value)}
             rows={4}
             className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-none"
           />
+          {templateText && (
+            <p className="text-xs text-slate-400 leading-relaxed italic">
+              Template: "{templateText}"
+            </p>
+          )}
         </div>
 
         <div className="flex gap-3 pt-1">
@@ -344,6 +378,7 @@ export default function InspectionAIPage() {
       const newItem: CapturedItem = {
         imageFile: file,
         imagePreviewUrl: previewUrl,
+        annotatedImageUrl: null,
         systemType: sessionSystemType,
         element: sessionElement,
         locationLevel: '',
@@ -357,6 +392,7 @@ export default function InspectionAIPage() {
         defectTypeOverride: null,
         severityOverride: null,
         observationOverride: null,
+        inspectorOverride: false,
         isAnalysing: false,
         isSaved: false,
       };
@@ -392,6 +428,7 @@ export default function InspectionAIPage() {
       defectTypeOverride: null,
       severityOverride: null,
       observationOverride: null,
+      inspectorOverride: false,
       isSaved: false,
     });
     runAnalysis(idx, item.systemType, item.element, item.imageFile);
@@ -430,6 +467,8 @@ export default function InspectionAIPage() {
         defect_type_override: item.defectTypeOverride,
         severity_override: item.severityOverride,
         observation_override: item.observationOverride,
+        inspector_override: item.inspectorOverride,
+        annotated_image_url: item.annotatedImageUrl,
       });
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
     } catch (err) {

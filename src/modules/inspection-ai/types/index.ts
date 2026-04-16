@@ -39,12 +39,15 @@ export interface InspectionAIItem {
   defect_type_override: string | null;
   severity_override: string | null;
   observation_override: string | null;
+  inspector_override: boolean;
+  annotated_image_url: string | null;
   created_at: string;
 }
 
 export interface CapturedItem {
   imageFile: File;
   imagePreviewUrl: string;
+  annotatedImageUrl: string | null;
   systemType: SystemType;
   element: ElementType;
   locationLevel: string;
@@ -58,6 +61,7 @@ export interface CapturedItem {
   defectTypeOverride: string | null;
   severityOverride: string | null;
   observationOverride: string | null;
+  inspectorOverride: boolean;
   isAnalysing: boolean;
   isSaved: boolean;
   savedId?: string;
