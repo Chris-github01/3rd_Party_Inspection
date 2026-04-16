@@ -85,7 +85,8 @@ const LS_ELEMENT_KEY = 'inspection_ai_element_type';
 
 function AnalysisStatusBadge({ status }: { status: AnalysisStatus }) {
   const map: Record<AnalysisStatus, { label: string; className: string; icon: React.ReactNode }> = {
-    idle: { label: 'Pending', className: 'bg-slate-100 text-slate-500 border-slate-200', icon: null },
+    idle: { label: 'Idle', className: 'bg-slate-100 text-slate-500 border-slate-200', icon: null },
+    pending: { label: 'Pending AI', className: 'bg-amber-50 text-amber-600 border-amber-200', icon: <Clock className="w-3 h-3" /> },
     queued: { label: 'Queued…', className: 'bg-sky-50 text-sky-600 border-sky-200', icon: <Clock className="w-3 h-3" /> },
     analysing: { label: 'Analysing…', className: 'bg-blue-50 text-blue-600 border-blue-200', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
     retrying: { label: 'Retrying…', className: 'bg-amber-50 text-amber-600 border-amber-200', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
@@ -737,6 +738,9 @@ export default function InspectionAIPage() {
       .finally(() => setLoadingProjects(false));
   }, []);
 
+  const itemsRef = useRef<CapturedItem[]>(items);
+  itemsRef.current = items;
+
   const loadProjectReports = async (projectId: string) => {
     const reports = await fetchProjectReports(projectId);
     setProjectReports(reports);
@@ -804,7 +808,7 @@ export default function InspectionAIPage() {
     setItems((prev) =>
       prev.map((item, i) =>
         i === idx
-          ? { ...item, analysisStatus: status, isAnalysing: status === 'analysing' || status === 'retrying' || status === 'queued' }
+          ? { ...item, analysisStatus: status, isAnalysing: status === 'analysing' || status === 'retrying' || status === 'queued' || status === 'pending' }
           : item
       )
     );
@@ -934,19 +938,47 @@ export default function InspectionAIPage() {
   );
 
   const addImageFromFile = useCallback(
-    (file: File, ctx: CaptureIntakeContext, analyseLater = false) => {
+    (file: File, ctx: CaptureIntakeContext, _analyseLater = false) => {
       const previewUrl = URL.createObjectURL(file);
-      const newItem = makeBlankItem(file, previewUrl, ctx);
+      const base = makeBlankItem(file, previewUrl, ctx);
+      const newItem: CapturedItem = { ...base, analysisStatus: 'pending', isAnalysing: true };
       setItems((prev) => {
         const next = [...prev, newItem];
         const newIdx = next.length - 1;
         setActiveIdx(newIdx);
-        if (!analyseLater) setTimeout(() => runAnalysis(newIdx, ctx.systemType, ctx.element, file, ctx.environment, ctx.observedConcern, ctx.isNewInstall), 0);
+        if (!isQueueBusy() && queueLength() === 0) {
+          setTimeout(() => runAnalysis(newIdx, ctx.systemType, ctx.element, file, ctx.environment, ctx.observedConcern, ctx.isNewInstall), 0);
+        }
         return next;
       });
     },
     [runAnalysis]
   );
+
+  const runAnalysisRef = useRef(runAnalysis);
+  runAnalysisRef.current = runAnalysis;
+
+  useEffect(() => {
+    const BACKGROUND_INTERVAL_MS = 15000;
+    const timer = setInterval(() => {
+      if (isQueueBusy() || queueLength() > 0) return;
+      const currentItems = itemsRef.current;
+      const pendingIdx = currentItems.findIndex((item) => item.analysisStatus === 'pending');
+      if (pendingIdx === -1) return;
+      const item = currentItems[pendingIdx];
+      console.info(`[AI Background] Processing pending item ${pendingIdx}`);
+      runAnalysisRef.current(
+        pendingIdx,
+        item.systemType,
+        item.element,
+        item.imageFile,
+        item.environment,
+        item.observedConcern,
+        item.isNewInstall
+      );
+    }, BACKGROUND_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, ctx?: CaptureIntakeContext, analyseLater = false) => {
     const file = e.target.files?.[0];
@@ -1264,15 +1296,40 @@ export default function InspectionAIPage() {
         </div>
       </div>
 
-      {liveQueueDepth > 0 && (
-        <div className="bg-sky-50 border-b border-sky-100 px-4 py-2 flex items-center gap-2 max-w-2xl mx-auto w-full">
-          <Loader2 className="w-3.5 h-3.5 text-sky-500 animate-spin flex-shrink-0" />
-          <p className="text-xs font-semibold text-sky-700">
-            {liveQueueDepth === 1 ? 'Analysing 1 photo…' : `Analysing — ${liveQueueDepth} in queue`}
-          </p>
-          <span className="ml-auto text-[10px] text-sky-400">Photos are compressed &amp; serialised</span>
-        </div>
-      )}
+      {(() => {
+        const pendingCount = items.filter((i) => i.analysisStatus === 'pending').length;
+        const analysingCount = items.filter((i) => i.analysisStatus === 'analysing' || i.analysisStatus === 'retrying').length;
+        const failedCount = items.filter((i) => i.analysisStatus === 'failed').length;
+        const doneCount = items.filter((i) => i.analysisStatus === 'done' || i.analysisStatus === 'manual').length;
+        const totalActive = pendingCount + analysingCount + liveQueueDepth;
+
+        if (totalActive > 0 || failedCount > 0) {
+          return (
+            <div className={`border-b px-4 py-2.5 max-w-2xl mx-auto w-full ${analysingCount > 0 ? 'bg-sky-50 border-sky-100' : failedCount > 0 && pendingCount === 0 ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
+              <div className="flex items-center gap-2">
+                {analysingCount > 0 ? (
+                  <Loader2 className="w-3.5 h-3.5 text-sky-500 animate-spin flex-shrink-0" />
+                ) : pendingCount > 0 ? (
+                  <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                )}
+                <p className={`text-xs font-semibold ${analysingCount > 0 ? 'text-sky-700' : failedCount > 0 && pendingCount === 0 ? 'text-red-700' : 'text-amber-700'}`}>
+                  {analysingCount > 0
+                    ? `Analysing — 1 of ${pendingCount + analysingCount} photos`
+                    : pendingCount > 0
+                    ? `${pendingCount} photo${pendingCount > 1 ? 's' : ''} queued — AI will process shortly`
+                    : `${failedCount} failed — tap to classify manually`}
+                </p>
+                <span className="ml-auto text-[10px] text-slate-400">
+                  {doneCount > 0 ? `${doneCount} done` : 'Keep capturing'}
+                </span>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-4">
         <button

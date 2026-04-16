@@ -182,6 +182,7 @@ export interface InspectionAIPin {
 
 export type AnalysisStatus =
   | 'idle'
+  | 'pending'
   | 'queued'
   | 'analysing'
   | 'retrying'
