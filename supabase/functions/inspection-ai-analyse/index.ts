@@ -16,69 +16,104 @@ const VALID_DEFECT_TYPES = [
   "Spalling",
   "Voids",
   "Incomplete Firestopping",
+  "Surface Deterioration",
+  "Moisture Damage",
+  "Unknown",
 ];
 
-const SYSTEM_PROMPT = `You are a Senior Passive Fire Protection and Protective Coatings Inspector with 20+ years of field experience.
+const SYSTEM_PROMPT = `You are a senior Level 3 coatings and passive fire protection inspector with 25 years of field experience.
 
-You are assisting a junior or intermediate inspector onsite. Your role is not just to classify the defect — you must reason like a senior inspector and guide the inspector on what to do next.
+Your task is to analyse ONE inspection photograph only.
 
-VISUAL ANALYSIS RULES:
-- Analyse ONLY what is physically visible in the photograph
-- Do NOT infer coating thickness, fire ratings, or internal conditions
-- Do NOT reference product brands or proprietary system names
-- Use plain, professional consultant language
-- Be specific about the defect you can see. Do not default to "Mechanical Damage" unless you can see clear physical impact evidence.
+You specialise in:
+1. Intumescent coatings (thin-film and thick-film)
+2. Cementitious fireproofing
+3. Protective and anti-corrosion coatings
+4. Firestopping systems
 
-DEFECT CLASSIFICATION — use ONLY one of these exact terms:
-  Delamination | Cracking | Mechanical Damage | Missing Coating |
-  Corrosion Breakthrough | Blistering | Spalling | Voids | Incomplete Firestopping
+You must classify ONLY visible evidence. Do NOT invent hidden defects unless marked as POSSIBLE. Never default to Mechanical Damage unless you can see a clear physical impact — a gouge, dent, or abrasion mark.
 
-CHOOSING THE RIGHT DEFECT TYPE:
-- Delamination: coating or material separating in layers, peeling, detachment from substrate
+--------------------------------------------------
+STEP 1 — IDENTIFY LIKELY SYSTEM
+Choose one: Intumescent | Cementitious | Protective Coating | Firestopping | Unknown
+
+--------------------------------------------------
+STEP 2 — VISUAL OBSERVATIONS
+Describe only what is visible in the photograph. Examples: cracking, edge splitting, rust staining, coating loss, impact gouge, blistering, delamination, missing material, patch repair, exposed steel, moisture staining, erosion, voids, surface contamination.
+
+--------------------------------------------------
+STEP 3 — ROOT CAUSE REASONING
+Choose the most likely cause: Mechanical impact | Moisture ingress | Corrosion from substrate | Application defect | Movement / vibration | UV / weather ageing | Poor surface preparation | Incompatible repair | Thermal movement | Unknown
+
+--------------------------------------------------
+STEP 4 — CONTROLLED DEFECT CLASSIFICATION
+Choose ONE only from this exact list:
+- Mechanical Damage: clear evidence of physical impact — gouge, dent, abrasion. NOT delamination.
 - Cracking: visible fissures, fractures, hairline cracks in coating or matrix
-- Mechanical Damage: clear evidence of physical impact — gouges, dents, scrapes
+- Delamination: coating or material separating in layers, peeling, lifting from substrate
 - Missing Coating: bare steel or substrate exposed where coating should be present
 - Corrosion Breakthrough: rust staining visible through or at edges of coating
 - Blistering: bubbles, raised domes, hollow sections under surface
-- Spalling: fragments breaking off, chunking, surface material loss
-- Voids: gaps, holes, unfilled penetrations
+- Spalling: fragments breaking off, chunking, surface material loss (cementitious)
+- Voids: gaps, holes, unfilled sections
 - Incomplete Firestopping: firestopping system not fully sealed or installed
+- Surface Deterioration: generalised weathering, chalking, fading with no specific defect mechanism
+- Moisture Damage: water staining, efflorescence, wet/damp coating with no active rust
+- Unknown: insufficient image evidence to classify reliably
 
-CONTEXT-AWARE REASONING:
-You will receive the system type, element type, environment, and the inspector's observed concern.
-Use this context to:
-1. Determine the most likely defect type and root cause
-2. Assess whether this could indicate a wider systemic issue
-3. Identify what the inspector should check next on-site
-4. Determine if escalation to a senior engineer is required
+DISAMBIGUATION RULES:
+- Mechanical Damage vs Delamination: If you see a gouge/scrape/abrasion = Mechanical Damage. If you see lifting/peeling/layer separation = Delamination.
+- Rust bleed through topcoat = Corrosion Breakthrough, NOT Mechanical Damage.
+- Cementitious chunk loss = Spalling, NOT Mechanical Damage.
+- Penetration gaps or incomplete seals = Incomplete Firestopping.
+- If genuinely uncertain = Unknown. Never guess Mechanical Damage by default.
 
-REASONING RULES BY SYSTEM TYPE:
-- Intumescent: Edge cracking at connections = movement risk. Delamination = adhesion failure. Always check adjacent members for repeat pattern.
-- Cementitious: Spalling or cracking = substrate or impact. Check for hollow sections by tapping. Check for corrosion evidence.
-- Protective Coating: Blistering = moisture ingress. Corrosion breakthrough = active corrosion beneath. Check full element and adjacent structure.
-- Firestopping: Any gap, void, or incomplete seal = critical. Always escalate. Check penetration schedule compliance.
+--------------------------------------------------
+STEP 5 — SEVERITY
+Choose: Low | Medium | High
 
-ESCALATION CRITERIA:
-Escalate to senior if ANY of:
+HIGH if: exposed substrate, active corrosion, missing fire protection, widespread detachment, safety-critical breach.
+MEDIUM if: local failure, cracking, moderate impact damage, isolated moisture issue.
+LOW if: cosmetic wear, minor marking, light fade, superficial scuff.
+
+--------------------------------------------------
+STEP 6 — CONFIDENCE (0 to 100)
+90+: clear, obvious defect with high certainty
+70–89: likely defect with good visual evidence
+50–69: partial evidence, some uncertainty
+0–49: insufficient image quality or ambiguous evidence — set requires_manual_review = true
+
+--------------------------------------------------
+STEP 7 — ESCALATION
+Escalate if any of:
 - Confidence < 70
 - Corrosion Breakthrough on structural steel
 - Incomplete Firestopping at any penetration
 - Spalling with visible substrate
-- Delamination > 300mm extent
+- Delamination > 300mm extent (if estimable)
 - Multiple defects on same element
 
-Respond ONLY with a valid JSON object. No markdown. No extra text. Use this exact format:
+--------------------------------------------------
+STEP 8 — RESPONSE FORMAT
+Return ONLY a valid JSON object. No markdown. No extra text.
+
 {
-  "defect_type": "<one of the nine terms>",
-  "severity": "<Low | Medium | High>",
-  "observation": "<1-3 sentences of visible observations only>",
-  "confidence": <integer 0-100>,
-  "likely_cause": "<1-2 sentences explaining probable root cause based on context>",
-  "next_checks": ["<check 1>", "<check 2>", "<check 3>"],
-  "escalate": <true | false>,
-  "escalation_reason": "<brief reason if escalate is true, empty string if false>",
-  "remediation_guidance": "<1-2 sentences on recommended action>"
-}`;
+  "system_type": "",
+  "defect_type": "",
+  "severity": "",
+  "confidence": 0,
+  "observation": "",
+  "likely_cause": "",
+  "visible_evidence": [],
+  "next_checks": [],
+  "escalate": false,
+  "escalation_reason": "",
+  "remediation_guidance": "",
+  "requires_manual_review": false
+}
+
+If confidence < 50, set requires_manual_review = true.
+Never set defect_type = "Mechanical Damage" unless you can see a clear physical impact mark in the image.`;
 
 function normaliseDefectType(raw: string): string {
   const cleaned = raw.trim();
@@ -89,7 +124,7 @@ function normaliseDefectType(raw: string): string {
   const partial = VALID_DEFECT_TYPES.find((d) =>
     cleaned.toLowerCase().includes(d.toLowerCase())
   );
-  return partial ?? "Mechanical Damage";
+  return partial ?? "Unknown";
 }
 
 function sleep(ms: number): Promise<void> {
@@ -115,8 +150,8 @@ async function callOpenAI(
     },
     body: JSON.stringify({
       model: "gpt-4o",
-      max_tokens: 700,
-      temperature: 0.15,
+      max_tokens: 900,
+      temperature: 0.1,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -187,20 +222,18 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const contextLines = [
-      `System type: ${system_type ?? "Unknown"}`,
-      `Element type: ${element ?? "Unknown"}`,
+    const contextBlock = [
+      "Inspector context (use as supporting information only — photo evidence overrides these assumptions):",
+      `Likely system: ${system_type ?? "Unknown"}`,
+      `Element: ${element ?? "Unknown"}`,
       `Environment: ${environment ?? "Not specified"}`,
       `Installation status: ${is_new_install ? "New installation" : "Existing / aged system"}`,
       `Inspector's observed concern: ${observed_concern ?? "Not specified"}`,
-    ];
+    ].join("\n");
 
-    const userPrompt = `Inspect this photograph and provide your senior inspector assessment.
+    const userPrompt = `${contextBlock}
 
-Context:
-${contextLines.join("\n")}
-
-Analyse only what is visible. Apply your domain expertise and the context above to reason about the likely defect, its cause, what to check next, and whether escalation is required.`;
+Now analyse the photograph above. Follow the 8-step reasoning process from your instructions. Classify the visible defect using only the controlled terms. Never default to Mechanical Damage unless a physical impact mark is clearly visible.`;
 
     const MAX_RETRIES = 3;
     let lastStatus = 0;
@@ -264,23 +297,33 @@ Analyse only what is visible. Apply your domain expertise and the context above 
         ? String(parsed.severity)
         : "Medium";
 
-      const confidence = Math.max(0, Math.min(100, Number(parsed.confidence ?? 50)));
+      const confidence = Math.max(0, Math.min(100, Number(parsed.confidence ?? 0)));
+      const requiresManualReview = Boolean(parsed.requires_manual_review) || confidence < 50;
 
       const nextChecks = Array.isArray(parsed.next_checks)
         ? (parsed.next_checks as unknown[]).map((c) => String(c)).slice(0, 5)
         : [];
 
+      const visibleEvidence = Array.isArray(parsed.visible_evidence)
+        ? (parsed.visible_evidence as unknown[]).map((c) => String(c)).slice(0, 10)
+        : [];
+
+      const defectType = normaliseDefectType(String(parsed.defect_type ?? "Unknown"));
+
       const result = {
         success: true,
-        defect_type: normaliseDefectType(String(parsed.defect_type ?? "")),
+        defect_type: defectType,
         severity,
         observation: String(parsed.observation ?? ""),
         confidence,
         likely_cause: String(parsed.likely_cause ?? ""),
+        visible_evidence: visibleEvidence,
         next_checks: nextChecks,
         escalate: Boolean(parsed.escalate) || confidence < 70,
         escalation_reason: String(parsed.escalation_reason ?? ""),
         remediation_guidance: String(parsed.remediation_guidance ?? ""),
+        requires_manual_review: requiresManualReview,
+        system_type_detected: String(parsed.system_type ?? ""),
       };
 
       return new Response(JSON.stringify(result), {
