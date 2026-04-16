@@ -90,6 +90,9 @@ export function SeniorInspectorCard({
   const isManual = analysisStatus === 'manual';
   const sev = SEVERITY_STYLES[effectiveSeverity] ?? SEVERITY_STYLES.Low;
   const showReasoning = !isManual && result.confidence > 0;
+  const geometry = result.geometry;
+  const visibleEvidence = result.visible_evidence ?? [];
+  const requiresManualReview = result.requires_manual_review;
   const hasGuidance = showReasoning && (
     (result.next_checks && result.next_checks.length > 0) ||
     result.likely_cause ||
@@ -97,9 +100,6 @@ export function SeniorInspectorCard({
     (visibleEvidence.length > 0) ||
     (geometry && (geometry.location_on_member || geometry.pattern || geometry.extent))
   );
-  const geometry = result.geometry;
-  const visibleEvidence = result.visible_evidence ?? [];
-  const requiresManualReview = result.requires_manual_review;
   const brainMode = result._brainMode;
   const confidenceBoost = result._confidenceBoost ?? 0;
   const triggeredRules = result._triggeredRules ?? [];
@@ -603,12 +603,12 @@ export function SeniorInspectorCard({
   );
 }
 
-export function AnalysingState({ status }: { status: string }) {
-  const messages: Record<string, string> = {
-    queued:    'Queued — waiting for previous analysis…',
-    analysing: 'Senior Inspector AI is reviewing…',
-    retrying:  'Rate limited — retrying in 3s…',
-  };
+export function AnalysingState({ status, retryCountdown, queuePosition }: { status: string; retryCountdown?: number; queuePosition?: number }) {
+  const mainMessage =
+    status === 'queued' ? 'Queued — waiting for previous analysis…' :
+    status === 'retrying' ? 'Rate limited — retrying shortly…' :
+    'Senior Inspector AI is reviewing…';
+
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
       <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
@@ -619,7 +619,13 @@ export function AnalysingState({ status }: { status: string }) {
         )}
       </div>
       <div>
-        <p className="font-semibold text-slate-700 text-sm">{messages[status] ?? 'Analysing…'}</p>
+        <p className="font-semibold text-slate-700 text-sm">{mainMessage}</p>
+        {status === 'queued' && queuePosition !== undefined && queuePosition > 0 && (
+          <p className="text-xs text-slate-400 mt-0.5">{queuePosition} photo{queuePosition !== 1 ? 's' : ''} ahead in queue</p>
+        )}
+        {status === 'retrying' && retryCountdown !== undefined && retryCountdown > 0 && (
+          <p className="text-xs font-semibold text-amber-600 mt-0.5">Retrying in {retryCountdown}s…</p>
+        )}
         <p className="text-xs text-slate-400 mt-1">You can keep adding photos while this runs</p>
       </div>
     </div>

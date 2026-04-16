@@ -159,7 +159,43 @@ CONNECTION ZONE LOGIC:
 
 Always populate the geometry fields with specific intumescent context.`;
 
-function buildSystemPrompt(systemType: string): string {
+const SHORT_PROMPT = `You are a senior coatings and passive fire protection inspector.
+
+Analyse the inspection photograph and return a JSON classification.
+
+DEFECT TYPES (choose one only):
+Mechanical Damage | Cracking | Delamination | Missing Coating | Corrosion Breakthrough | Blistering | Spalling | Voids | Incomplete Firestopping | Surface Deterioration | Moisture Damage | Unknown
+
+RULES:
+- Unknown if insufficient evidence
+- Mechanical Damage only if physical impact mark is clearly visible
+- Return all geometry fields even if brief
+
+Return ONLY valid JSON:
+{
+  "system_type": "",
+  "defect_type": "",
+  "severity": "Low|Medium|High",
+  "confidence": 0,
+  "observation": "",
+  "likely_cause": "",
+  "visible_evidence": [],
+  "next_checks": [],
+  "escalate": false,
+  "escalation_reason": "",
+  "remediation_guidance": "",
+  "requires_manual_review": false,
+  "geometry": {
+    "location_on_member": "",
+    "pattern": "",
+    "extent": "",
+    "likely_mechanism": "",
+    "urgent_action": ""
+  }
+}`;
+
+function buildSystemPrompt(systemType: string, shortPrompt: boolean): string {
+  if (shortPrompt) return SHORT_PROMPT;
   const isIntumescent = systemType?.toLowerCase().includes("intumescent");
   return isIntumescent
     ? BASE_PROMPT + INTUMESCENT_SPECIALIST_ADDENDUM
@@ -262,6 +298,7 @@ Deno.serve(async (req: Request) => {
       environment,
       observed_concern,
       is_new_install,
+      short_prompt,
     } = body;
 
     if (!image_base64) {
@@ -274,7 +311,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const systemPrompt = buildSystemPrompt(system_type ?? "");
+    const systemPrompt = buildSystemPrompt(system_type ?? "", Boolean(short_prompt));
 
     const contextBlock = [
       "Inspector context (use as supporting information only — photo evidence overrides these assumptions):",

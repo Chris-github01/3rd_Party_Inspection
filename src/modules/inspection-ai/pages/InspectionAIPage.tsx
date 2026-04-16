@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from 'react';
 import {
   Camera,
   Upload,
@@ -36,7 +36,7 @@ import { generateNonConformance } from '../utils/standardsMapper';
 import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
 import { DEFECT_TYPES } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
-import { enqueue, isQueueBusy, queueLength } from '../utils/analysisQueue';
+import { enqueue, isQueueBusy, queueLength, queueDepth, addQueueListener } from '../utils/analysisQueue';
 import { applyInspectionBrain } from '../utils/inspectionBrain';
 import { InspectionReportView } from '../components/InspectionReportView';
 import { EvidencePhotosPanel } from '../components/EvidencePhotosPanel';
@@ -50,11 +50,10 @@ import { CaptureIntakeWizard } from '../components/CaptureIntakeWizard';
 import { SeniorInspectorCard, AnalysingState } from '../components/SeniorInspectorCard';
 import type { PortfolioProjectStat } from '../services/storageService';
 import type {
+  AIAnalysisResult,
   CapturedItem,
   SystemType,
   ElementType,
-  Environment,
-  ObservedConcern,
   Severity,
   Extent,
   AnalysisStatus,
@@ -716,6 +715,12 @@ export default function InspectionAIPage() {
   const [showIntakeWizard, setShowIntakeWizard] = useState(false);
   const [pendingIntakeCtx, setPendingIntakeCtx] = useState<CaptureIntakeContext | null>(null);
   const [evidencePhotos, setEvidencePhotos] = useState<Record<string, InspectionAIItemImage[]>>({});
+  const [retryCountdowns, setRetryCountdowns] = useState<Record<number, number>>({});
+
+  const liveQueueDepth = useSyncExternalStore(
+    addQueueListener,
+    queueDepth
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -813,7 +818,30 @@ export default function InspectionAIPage() {
         setItemStatus(idx, 'analysing');
         let aiResult;
         try {
-          aiResult = await analyseImage(imageFile, systemType, element, () => setItemStatus(idx, 'retrying'), environment, observedConcern, isNewInstall);
+          aiResult = await analyseImage(
+            imageFile,
+            systemType,
+            element,
+            (attemptNumber, delayMs) => {
+              setItemStatus(idx, 'retrying');
+              const endsAt = Date.now() + delayMs;
+              const tick = () => {
+                const remaining = Math.ceil((endsAt - Date.now()) / 1000);
+                if (remaining <= 0) {
+                  setRetryCountdowns((prev) => { const next = { ...prev }; delete next[idx]; return next; });
+                  return;
+                }
+                setRetryCountdowns((prev) => ({ ...prev, [idx]: remaining }));
+                setTimeout(tick, 500);
+              };
+              tick();
+              void attemptNumber;
+            },
+            environment,
+            observedConcern,
+            isNewInstall,
+            queueDepth()
+          );
         } catch (err) {
           const msg = err instanceof AIUnavailableError ? err.message : 'AI analysis failed. Classify manually.';
           const isRateLimit = err instanceof AIUnavailableError && err.reason === 'rate_limit';
@@ -868,13 +896,14 @@ export default function InspectionAIPage() {
             _v3ReviewTriggers: brainResult.rulebookV3.reviewTriggers.length > 0 ? brainResult.rulebookV3.reviewTriggers : undefined,
             _v3ManufacturerLogicNotes: brainResult.rulebookV3.manufacturerLogicNotes.length > 0 ? brainResult.rulebookV3.manufacturerLogicNotes : undefined,
             _v3MatchedRuleIds: brainResult.rulebookV3.matchedRuleIds.length > 0 ? brainResult.rulebookV3.matchedRuleIds : undefined,
-          } as AIAnalysisResult & Record<string, unknown>;
+          } as unknown as AIAnalysisResult;
         }
 
         const nc = generateNonConformance(result.defect_type, element);
         const rec = generateRecommendation(result.defect_type, systemType);
         const risk = generateRisk(result.severity as Severity);
 
+        setRetryCountdowns((prev) => { const next = { ...prev }; delete next[idx]; return next; });
         setItems((prev) =>
           prev.map((item, i) => {
             if (i !== idx) return item;
@@ -927,9 +956,9 @@ export default function InspectionAIPage() {
   const handleSave = async (idx: number) => {
     const item = items[idx];
     if (!reportId || item.isSaved) return;
-    const effectiveDefect = item.defectTypeOverride ?? item.analysisResult?.defect_type ?? 'Mechanical Damage';
+    const effectiveDefect = item.defectTypeOverride ?? item.analysisResult?.defect_type ?? 'Unknown';
     const effectiveSeverity = item.severityOverride ?? item.analysisResult?.severity ?? 'Medium';
-    const effectiveObservation = item.observationOverride ?? item.analysisResult?.observation ?? getObservationTemplate('Mechanical Damage');
+    const effectiveObservation = item.observationOverride ?? item.analysisResult?.observation ?? getObservationTemplate('Unknown');
     const nc = generateNonConformance(effectiveDefect, item.element);
     const rec = generateRecommendation(effectiveDefect, item.systemType);
     const risk = generateRisk(effectiveSeverity as Severity);
@@ -1217,6 +1246,16 @@ export default function InspectionAIPage() {
         </div>
       </div>
 
+      {liveQueueDepth > 0 && (
+        <div className="bg-sky-50 border-b border-sky-100 px-4 py-2 flex items-center gap-2 max-w-2xl mx-auto w-full">
+          <Loader2 className="w-3.5 h-3.5 text-sky-500 animate-spin flex-shrink-0" />
+          <p className="text-xs font-semibold text-sky-700">
+            {liveQueueDepth === 1 ? 'Analysing 1 photo…' : `Analysing — ${liveQueueDepth} in queue`}
+          </p>
+          <span className="ml-auto text-[10px] text-sky-400">Photos are compressed &amp; serialised</span>
+        </div>
+      )}
+
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-4">
         <button
           onClick={() => setShowIntakeWizard(true)}
@@ -1296,7 +1335,13 @@ export default function InspectionAIPage() {
                   <TagGrid label="Extent of Defect" value={item.extent} options={EXTENT_OPTIONS} cols={3}
                     onChange={(v) => updateItem(idx, { extent: v })} />
 
-                  {isInProgress && <AnalysingState status={item.analysisStatus} />}
+                  {isInProgress && (
+                    <AnalysingState
+                      status={item.analysisStatus}
+                      retryCountdown={retryCountdowns[idx]}
+                      queuePosition={item.analysisStatus === 'queued' ? Math.max(0, items.slice(0, idx).filter((it) => it.analysisStatus === 'queued' || it.analysisStatus === 'analysing' || it.analysisStatus === 'retrying').length) : undefined}
+                    />
+                  )}
 
                   {isFailed && (
                     <div className="space-y-3">
@@ -1322,7 +1367,7 @@ export default function InspectionAIPage() {
                         onClick={() => {
                           updateItem(idx, {
                             analysisStatus: 'manual',
-                            analysisResult: { defect_type: 'Mechanical Damage', severity: 'Medium', observation: getObservationTemplate('Mechanical Damage'), confidence: 0, needsReview: true },
+                            analysisResult: { defect_type: 'Unknown', severity: 'Medium', observation: getObservationTemplate('Unknown'), confidence: 0, needsReview: true },
                           });
                           setOverrideIdx(idx);
                         }}
@@ -1342,7 +1387,7 @@ export default function InspectionAIPage() {
                         Analyse with Senior Inspector AI
                       </button>
                       <button onClick={() => {
-                        updateItem(idx, { analysisStatus: 'manual', analysisResult: { defect_type: 'Mechanical Damage', severity: 'Medium', observation: getObservationTemplate('Mechanical Damage'), confidence: 0, needsReview: true } });
+                        updateItem(idx, { analysisStatus: 'manual', analysisResult: { defect_type: 'Unknown', severity: 'Medium', observation: getObservationTemplate('Unknown'), confidence: 0, needsReview: true } });
                         setOverrideIdx(idx);
                       }}
                         className="w-full flex items-center justify-center gap-2 border border-slate-200 text-slate-600 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors">

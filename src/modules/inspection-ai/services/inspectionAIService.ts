@@ -1,11 +1,15 @@
 import type { AIAnalysisResult } from '../types';
 import { normaliseDefectType } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
+import { compressImageFile, hashImageFile } from '../utils/imageCompressor';
+import { getCachedResult, setCachedResult } from '../utils/analysisCache';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/inspection-ai-analyse`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const CONFIDENCE_REVIEW_THRESHOLD = 70;
+
+const RETRY_DELAYS_MS = [2000, 5000, 10000];
 
 export type AIFailureReason = 'rate_limit' | 'ai_unavailable' | 'network_error' | 'configuration_error';
 
@@ -18,13 +22,19 @@ export class AIUnavailableError extends Error {
   }
 }
 
-async function attemptAnalyse(
+function isSpecialistMode(systemType: string): boolean {
+  const lower = systemType.toLowerCase();
+  return lower.includes('intumescent') || lower.includes('firestopping');
+}
+
+async function callEdgeFunction(
   imageFile: File,
   systemType: string,
   element: string,
-  environment?: string,
-  observedConcern?: string,
-  isNewInstall?: boolean
+  environment: string,
+  observedConcern: string,
+  isNewInstall: boolean,
+  useShortPrompt: boolean
 ): Promise<AIAnalysisResult> {
   const base64 = await fileToBase64(imageFile);
   const mimeType = imageFile.type || 'image/jpeg';
@@ -43,9 +53,10 @@ async function attemptAnalyse(
         mime_type: mimeType,
         system_type: systemType,
         element,
-        environment: environment ?? 'Internal',
-        observed_concern: observedConcern ?? 'Unsure',
-        is_new_install: isNewInstall ?? false,
+        environment,
+        observed_concern: observedConcern,
+        is_new_install: isNewInstall,
+        short_prompt: useShortPrompt,
       }),
     });
   } catch {
@@ -104,25 +115,52 @@ export async function analyseImage(
   imageFile: File,
   systemType: string,
   element: string,
-  onRetry?: () => void,
+  onRetry?: (attemptNumber: number, delayMs: number) => void,
   environment?: string,
   observedConcern?: string,
-  isNewInstall?: boolean
+  isNewInstall?: boolean,
+  currentQueueDepth?: number
 ): Promise<AIAnalysisResult> {
-  try {
-    return await attemptAnalyse(imageFile, systemType, element, environment, observedConcern, isNewInstall);
-  } catch (err) {
-    if (err instanceof AIUnavailableError && err.reason === 'rate_limit') {
-      onRetry?.();
-      await sleep(3500);
-      try {
-        return await attemptAnalyse(imageFile, systemType, element, environment, observedConcern, isNewInstall);
-      } catch (retryErr) {
-        throw retryErr;
-      }
-    }
-    throw err;
+  const env = environment ?? 'Internal';
+  const concern = observedConcern ?? 'Unsure';
+  const newInstall = isNewInstall ?? false;
+  const specialist = isSpecialistMode(systemType);
+  const useShortPrompt = !specialist && (currentQueueDepth ?? 0) > 3;
+
+  const { file: compressed, wasCompressed, originalSizeKB, compressedSizeKB } = await compressImageFile(imageFile);
+  if (wasCompressed) {
+    console.info(`[AI] Image compressed ${originalSizeKB}KB -> ${compressedSizeKB}KB`);
   }
+
+  const hash = await hashImageFile(compressed);
+  const cached = getCachedResult(hash);
+  if (cached) {
+    console.info(`[AI] Cache hit for image hash ${hash}`);
+    return cached;
+  }
+
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const result = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, useShortPrompt);
+      setCachedResult(hash, result);
+      return result;
+    } catch (err) {
+      lastError = err;
+
+      if (err instanceof AIUnavailableError && err.reason === 'rate_limit' && attempt < RETRY_DELAYS_MS.length) {
+        const delayMs = RETRY_DELAYS_MS[attempt];
+        onRetry?.(attempt + 1, delayMs);
+        await sleep(delayMs);
+        continue;
+      }
+
+      throw err;
+    }
+  }
+
+  throw lastError;
 }
 
 export function makeManualModeResult(): AIAnalysisResult {
