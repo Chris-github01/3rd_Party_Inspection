@@ -1,7 +1,10 @@
 import type { AIAnalysisResult } from '../types';
+import { normaliseDefectType } from '../utils/defectDictionary';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/inspection-ai-analyse`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const CONFIDENCE_REVIEW_THRESHOLD = 70;
 
 export async function analyseImage(
   imageFile: File,
@@ -37,11 +40,14 @@ export async function analyseImage(
     throw new Error('Unexpected response format from AI service.');
   }
 
+  const confidence = Math.max(0, Math.min(100, Number(data.confidence ?? 0)));
+
   return {
-    defect_type: data.defect_type,
+    defect_type: normaliseDefectType(String(data.defect_type)),
     severity: data.severity,
     observation: data.observation,
-    confidence: Number(data.confidence ?? 0),
+    confidence,
+    needsReview: confidence < CONFIDENCE_REVIEW_THRESHOLD,
   };
 }
 

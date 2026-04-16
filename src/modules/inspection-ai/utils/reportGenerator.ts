@@ -1,68 +1,36 @@
 import type { Severity } from '../types';
 
-const RECOMMENDATION_MAP: Record<string, string> = {
-  delamination:
-    'Remove all unsound coating to a stable substrate. Prepare the surface in accordance with the applicable surface preparation standard and reinstate the coating system to match the original specification, ensuring full coverage and continuity.',
-  cracking:
-    'Assess crack width and depth to determine extent of damage. Remove cracked coating material to sound substrate, apply appropriate filler or primer, and reinstate the coating system in accordance with the project specification.',
-  'surface damage':
-    'Remove loose and damaged material from the affected area. Clean the substrate and apply a compatible repair system in accordance with the applicable product and project specifications.',
-  'coating failure':
-    'Remove all failed coating to a sound substrate. Prepare the surface to the required standard and apply a new coating system conforming to the project specification. Ensure full cure before returning to service.',
-  'missing material':
-    'Reinstate the missing coating or passive fire protection material to the full specified thickness. Verify coverage using appropriate measurement techniques after application.',
-  corrosion:
-    'Remove all corrosion products and contaminants from the substrate. Prepare the surface to the required cleanliness and roughness profile. Apply a corrosion-inhibiting primer and compatible topcoat system.',
-  'corrosion breakthrough':
-    'Remove all corrosion and failed coating. Prepare steel to minimum Sa 2.5 (ISO 8501-1). Apply a high-performance corrosion protection system compatible with the environment and original specification.',
-  blistering:
-    'Identify and address the source of moisture or contamination causing blistering. Remove all blistered coating, treat any underlying corrosion, and reinstate the coating system after thorough surface preparation.',
-  erosion:
-    'Apply additional coating thickness to the eroded area following surface preparation. Verify final dry film thickness meets the specified requirement.',
-  disbondment:
-    'Remove all disbonded coating to a sound substrate. Investigate the cause of adhesion failure (contamination, moisture, incorrect primer) and address before reinstating the system.',
-};
+export function generateRecommendation(_defect_type: string, system_type: string): string {
+  const sys = system_type.toLowerCase();
 
-const DEFAULT_RECOMMENDATION =
-  'Remove all non-conforming material from the affected area. Prepare the surface in accordance with the applicable surface preparation standard and reinstate the coating or passive fire protection system to match the original project specification.';
-
-export function generateRecommendation(
-  defect_type: string,
-  system_type?: string
-): string {
-  const normalised = defect_type.toLowerCase().trim();
-
-  for (const [key, rec] of Object.entries(RECOMMENDATION_MAP)) {
-    if (normalised.includes(key)) {
-      if (system_type?.toLowerCase().includes('firestopping')) {
-        return rec.replace(
-          /coating system/gi,
-          'passive fire protection system'
-        );
-      }
-      return rec;
-    }
+  if (sys.includes('intumescent')) {
+    return 'Remove all damaged or delaminated coating to a sound edge. Prepare the exposed substrate in accordance with the applicable surface preparation standard and reinstate the intumescent coating system to achieve a continuous and uniform application across the affected area. Verify continuity and coverage after application.';
   }
 
-  if (system_type?.toLowerCase().includes('firestopping')) {
-    return DEFAULT_RECOMMENDATION.replace(
-      /coating or passive fire protection system/gi,
-      'passive fire protection system'
-    );
+  if (sys.includes('cementitious')) {
+    return 'Remove all loose and unsound cementitious material to a stable substrate. Clean and prepare the substrate surface and reapply cementitious fireproofing to restore full continuity of the applied system. Ensure the reinstated area achieves the same surface profile as the surrounding system.';
   }
 
-  return DEFAULT_RECOMMENDATION;
+  if (sys.includes('protective')) {
+    return 'Remove all unsound coating to a stable substrate. Prepare the surface in accordance with the applicable surface preparation standard and reinstate the protective coating system to match the original specification, ensuring full coverage, continuity, and compatibility with the existing system.';
+  }
+
+  if (sys.includes('firestopping')) {
+    return 'Remove all defective or incomplete firestopping materials from the affected penetration or joint. Reinstate the penetration seal using a compatible system to achieve full closure and continuity in accordance with the installation requirements for the system type. Verify no voids or gaps remain after reinstatement.';
+  }
+
+  return 'Remove all non-conforming material from the affected area. Prepare the surface in accordance with the applicable standard and reinstate the system to match the original specification. Further investigation may be required to determine the root cause and prevent recurrence.';
 }
 
 export function generateRisk(severity: Severity): string {
   switch (severity) {
     case 'High':
-      return 'The observed condition presents a high risk of progressive failure. Immediate action is required to prevent further deterioration and to restore the integrity of the protection system.';
+      return 'The observed condition presents a high risk of progressive failure if not addressed. Continued deterioration may compromise the performance of the protection system. Immediate remedial action is recommended.';
     case 'Medium':
-      return 'Localised degradation has been observed that requires planned maintenance. The condition should be addressed within an agreed remediation timeframe to prevent escalation.';
+      return 'Localised degradation has been observed that requires planned maintenance. The condition should be addressed within an agreed remediation timeframe to prevent further deterioration and escalation to a higher risk category.';
     case 'Low':
-      return 'A minor defect has been identified. The condition should be monitored and addressed during scheduled maintenance activities.';
+      return 'A minor defect has been identified. The condition should be monitored during routine inspection activities and addressed during scheduled maintenance works.';
     default:
-      return 'Risk level undetermined. Further assessment is recommended.';
+      return 'Risk level undetermined. Further assessment by a qualified inspector is recommended.';
   }
 }

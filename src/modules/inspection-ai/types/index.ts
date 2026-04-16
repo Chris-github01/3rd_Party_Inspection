@@ -7,6 +7,7 @@ export interface AIAnalysisResult {
   severity: Severity;
   observation: string;
   confidence: number;
+  needsReview: boolean;
 }
 
 export interface InspectionAIReport {

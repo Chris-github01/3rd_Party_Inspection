@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Camera,
   Upload,
@@ -23,7 +23,12 @@ import type { CapturedItem, AppPhase, SystemType, ElementType, Severity } from '
 const SYSTEM_TYPES: SystemType[] = ['Intumescent', 'Cementitious', 'Protective Coating', 'Firestopping'];
 const ELEMENT_TYPES: ElementType[] = ['Beam', 'Column', 'Slab', 'Penetration', 'Other'];
 
-function Select<T extends string>({
+const LS_PROJECT_KEY = 'inspection_ai_project_name';
+const LS_INSPECTOR_KEY = 'inspection_ai_inspector_name';
+const LS_SYSTEM_KEY = 'inspection_ai_system_type';
+const LS_ELEMENT_KEY = 'inspection_ai_element_type';
+
+function TagGrid<T extends string>({
   label,
   value,
   options,
@@ -74,17 +79,40 @@ function SeverityBadge({ severity }: { severity: string }) {
 
 export default function InspectionAIPage() {
   const [phase, setPhase] = useState<AppPhase>('setup');
-  const [projectName, setProjectName] = useState('');
-  const [inspectorName, setInspectorName] = useState('');
+  const [projectName, setProjectName] = useState(() => localStorage.getItem(LS_PROJECT_KEY) ?? '');
+  const [inspectorName, setInspectorName] = useState(() => localStorage.getItem(LS_INSPECTOR_KEY) ?? '');
   const [reportId, setReportId] = useState<string | null>(null);
   const [viewingReportId, setViewingReportId] = useState<string | null>(null);
 
   const [items, setItems] = useState<CapturedItem[]>([]);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
+  const [sessionSystemType, setSessionSystemType] = useState<SystemType>(
+    () => (localStorage.getItem(LS_SYSTEM_KEY) as SystemType) ?? 'Intumescent'
+  );
+  const [sessionElement, setSessionElement] = useState<ElementType>(
+    () => (localStorage.getItem(LS_ELEMENT_KEY) as ElementType) ?? 'Beam'
+  );
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [startingSession, setStartingSession] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem(LS_PROJECT_KEY, projectName);
+  }, [projectName]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_INSPECTOR_KEY, inspectorName);
+  }, [inspectorName]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_SYSTEM_KEY, sessionSystemType);
+  }, [sessionSystemType]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_ELEMENT_KEY, sessionElement);
+  }, [sessionElement]);
 
   const handleStartInspection = async () => {
     if (!projectName.trim() || !inspectorName.trim()) return;
@@ -98,26 +126,56 @@ export default function InspectionAIPage() {
     }
   };
 
-  const addImageFromFile = useCallback((file: File) => {
-    const previewUrl = URL.createObjectURL(file);
-    const newItem: CapturedItem = {
-      imageFile: file,
-      imagePreviewUrl: previewUrl,
-      systemType: 'Intumescent',
-      element: 'Beam',
-      analysisResult: null,
-      nonConformance: '',
-      recommendation: '',
-      risk: '',
-      isAnalysing: false,
-      isSaved: false,
-    };
-    setItems((prev) => {
-      const next = [...prev, newItem];
-      setActiveIdx(next.length - 1);
-      return next;
-    });
+  const runAnalysis = useCallback(async (idx: number, systemType: SystemType, element: ElementType, imageFile: File) => {
+    setItems((prev) =>
+      prev.map((item, i) => (i === idx ? { ...item, isAnalysing: true } : item))
+    );
+    try {
+      const result = await analyseImage(imageFile, systemType, element);
+      const nc = generateNonConformance(result.defect_type, element);
+      const rec = generateRecommendation(result.defect_type, systemType);
+      const risk = generateRisk(result.severity as Severity);
+      setItems((prev) =>
+        prev.map((item, i) =>
+          i === idx
+            ? { ...item, analysisResult: result, nonConformance: nc, recommendation: rec, risk, isAnalysing: false }
+            : item
+        )
+      );
+    } catch (err) {
+      console.error('Analysis error:', err);
+      setItems((prev) =>
+        prev.map((item, i) => (i === idx ? { ...item, isAnalysing: false } : item))
+      );
+      alert('Analysis failed. Please check your connection and try again.');
+    }
   }, []);
+
+  const addImageFromFile = useCallback(
+    (file: File) => {
+      const previewUrl = URL.createObjectURL(file);
+      const newItem: CapturedItem = {
+        imageFile: file,
+        imagePreviewUrl: previewUrl,
+        systemType: sessionSystemType,
+        element: sessionElement,
+        analysisResult: null,
+        nonConformance: '',
+        recommendation: '',
+        risk: '',
+        isAnalysing: false,
+        isSaved: false,
+      };
+      setItems((prev) => {
+        const next = [...prev, newItem];
+        const newIdx = next.length - 1;
+        setActiveIdx(newIdx);
+        setTimeout(() => runAnalysis(newIdx, sessionSystemType, sessionElement, file), 0);
+        return next;
+      });
+    },
+    [sessionSystemType, sessionElement, runAnalysis]
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -129,36 +187,16 @@ export default function InspectionAIPage() {
     setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, ...patch } : item)));
   };
 
-  const handleAnalyse = async (idx: number) => {
+  const handleReanalyse = (idx: number) => {
     const item = items[idx];
-    if (!item || item.isAnalysing || !reportId) return;
-
-    updateItem(idx, { isAnalysing: true });
-
-    try {
-      const result = await analyseImage(item.imageFile, item.systemType, item.element);
-      const nc = generateNonConformance(result.defect_type, item.element);
-      const rec = generateRecommendation(result.defect_type, item.systemType);
-      const risk = generateRisk(result.severity as Severity);
-
-      updateItem(idx, {
-        analysisResult: result,
-        nonConformance: nc,
-        recommendation: rec,
-        risk,
-        isAnalysing: false,
-      });
-    } catch (err) {
-      console.error('Analysis error:', err);
-      updateItem(idx, { isAnalysing: false });
-      alert('Analysis failed. Please check your connection and try again.');
-    }
+    if (!item || item.isAnalysing) return;
+    updateItem(idx, { analysisResult: null, nonConformance: '', recommendation: '', risk: '', isSaved: false });
+    runAnalysis(idx, item.systemType, item.element, item.imageFile);
   };
 
   const handleSave = async (idx: number) => {
     const item = items[idx];
     if (!item?.analysisResult || !reportId || item.isSaved) return;
-
     try {
       const imageUrl = await uploadInspectionImage(item.imageFile, reportId);
       const saved = await saveInspectionItem({
@@ -174,7 +212,6 @@ export default function InspectionAIPage() {
         risk: item.risk,
         confidence: item.analysisResult.confidence,
       });
-
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
     } catch (err) {
       console.error('Save error:', err);
@@ -192,12 +229,7 @@ export default function InspectionAIPage() {
   };
 
   if (viewingReportId) {
-    return (
-      <InspectionReportView
-        reportId={viewingReportId}
-        onBack={() => setViewingReportId(null)}
-      />
-    );
+    return <InspectionReportView reportId={viewingReportId} onBack={() => setViewingReportId(null)} />;
   }
 
   if (phase === 'setup') {
@@ -210,7 +242,7 @@ export default function InspectionAIPage() {
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Inspection AI</h1>
             <p className="text-slate-400 text-base leading-relaxed">
-              Capture photos, identify defects with AI, and generate professional inspection reports.
+              Capture photos, classify defects with AI, and generate standards-aligned inspection reports.
             </p>
           </div>
 
@@ -265,6 +297,9 @@ export default function InspectionAIPage() {
     );
   }
 
+  const savedCount = items.filter((i) => i.isSaved).length;
+  const unsavedAnalysed = items.filter((i) => i.analysisResult && !i.isSaved);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
@@ -277,8 +312,8 @@ export default function InspectionAIPage() {
             <span className="font-medium text-sm">Setup</span>
           </button>
           <div className="text-center">
-            <p className="font-bold text-slate-900 text-sm leading-tight">{projectName}</p>
-            <p className="text-xs text-slate-500">{items.length} finding{items.length !== 1 ? 's' : ''} captured</p>
+            <p className="font-bold text-slate-900 text-sm leading-tight truncate max-w-[160px]">{projectName}</p>
+            <p className="text-xs text-slate-500">{items.length} captured · {savedCount} saved</p>
           </div>
           {reportId && (
             <button
@@ -292,7 +327,32 @@ export default function InspectionAIPage() {
         </div>
       </div>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 space-y-5">
+      <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-5 space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
+          <TagGrid
+            label="System Type"
+            value={sessionSystemType}
+            options={SYSTEM_TYPES}
+            onChange={(v) => {
+              setSessionSystemType(v);
+              items.forEach((item, idx) => {
+                if (!item.isSaved) updateItem(idx, { systemType: v });
+              });
+            }}
+          />
+          <TagGrid
+            label="Element"
+            value={sessionElement}
+            options={ELEMENT_TYPES}
+            onChange={(v) => {
+              setSessionElement(v);
+              items.forEach((item, idx) => {
+                if (!item.isSaved) updateItem(idx, { element: v });
+              });
+            }}
+          />
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => cameraInputRef.current?.click()}
@@ -310,27 +370,14 @@ export default function InspectionAIPage() {
           </button>
         </div>
 
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
 
         {items.length === 0 && (
           <div className="text-center py-14 text-slate-400">
             <Camera className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="text-base font-medium">No photos yet</p>
-            <p className="text-sm mt-1">Take a photo or upload an image to begin</p>
+            <p className="text-sm mt-1">Take a photo — analysis starts automatically</p>
           </div>
         )}
 
@@ -341,33 +388,30 @@ export default function InspectionAIPage() {
               activeIdx === idx ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
             }`}
           >
-            <button
-              className="w-full text-left"
-              onClick={() => setActiveIdx(activeIdx === idx ? null : idx)}
-            >
+            <button className="w-full text-left" onClick={() => setActiveIdx(activeIdx === idx ? null : idx)}>
               <div className="flex items-center gap-3 p-4">
                 {item.imagePreviewUrl && (
-                  <img
-                    src={item.imagePreviewUrl}
-                    alt=""
-                    className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-slate-100"
-                  />
+                  <img src={item.imagePreviewUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-slate-100" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <p className="font-semibold text-slate-900 text-sm">Finding {idx + 1}</p>
                     {item.analysisResult && <SeverityBadge severity={item.analysisResult.severity} />}
+                    {item.analysisResult?.needsReview && (
+                      <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Review
+                      </span>
+                    )}
                     {item.isSaved && <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
                     {item.isAnalysing && <Loader2 className="w-4 h-4 text-slate-400 animate-spin flex-shrink-0" />}
                   </div>
                   <p className="text-xs text-slate-500 truncate">
                     {item.systemType} · {item.element}
-                    {item.analysisResult ? ` · ${item.analysisResult.defect_type}` : ''}
+                    {item.analysisResult ? ` · ${item.analysisResult.defect_type}` : item.isAnalysing ? ' · Analysing…' : ' · Pending'}
                   </p>
                 </div>
-                <ChevronRight
-                  className={`w-5 h-5 text-slate-400 flex-shrink-0 transition-transform ${activeIdx === idx ? 'rotate-90' : ''}`}
-                />
+                <ChevronRight className={`w-5 h-5 text-slate-400 flex-shrink-0 transition-transform ${activeIdx === idx ? 'rotate-90' : ''}`} />
               </div>
             </button>
 
@@ -379,86 +423,71 @@ export default function InspectionAIPage() {
                   </div>
                 )}
 
-                <Select
-                  label="System Type"
-                  value={item.systemType}
-                  options={SYSTEM_TYPES}
-                  onChange={(v) => updateItem(idx, { systemType: v })}
-                />
+                {item.isAnalysing && (
+                  <div className="flex items-center justify-center gap-3 py-6 text-slate-500">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <span className="font-medium">Analysing image…</span>
+                  </div>
+                )}
 
-                <Select
-                  label="Element"
-                  value={item.element}
-                  options={ELEMENT_TYPES}
-                  onChange={(v) => updateItem(idx, { element: v })}
-                />
-
-                {!item.analysisResult ? (
+                {!item.isAnalysing && !item.analysisResult && (
                   <button
-                    onClick={() => handleAnalyse(idx)}
-                    disabled={item.isAnalysing}
-                    className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base disabled:opacity-60 hover:bg-red-700 transition-all active:scale-95 shadow-sm"
+                    onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile)}
+                    className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base hover:bg-red-700 transition-all active:scale-95 shadow-sm"
                   >
-                    {item.isAnalysing ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Analysing…
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5" />
-                        Analyse Image
-                      </>
-                    )}
+                    <Zap className="w-5 h-5" />
+                    Analyse Image
                   </button>
-                ) : (
+                )}
+
+                {!item.isAnalysing && item.analysisResult && (
                   <div className="space-y-4">
+                    {item.analysisResult.needsReview && (
+                      <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-semibold text-amber-800">Manual Review Recommended</p>
+                          <p className="text-xs text-amber-700 mt-0.5">
+                            AI confidence is below 70%. Verify the finding before saving to the report.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="bg-slate-50 rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="font-bold text-slate-900 text-sm capitalize">
-                          {item.analysisResult.defect_type}
-                        </p>
+                        <p className="font-bold text-slate-900 text-sm">{item.analysisResult.defect_type}</p>
                         <SeverityBadge severity={item.analysisResult.severity} />
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                          Observation
-                        </p>
-                        <p className="text-sm text-slate-700 leading-relaxed">
-                          {item.analysisResult.observation}
-                        </p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Observation</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{item.analysisResult.observation}</p>
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                          Non-Conformance
-                        </p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Non-Conformance</p>
                         <p className="text-sm text-slate-700 leading-relaxed">{item.nonConformance}</p>
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                          Recommendation
-                        </p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Recommendation</p>
                         <p className="text-sm text-slate-700 leading-relaxed">{item.recommendation}</p>
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                          Risk
-                        </p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Risk</p>
                         <p className="text-sm text-slate-700 leading-relaxed">{item.risk}</p>
                       </div>
 
                       <div>
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                          Confidence: {Math.round(item.analysisResult.confidence)}%
+                          AI Confidence: {Math.round(item.analysisResult.confidence)}%
                         </p>
                         <div className="bg-slate-200 rounded-full h-2 overflow-hidden">
                           <div
                             className={`h-2 rounded-full transition-all ${
-                              item.analysisResult.confidence >= 75
+                              item.analysisResult.confidence >= 70
                                 ? 'bg-emerald-500'
                                 : item.analysisResult.confidence >= 50
                                 ? 'bg-amber-500'
@@ -486,7 +515,7 @@ export default function InspectionAIPage() {
                     )}
 
                     <button
-                      onClick={() => updateItem(idx, { analysisResult: null, nonConformance: '', recommendation: '', risk: '', isSaved: false })}
+                      onClick={() => handleReanalyse(idx)}
                       className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors"
                     >
                       Re-analyse
@@ -506,21 +535,21 @@ export default function InspectionAIPage() {
           </div>
         ))}
 
-        {items.length > 0 && reportId && (
+        {savedCount > 0 && reportId && (
           <button
             onClick={() => setViewingReportId(reportId)}
             className="w-full flex items-center justify-center gap-2.5 bg-white border border-slate-200 text-slate-800 py-4 rounded-2xl font-bold text-base hover:border-slate-400 transition-all active:scale-95 shadow-sm"
           >
             <FileText className="w-5 h-5" />
-            View Report ({items.filter(i => i.isSaved).length} saved)
+            View Report ({savedCount} finding{savedCount !== 1 ? 's' : ''})
           </button>
         )}
 
-        {items.some(i => i.analysisResult && !i.isSaved) && (
+        {unsavedAnalysed.length > 0 && (
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-700">
-              You have unsaved findings. Tap "Save to Report" on each analysed finding before viewing the report.
+              {unsavedAnalysed.length} finding{unsavedAnalysed.length !== 1 ? 's have' : ' has'} not been saved. Tap "Save to Report" before viewing.
             </p>
           </div>
         )}

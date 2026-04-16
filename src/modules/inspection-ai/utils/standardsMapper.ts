@@ -1,45 +1,12 @@
-const STANDARDS_BY_DEFECT: Record<string, string[]> = {
-  delamination: ['AS/NZS 2312.1', 'ISO 4628-5'],
-  cracking: ['AS/NZS 2312.1', 'ISO 4628-4', 'AS 3894.1'],
-  'surface damage': ['AS/NZS 2312.1', 'ISO 4628-1', 'AS 3894.1'],
-  'coating failure': ['AS/NZS 2312.1', 'ISO 4628-1', 'AS 3894.1'],
-  'missing material': ['AS 4072.1', 'AS/NZS 2312.1'],
-  corrosion: ['AS/NZS 2312.1', 'ISO 4628-3', 'AS 3894.1'],
-  'corrosion breakthrough': ['AS/NZS 2312.1', 'ISO 4628-3'],
-  blistering: ['AS/NZS 2312.1', 'ISO 4628-2'],
-  erosion: ['AS/NZS 2312.1', 'ISO 4628-6'],
-  disbondment: ['AS/NZS 2312.1', 'ISO 4628-5', 'AS 3894.1'],
-  default: ['AS/NZS 2312.1', 'ISO 4628', 'AS 3894.1'],
-};
+export function generateNonConformance(defect_type: string, element?: string): string {
+  const isPenetration = element?.toLowerCase() === 'penetration';
 
-const PENETRATION_STANDARDS = ['AS 4072.1', 'AS/NZS 1530.4'];
+  return `The observed condition of ${defect_type.toLowerCase()} represents a visible defect within the coating or passive fire protection system and is not consistent with the expected condition of a properly applied and maintained system.
 
-export function generateNonConformance(
-  defect_type: string,
-  element?: string
-): string {
-  const normalised = defect_type.toLowerCase().trim();
+This assessment is made in general alignment with:
+- AS/NZS 2312.1 (Guide to the Protection of Structural Steel Against Atmospheric Corrosion by the Use of Protective Coatings)
+- AS 3894.1 (Site Inspection of Protective Coatings)
+- ISO 4628 (Paints and Varnishes — Evaluation of Degradation of Coatings)${isPenetration ? '\n- AS 4072.1 (Components for the Protection of Openings in Fire-Resistant Separating Elements)' : ''}
 
-  let applicableStandards = STANDARDS_BY_DEFECT.default;
-  for (const [key, standards] of Object.entries(STANDARDS_BY_DEFECT)) {
-    if (normalised.includes(key)) {
-      applicableStandards = standards;
-      break;
-    }
-  }
-
-  if (element?.toLowerCase() === 'penetration') {
-    applicableStandards = [
-      ...new Set([...applicableStandards, ...PENETRATION_STANDARDS]),
-    ];
-  }
-
-  const standardsList = applicableStandards.join(', ');
-
-  return (
-    `The observed condition of ${defect_type.toLowerCase()} is not consistent with the ` +
-    `expected performance of a coating or passive fire protection system in accordance ` +
-    `with relevant industry standards including ${standardsList}. ` +
-    `The condition requires remediation to restore conformance.`
-  );
+The defect indicates localised breakdown of system integrity requiring remedial attention.`;
 }

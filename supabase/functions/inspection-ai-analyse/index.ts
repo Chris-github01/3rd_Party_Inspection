@@ -6,9 +6,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const VALID_DEFECT_TYPES = [
+  "Delamination",
+  "Cracking",
+  "Mechanical Damage",
+  "Missing Coating",
+  "Corrosion Breakthrough",
+  "Blistering",
+  "Spalling",
+  "Voids",
+  "Incomplete Firestopping",
+];
+
 const SYSTEM_PROMPT = `You are a passive fire protection and protective coatings inspector conducting a visual-only field assessment.
 
 Analyse the provided image and identify ONLY visible, observable non-conforming conditions.
+
+STRICT CLASSIFICATION RULES:
+You MUST classify the defect using ONLY one of the following exact terms (copy exactly as written):
+  - Delamination
+  - Cracking
+  - Mechanical Damage
+  - Missing Coating
+  - Corrosion Breakthrough
+  - Blistering
+  - Spalling
+  - Voids
+  - Incomplete Firestopping
+
+DO NOT invent new defect names or use synonyms. Select the closest match from the list above.
 
 DO NOT assume or infer:
 - coating thickness or dry film thickness
@@ -17,29 +43,30 @@ DO NOT assume or infer:
 - product specifications or brands
 - compliance status beyond what is directly visible
 
-ONLY identify and describe visible conditions such as:
-- surface damage
-- coating failure
-- missing material
-- cracking or fracturing
-- delamination or disbondment
-- corrosion breakthrough or rust staining
-- blistering or bubbling
-- erosion or abrasion wear
+Your observation must describe ONLY what is physically visible in the image.
+Use plain, professional language. Do not reference product brands or proprietary systems.
 
-If the image appears to show no defects or is unclear, report defect_type as "No visible defect identified" with severity "Low" and confidence proportional to image clarity.
+If no defect is visible or the image is unclear, use defect_type "Mechanical Damage" with severity "Low" and confidence below 50.
 
-NEVER mention specific product brands, manufacturers, or proprietary systems.
-NEVER state compliance or non-compliance with specific standards.
-NEVER infer fire ratings or structural capacity.
-
-Respond ONLY with a valid JSON object in this exact format:
+Respond ONLY with a valid JSON object in this exact format with no additional text:
 {
-  "defect_type": "<concise defect type label, e.g. 'Delamination', 'Surface Cracking', 'Corrosion Breakthrough'>",
+  "defect_type": "<one of the nine terms above>",
   "severity": "<exactly one of: Low | Medium | High>",
-  "observation": "<1-3 sentences describing only what is visibly observed in the image>",
-  "confidence": <integer 0-100 reflecting confidence based on image quality and clarity of defect>
+  "observation": "<1-3 sentences describing only what is visibly observed>",
+  "confidence": <integer 0-100>
 }`;
+
+function normaliseDefectType(raw: string): string {
+  const cleaned = raw.trim();
+  const exact = VALID_DEFECT_TYPES.find(
+    (d) => d.toLowerCase() === cleaned.toLowerCase()
+  );
+  if (exact) return exact;
+  const partial = VALID_DEFECT_TYPES.find((d) =>
+    cleaned.toLowerCase().includes(d.toLowerCase())
+  );
+  return partial ?? "Mechanical Damage";
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -56,10 +83,13 @@ Deno.serve(async (req: Request) => {
 
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {
-      return new Response(JSON.stringify({ error: "OpenAI API key not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "OpenAI API key not configured" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     const body = await req.json();
@@ -72,7 +102,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const userPrompt = `Please analyse this image of a ${element ?? "structural element"} with a ${system_type ?? "coating"} system applied. Identify any visible non-conforming conditions.`;
+    const userPrompt = `Analyse this image of a ${element ?? "structural element"} with a ${system_type ?? "coating"} system applied. Classify any visible defect using only the permitted defect types listed in your instructions.`;
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -82,14 +112,11 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        max_tokens: 500,
-        temperature: 0.2,
+        max_tokens: 400,
+        temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
-          {
-            role: "system",
-            content: SYSTEM_PROMPT,
-          },
+          { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
             content: [
@@ -100,10 +127,7 @@ Deno.serve(async (req: Request) => {
                   detail: "high",
                 },
               },
-              {
-                type: "text",
-                text: userPrompt,
-              },
+              { type: "text", text: userPrompt },
             ],
           },
         ],
@@ -144,11 +168,11 @@ Deno.serve(async (req: Request) => {
 
     const validSeverities = ["Low", "Medium", "High"];
     const severity = validSeverities.includes(String(parsed.severity))
-      ? parsed.severity
+      ? String(parsed.severity)
       : "Low";
 
     const result = {
-      defect_type: String(parsed.defect_type ?? "Unknown defect"),
+      defect_type: normaliseDefectType(String(parsed.defect_type ?? "")),
       severity,
       observation: String(parsed.observation ?? ""),
       confidence: Math.max(0, Math.min(100, Number(parsed.confidence ?? 50))),
@@ -160,12 +184,9 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     console.error("Unhandled error:", err);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
