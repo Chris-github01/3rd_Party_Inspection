@@ -818,6 +818,12 @@ export default function InspectionAIPage() {
             _confidenceBoost: brainResult.confidenceBoost,
             _triggeredRules: brainResult.rulebook.triggeredRules,
             _hiddenRisks: brainResult.rulebook.hiddenRisks,
+            _complianceConcernLevel: brainResult.rulebookV2.complianceConcernLevel,
+            _likelyIssueType: brainResult.rulebookV2.likelyIssueType,
+            _standardsNotes: brainResult.rulebookV2.standardsNotes,
+            _manufacturerLogicNotes: brainResult.rulebookV2.manufacturerLogicNotes,
+            _intumescentSystemNotes: brainResult.rulebookV2.intumescentSystemNotes,
+            _complianceRationale: brainResult.rulebookV2.complianceRationale ?? undefined,
           } as AIAnalysisResult & Record<string, unknown>;
         }
 

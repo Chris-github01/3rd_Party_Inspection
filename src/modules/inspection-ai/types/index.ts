@@ -18,6 +18,12 @@ export interface AIAnalysisResult {
   _confidenceBoost?: number;
   _triggeredRules?: Array<{ ruleId: string; ruleName: string; [key: string]: unknown }>;
   _hiddenRisks?: string[];
+  _complianceConcernLevel?: 'Low' | 'Moderate' | 'High';
+  _likelyIssueType?: 'Maintenance' | 'Workmanship' | 'Systemic' | 'Verification';
+  _standardsNotes?: string[];
+  _manufacturerLogicNotes?: string[];
+  _intumescentSystemNotes?: string[];
+  _complianceRationale?: string;
 }
 
 export type ObservedConcern =

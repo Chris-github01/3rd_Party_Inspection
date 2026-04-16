@@ -1,6 +1,8 @@
 import { runRulebook } from './inspectionRulebook';
+import { runRulebookV2 } from './inspectionRulebookV2';
 import type { AIAnalysisResult, CaptureIntakeContext, Severity } from '../types';
 import type { RulebookResult } from './inspectionRulebook';
+import type { V2RulebookResult } from './inspectionRulebookV2';
 
 export interface BrainResult {
   defect_type: string;
@@ -14,6 +16,7 @@ export interface BrainResult {
   escalation_reason: string;
   remediation_guidance: string;
   rulebook: RulebookResult;
+  rulebookV2: V2RulebookResult;
   brainMode: 'ai-only' | 'rules-only' | 'ai-rules-agree' | 'ai-rules-conflict';
   confidenceBoost: number;
 }
@@ -53,6 +56,7 @@ export function applyInspectionBrain(
   };
 
   const rulebook = runRulebook(rulebookInput);
+  const rulebookV2 = runRulebookV2(rulebookInput);
   const hasRules = rulebook.triggeredRules.length > 0;
 
   if (!hasRules) {
@@ -68,6 +72,7 @@ export function applyInspectionBrain(
       escalation_reason: aiResult.escalation_reason ?? '',
       remediation_guidance: aiResult.remediation_guidance ?? '',
       rulebook,
+      rulebookV2,
       brainMode: 'ai-only',
       confidenceBoost: 0,
     };
@@ -96,6 +101,9 @@ export function applyInspectionBrain(
   else if (!defectsAgree && severitiesAgree) confidenceBoost = -5;
   else confidenceBoost = -10;
 
+  if (rulebookV2.complianceConcernLevel === 'High' && !fullAgreement) confidenceBoost -= 3;
+  if (rulebookV2.likelyIssueType === 'Systemic') confidenceBoost -= 2;
+
   const finalConfidence = Math.max(10, Math.min(99, aiResult.confidence + confidenceBoost));
 
   const finalSeverity: Severity = resolvedSeverity(
@@ -108,7 +116,7 @@ export function applyInspectionBrain(
       : 'none'
   );
 
-  const finalEscalate = aiEscalate || ruleEscalate;
+  const finalEscalate = aiEscalate || ruleEscalate || rulebookV2.complianceConcernLevel === 'High';
 
   const mergedNextChecks = Array.from(
     new Set([...(aiResult.next_checks ?? []), ...rulebook.nextChecks])
@@ -119,6 +127,9 @@ export function applyInspectionBrain(
   if (ruleEscalate && rulebook.triggeredRules.some((r) => r.escalate)) {
     const escalateRule = rulebook.triggeredRules.find((r) => r.escalate);
     if (escalateRule) escalationParts.push(escalateRule.ruleName);
+  }
+  if (rulebookV2.complianceConcernLevel === 'High' && rulebookV2.complianceRationale) {
+    escalationParts.push('Compliance concern: ' + rulebookV2.likelyIssueType);
   }
 
   return {
@@ -133,6 +144,7 @@ export function applyInspectionBrain(
     escalation_reason: escalationParts.join(' · '),
     remediation_guidance: aiResult.remediation_guidance || rulebook.remediationGuidance || '',
     rulebook,
+    rulebookV2,
     brainMode,
     confidenceBoost,
   };

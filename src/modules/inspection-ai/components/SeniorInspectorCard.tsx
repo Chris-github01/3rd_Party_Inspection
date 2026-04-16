@@ -91,7 +91,14 @@ export function SeniorInspectorCard({
   const confidenceBoost = result._confidenceBoost ?? 0;
   const triggeredRules = result._triggeredRules ?? [];
   const hiddenRisks = result._hiddenRisks ?? [];
+  const complianceConcernLevel = result._complianceConcernLevel;
+  const likelyIssueType = result._likelyIssueType;
+  const standardsNotes = result._standardsNotes ?? [];
+  const manufacturerLogicNotes = result._manufacturerLogicNotes ?? [];
+  const intumescentSystemNotes = result._intumescentSystemNotes ?? [];
+  const complianceRationale = result._complianceRationale;
   const [showRules, setShowRules] = useState(false);
+  const [showStandards, setShowStandards] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -204,6 +211,99 @@ export function SeniorInspectorCard({
                     <span className="text-xs text-slate-700">{String(rule.ruleName)}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {(complianceConcernLevel || likelyIssueType) && (
+              <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                {complianceConcernLevel && (
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                    complianceConcernLevel === 'High'
+                      ? 'bg-red-50 text-red-700 border-red-200'
+                      : complianceConcernLevel === 'Moderate'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-slate-50 text-slate-600 border-slate-200'
+                  }`}>
+                    {complianceConcernLevel === 'High' && <ShieldAlert className="w-3 h-3" />}
+                    {complianceConcernLevel === 'Moderate' && <AlertTriangle className="w-3 h-3" />}
+                    {complianceConcernLevel === 'Low' && <ShieldCheck className="w-3 h-3" />}
+                    {complianceConcernLevel} concern
+                  </span>
+                )}
+                {likelyIssueType && (
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                    likelyIssueType === 'Systemic'
+                      ? 'bg-red-50 text-red-700 border-red-200'
+                      : likelyIssueType === 'Workmanship'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : likelyIssueType === 'Verification'
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-slate-50 text-slate-600 border-slate-200'
+                  }`}>
+                    {likelyIssueType}
+                  </span>
+                )}
+                {(standardsNotes.length > 0 || manufacturerLogicNotes.length > 0 || intumescentSystemNotes.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowStandards((v) => !v)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full transition-colors"
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    Standards
+                    {showStandards ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {showStandards && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl divide-y divide-slate-100 mt-1">
+                {complianceRationale && (
+                  <div className="px-3 py-2.5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Assessment</p>
+                    <p className="text-xs text-slate-700 leading-relaxed">{complianceRationale}</p>
+                  </div>
+                )}
+                {standardsNotes.length > 0 && (
+                  <div className="px-3 py-2.5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Standards Reference</p>
+                    <ul className="space-y-1.5">
+                      {standardsNotes.map((note, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 flex-shrink-0 mt-1.5" />
+                          {note}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {manufacturerLogicNotes.length > 0 && (
+                  <div className="px-3 py-2.5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Product Logic</p>
+                    <ul className="space-y-1.5">
+                      {manufacturerLogicNotes.map((note, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 flex-shrink-0 mt-1.5" />
+                          {note}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {intumescentSystemNotes.length > 0 && (
+                  <div className="px-3 py-2.5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Intumescent System Notes</p>
+                    <ul className="space-y-1.5">
+                      {intumescentSystemNotes.map((note, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 flex-shrink-0 mt-1.5" />
+                          {note}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
