@@ -15,9 +15,10 @@ import {
   DollarSign,
   Info,
   FileText,
+  Flame,
 } from 'lucide-react';
 import { fetchReport, fetchReportItems } from '../services/storageService';
-import type { InspectionAIReport, InspectionAIItem } from '../types';
+import type { InspectionAIReport, InspectionAIItem, InspectionAIPin } from '../types';
 import { generatePDF, generateVariationPDF } from '../utils/pdfGenerator';
 import { CONFIDENCE_REVIEW_THRESHOLD } from '../services/inspectionAIService';
 import { generateCommercialSummary } from '../utils/summaryEngine';
@@ -27,6 +28,9 @@ import { estimateCost, estimateTotalCost, COST_DISCLAIMER } from '../utils/costE
 import { forecastRisk, getForecastColour } from '../utils/forecastEngine';
 import { InspectionDashboard } from './InspectionDashboard';
 import { VariationPanel } from './VariationPanel';
+import { ZoneVariationPanel } from './ZoneVariationPanel';
+import { fetchAllPinsForProject } from '../services/spatialService';
+import { clusterPins } from '../utils/clusterEngine';
 
 type ReportMode = 'client' | 'internal';
 
@@ -430,11 +434,12 @@ function ModeSwitcher({ mode, onChange }: { mode: ReportMode; onChange: (m: Repo
   );
 }
 
-type ReportTab = 'findings' | 'dashboard' | 'variation';
+type ReportTab = 'findings' | 'dashboard' | 'variation' | 'zones';
 
 export function InspectionReportView({ reportId, onBack }: Props) {
   const [report, setReport] = useState<InspectionAIReport | null>(null);
   const [items, setItems] = useState<InspectionAIItem[]>([]);
+  const [pins, setPins] = useState<InspectionAIPin[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [variationExporting, setVariationExporting] = useState(false);
@@ -447,11 +452,21 @@ export function InspectionReportView({ reportId, onBack }: Props) {
         const [r, i] = await Promise.all([fetchReport(reportId), fetchReportItems(reportId)]);
         setReport(r);
         setItems(i);
+        if (r?.project_id) {
+          try {
+            const p = await fetchAllPinsForProject(r.project_id);
+            setPins(p);
+          } catch {
+            // pins are optional
+          }
+        }
       } finally {
         setLoading(false);
       }
     })();
   }, [reportId]);
+
+  const clusters = clusterPins(pins);
 
   const handleExport = async () => {
     if (!report) return;
@@ -534,6 +549,16 @@ export function InspectionReportView({ reportId, onBack }: Props) {
               <FileText className="w-3.5 h-3.5" />
               Variation
             </button>
+            <button
+              onClick={() => setTab('zones')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === 'zones' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+            >
+              <Flame className="w-3.5 h-3.5" />
+              Zones
+              {clusters.filter((c) => c.dominantSeverity === 'High' && c.pins.length >= 2).length > 0 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-0.5" />
+              )}
+            </button>
           </div>
         )}
       </div>
@@ -578,7 +603,12 @@ export function InspectionReportView({ reportId, onBack }: Props) {
             mode={mode}
             onExport={handleVariationExport}
             exporting={variationExporting}
+            spatialClusters={clusters}
           />
+        )}
+
+        {mode === 'internal' && tab === 'zones' && (
+          <ZoneVariationPanel clusters={clusters} />
         )}
 
         {tab === 'findings' && (

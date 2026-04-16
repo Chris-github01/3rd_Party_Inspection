@@ -15,11 +15,13 @@ import {
   Eye,
   EyeOff,
   Info,
+  Download,
 } from 'lucide-react';
 import { fetchPins, createPin, deletePin } from '../../services/spatialService';
 import type { InspectionAIDrawing, InspectionAIPin } from '../../types';
 import { clusterPins } from '../../utils/clusterEngine';
 import { HeatmapCanvas, ClusterOverlay, HeatmapLegend } from './HeatmapOverlay';
+import { exportDrawingSnapshot } from '../../utils/drawingExporter';
 
 // ─── Severity colours ─────────────────────────
 const SEVERITY_COLOUR: Record<string, string> = {
@@ -279,6 +281,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
 
   const clusters = clusterPins(pins);
   const highClusters = clusters.filter((c) => c.dominantSeverity === 'High' && c.pins.length >= 2);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchPins(drawing.id)
@@ -542,7 +545,26 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
               </span>
             )}
           </div>
-          <span className="text-xs text-slate-500">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
+            {pins.length > 0 && (
+              <button
+                onClick={async () => {
+                  setExporting(true);
+                  try {
+                    await exportDrawingSnapshot(drawing, pins, clusters, 'both');
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+                disabled={exporting}
+                className="flex items-center gap-1 text-xs font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 border border-slate-600 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                {exporting ? 'Exporting…' : 'Export'}
+              </button>
+            )}
+          </div>
         </div>
 
         {!reportId && pins.length > 0 && (

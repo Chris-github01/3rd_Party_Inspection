@@ -170,3 +170,22 @@ export async function deletePin(pinId: string): Promise<void> {
     .eq('id', pinId);
   if (error) throw new Error(error.message);
 }
+
+export async function fetchAllPinsForProject(projectId: string): Promise<InspectionAIPin[]> {
+  const { data, error } = await supabase
+    .from('inspection_ai_pins')
+    .select(`
+      *,
+      inspection_ai_drawings!inner(
+        id,
+        inspection_ai_levels!inner(
+          id,
+          inspection_ai_blocks!inner(project_id)
+        )
+      )
+    `)
+    .eq('inspection_ai_drawings.inspection_ai_levels.inspection_ai_blocks.project_id', projectId);
+
+  if (error) throw new Error(error.message);
+  return (data || []) as InspectionAIPin[];
+}
