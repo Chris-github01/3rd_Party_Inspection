@@ -10,7 +10,7 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const CONFIDENCE_REVIEW_THRESHOLD = 70;
 
-const RETRY_DELAYS_MS = [8000];
+const RETRY_DELAYS_MS = [30000, 60000, 90000];
 
 const HIGH_OVERRIDE_RATE_THRESHOLD = 40;
 let overrideRateCache: Map<string, number> | null = null;
@@ -225,8 +225,11 @@ export async function analyseImage(
 
       console.warn(`[AI] Request ${requestId} failed (attempt ${attempt + 1}) | source=${source}`);
 
-      if (err instanceof AIUnavailableError && err.reason === 'rate_limit' && attempt < RETRY_DELAYS_MS.length) {
+      const isRetryable = err instanceof AIUnavailableError &&
+        (err.reason === 'rate_limit' || err.reason === 'network_error');
+      if (isRetryable && attempt < RETRY_DELAYS_MS.length) {
         const delayMs = RETRY_DELAYS_MS[attempt];
+        console.warn(`[AI] Retrying in ${delayMs / 1000}s (attempt ${attempt + 2}/${RETRY_DELAYS_MS.length + 1})`);
         onRetry?.(attempt + 1, delayMs);
         await sleep(delayMs);
         continue;

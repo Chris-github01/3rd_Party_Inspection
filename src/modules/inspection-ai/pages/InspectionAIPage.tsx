@@ -24,6 +24,7 @@ import {
   Brain,
 } from 'lucide-react';
 import { analyseImage, AIUnavailableError, type AnalyseImageResult } from '../services/inspectionAIService';
+import { getClients, getProjects, type BridgeProject, type BridgeClient } from '../services/projectBridge';
 import {
   uploadInspectionImage,
   createReport,
@@ -37,7 +38,7 @@ import { generateNonConformance } from '../utils/standardsMapper';
 import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
 import { DEFECT_TYPES } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
-import { enqueue, isQueueBusy, queueLength, queueDepth, addQueueListener } from '../utils/analysisQueue';
+import { enqueue, isQueueBusy, queueLength, queueDepth, addQueueListener, isQueuePaused, queuePausedForMs } from '../utils/analysisQueue';
 import { applyInspectionBrain } from '../utils/inspectionBrain';
 import { InspectionReportView } from '../components/InspectionReportView';
 import { EvidencePhotosPanel } from '../components/EvidencePhotosPanel';
@@ -334,6 +335,14 @@ function NewProjectModal({
   const [siteLocation, setSiteLocation] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [existingClients, setExistingClients] = useState<BridgeClient[]>([]);
+  const [existingProjects, setExistingProjects] = useState<BridgeProject[]>([]);
+  const [showClientPicker, setShowClientPicker] = useState(false);
+
+  useEffect(() => {
+    getClients().then(setExistingClients);
+    getProjects().then(setExistingProjects);
+  }, []);
 
   const handleCreate = async () => {
     if (!projectName.trim()) return;
@@ -371,13 +380,39 @@ function NewProjectModal({
               className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder-slate-300" />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Client Name</label>
-            <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)}
-                placeholder="e.g. Naylor Love Construction"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder-slate-300" />
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Client Name</label>
+              {existingClients.length > 0 && (
+                <button type="button" onClick={() => setShowClientPicker((v) => !v)}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">
+                  {showClientPicker ? 'Type manually' : `Pick from ${existingClients.length} existing`}
+                </button>
+              )}
             </div>
+            {showClientPicker && existingClients.length > 0 ? (
+              <div className="grid grid-cols-1 gap-1.5 max-h-36 overflow-y-auto">
+                {existingClients.map((c) => (
+                  <button key={c.id} type="button"
+                    onClick={() => { setClientName(c.name); setShowClientPicker(false); }}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left text-sm font-medium transition-colors ${clientName === c.name ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 hover:border-slate-400 text-slate-800'}`}>
+                    <Building2 className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)}
+                  placeholder="e.g. Naylor Love Construction"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 placeholder-slate-300" />
+              </div>
+            )}
+            {!showClientPicker && existingProjects.filter((p) => p.client_name === clientName && clientName).length > 0 && (
+              <p className="text-xs text-slate-400">
+                {existingProjects.filter((p) => p.client_name === clientName).length} existing project{existingProjects.filter((p) => p.client_name === clientName).length > 1 ? 's' : ''} for this client
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Site Location</label>
@@ -1302,20 +1337,27 @@ export default function InspectionAIPage() {
         const failedCount = items.filter((i) => i.analysisStatus === 'failed').length;
         const doneCount = items.filter((i) => i.analysisStatus === 'done' || i.analysisStatus === 'manual').length;
         const totalActive = pendingCount + analysingCount + liveQueueDepth;
+        const rateLimitPaused = isQueuePaused();
+        const pauseSecs = Math.ceil(queuePausedForMs() / 1000);
 
-        if (totalActive > 0 || failedCount > 0) {
+        if (rateLimitPaused || totalActive > 0 || failedCount > 0) {
+          const isPauseOnly = rateLimitPaused && analysingCount === 0;
           return (
-            <div className={`border-b px-4 py-2.5 max-w-2xl mx-auto w-full ${analysingCount > 0 ? 'bg-sky-50 border-sky-100' : failedCount > 0 && pendingCount === 0 ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
+            <div className={`border-b px-4 py-2.5 max-w-2xl mx-auto w-full ${isPauseOnly ? 'bg-orange-50 border-orange-100' : analysingCount > 0 ? 'bg-sky-50 border-sky-100' : failedCount > 0 && pendingCount === 0 ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
               <div className="flex items-center gap-2">
-                {analysingCount > 0 ? (
+                {isPauseOnly ? (
+                  <Clock className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                ) : analysingCount > 0 ? (
                   <Loader2 className="w-3.5 h-3.5 text-sky-500 animate-spin flex-shrink-0" />
                 ) : pendingCount > 0 ? (
                   <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
                 ) : (
                   <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
                 )}
-                <p className={`text-xs font-semibold ${analysingCount > 0 ? 'text-sky-700' : failedCount > 0 && pendingCount === 0 ? 'text-red-700' : 'text-amber-700'}`}>
-                  {analysingCount > 0
+                <p className={`text-xs font-semibold ${isPauseOnly ? 'text-orange-700' : analysingCount > 0 ? 'text-sky-700' : failedCount > 0 && pendingCount === 0 ? 'text-red-700' : 'text-amber-700'}`}>
+                  {isPauseOnly
+                    ? `Rate limit reached — resuming in ${pauseSecs}s`
+                    : analysingCount > 0
                     ? `Analysing — 1 of ${pendingCount + analysingCount} photos`
                     : pendingCount > 0
                     ? `${pendingCount} photo${pendingCount > 1 ? 's' : ''} queued — AI will process shortly`
