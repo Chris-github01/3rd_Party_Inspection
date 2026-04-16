@@ -153,6 +153,11 @@ export async function createQuote(quote: Partial<Quote>, lineItems: Partial<Quot
       subtotal,
       gst_amount: gstAmount,
       total,
+      cost_inputs: quote.cost_inputs ?? null,
+      internal_cost: quote.internal_cost ?? null,
+      gross_margin: quote.gross_margin ?? null,
+      gross_margin_pct: quote.gross_margin_pct ?? null,
+      template_type: quote.template_type ?? null,
     })
     .select()
     .single();

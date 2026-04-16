@@ -65,6 +65,11 @@ export interface Quote {
   sent_at: string | null;
   accepted_at: string | null;
   declined_at: string | null;
+  cost_inputs: Record<string, unknown> | null;
+  internal_cost: number | null;
+  gross_margin: number | null;
+  gross_margin_pct: number | null;
+  template_type: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
