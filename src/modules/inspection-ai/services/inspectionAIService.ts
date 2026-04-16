@@ -1,12 +1,21 @@
 import type { AIAnalysisResult } from '../types';
 import { normaliseDefectType } from '../utils/defectDictionary';
+import { getObservationTemplate } from '../utils/observationTemplates';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/inspection-ai-analyse`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const CONFIDENCE_REVIEW_THRESHOLD = 70;
 
-export async function analyseImage(
+const FALLBACK_RESULT: AIAnalysisResult = {
+  defect_type: 'Mechanical Damage',
+  severity: 'Medium',
+  observation: getObservationTemplate('Mechanical Damage'),
+  confidence: 0,
+  needsReview: true,
+};
+
+async function attemptAnalyse(
   imageFile: File,
   systemType: string,
   element: string
@@ -29,6 +38,10 @@ export async function analyseImage(
     }),
   });
 
+  if (response.status === 429) {
+    throw Object.assign(new Error('Rate limited'), { isRateLimit: true });
+  }
+
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Analysis failed: ${response.status} — ${text}`);
@@ -49,6 +62,35 @@ export async function analyseImage(
     confidence,
     needsReview: confidence < CONFIDENCE_REVIEW_THRESHOLD,
   };
+}
+
+export async function analyseImage(
+  imageFile: File,
+  systemType: string,
+  element: string,
+  onRetry?: () => void
+): Promise<AIAnalysisResult> {
+  try {
+    return await attemptAnalyse(imageFile, systemType, element);
+  } catch (firstErr) {
+    const isRateLimit = (firstErr as { isRateLimit?: boolean }).isRateLimit;
+
+    if (isRateLimit) {
+      onRetry?.();
+      await sleep(3000);
+      try {
+        return await attemptAnalyse(imageFile, systemType, element);
+      } catch {
+        return { ...FALLBACK_RESULT };
+      }
+    }
+
+    return { ...FALLBACK_RESULT };
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 function fileToBase64(file: File): Promise<string> {

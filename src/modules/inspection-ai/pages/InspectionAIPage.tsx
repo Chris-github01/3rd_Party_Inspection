@@ -15,6 +15,8 @@ import {
   MapPin,
   Pencil,
   X,
+  Clock,
+  WifiOff,
 } from 'lucide-react';
 import { analyseImage } from '../services/inspectionAIService';
 import { uploadInspectionImage, createReport, saveInspectionItem } from '../services/storageService';
@@ -22,8 +24,9 @@ import { generateNonConformance } from '../utils/standardsMapper';
 import { generateRecommendation, generateRisk } from '../utils/reportGenerator';
 import { DEFECT_TYPES } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
+import { enqueue, isQueueBusy, queueLength } from '../utils/analysisQueue';
 import { InspectionReportView } from '../components/InspectionReportView';
-import type { CapturedItem, AppPhase, SystemType, ElementType, Severity, Extent } from '../types';
+import type { CapturedItem, AppPhase, SystemType, ElementType, Severity, Extent, AnalysisStatus } from '../types';
 
 const SYSTEM_TYPES: SystemType[] = ['Intumescent', 'Cementitious', 'Protective Coating', 'Firestopping'];
 const ELEMENT_TYPES: ElementType[] = ['Beam', 'Column', 'Slab', 'Penetration', 'Other'];
@@ -34,6 +37,24 @@ const LS_PROJECT_KEY = 'inspection_ai_project_name';
 const LS_INSPECTOR_KEY = 'inspection_ai_inspector_name';
 const LS_SYSTEM_KEY = 'inspection_ai_system_type';
 const LS_ELEMENT_KEY = 'inspection_ai_element_type';
+
+function AnalysisStatusBadge({ status }: { status: AnalysisStatus }) {
+  const map: Record<AnalysisStatus, { label: string; className: string; icon: React.ReactNode }> = {
+    idle: { label: 'Pending', className: 'bg-slate-100 text-slate-500 border-slate-200', icon: null },
+    queued: { label: 'Queued…', className: 'bg-sky-50 text-sky-600 border-sky-200', icon: <Clock className="w-3 h-3" /> },
+    analysing: { label: 'Analysing…', className: 'bg-blue-50 text-blue-600 border-blue-200', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
+    retrying: { label: 'Retrying…', className: 'bg-amber-50 text-amber-600 border-amber-200', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
+    done: { label: 'Done', className: 'bg-emerald-50 text-emerald-600 border-emerald-200', icon: <CheckCircle className="w-3 h-3" /> },
+    manual: { label: 'Manual mode', className: 'bg-orange-50 text-orange-600 border-orange-200', icon: <WifiOff className="w-3 h-3" /> },
+  };
+  const { label, className, icon } = map[status];
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${className}`}>
+      {icon}
+      {label}
+    </span>
+  );
+}
 
 function TagGrid<T extends string>({
   label,
@@ -53,7 +74,7 @@ function TagGrid<T extends string>({
       <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
         {label}
       </label>
-      <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
         {options.map((opt) => (
           <button
             key={opt}
@@ -166,20 +187,20 @@ function InspectorOverridePanel({
   onUpdate: (patch: Partial<CapturedItem>) => void;
   onClose: () => void;
 }) {
-  const [defectType, setDefectType] = useState(item.defectTypeOverride ?? item.analysisResult?.defect_type ?? '');
+  const [defectType, setDefectType] = useState(
+    item.defectTypeOverride ?? item.analysisResult?.defect_type ?? DEFECT_TYPES[0]
+  );
   const [severity, setSeverity] = useState<Severity>(
-    (item.severityOverride as Severity) ?? (item.analysisResult?.severity ?? 'Low')
+    (item.severityOverride as Severity) ?? (item.analysisResult?.severity as Severity) ?? 'Medium'
   );
   const [observation, setObservation] = useState(
-    item.observationOverride ?? item.analysisResult?.observation ?? ''
+    item.observationOverride ?? item.analysisResult?.observation ?? getObservationTemplate(DEFECT_TYPES[0])
   );
 
   const handleDefectTypeChange = (newDefect: string) => {
     setDefectType(newDefect);
     const template = getObservationTemplate(newDefect);
-    if (template && observation === (item.observationOverride ?? item.analysisResult?.observation ?? '')) {
-      setObservation(template);
-    }
+    if (template) setObservation(template);
   };
 
   const handleApplyTemplate = () => {
@@ -189,20 +210,26 @@ function InspectorOverridePanel({
 
   const handleApply = () => {
     const aiDefect = item.analysisResult?.defect_type ?? '';
-    const aiSeverity = item.analysisResult?.severity ?? 'Low';
+    const aiSeverity = item.analysisResult?.severity ?? 'Medium';
     const aiObs = item.analysisResult?.observation ?? '';
     const hasChange = defectType !== aiDefect || severity !== aiSeverity || observation !== aiObs;
     onUpdate({
-      defectTypeOverride: defectType !== aiDefect ? defectType : null,
-      severityOverride: severity !== aiSeverity ? severity : null,
-      observationOverride: observation !== aiObs ? observation : null,
+      defectTypeOverride: defectType,
+      severityOverride: severity,
+      observationOverride: observation,
       inspectorOverride: hasChange,
+      analysisStatus: 'done',
     });
     onClose();
   };
 
   const handleClear = () => {
-    onUpdate({ defectTypeOverride: null, severityOverride: null, observationOverride: null, inspectorOverride: false });
+    onUpdate({
+      defectTypeOverride: null,
+      severityOverride: null,
+      observationOverride: null,
+      inspectorOverride: false,
+    });
     onClose();
   };
 
@@ -269,7 +296,7 @@ function InspectorOverridePanel({
               <button
                 type="button"
                 onClick={handleApplyTemplate}
-                className="text-xs text-blue-600 font-semibold hover:text-blue-800 transition-colors flex items-center gap-1"
+                className="text-xs text-blue-600 font-semibold hover:text-blue-800 transition-colors"
               >
                 Use template
               </button>
@@ -305,6 +332,36 @@ function InspectorOverridePanel({
       </div>
     </div>
   );
+}
+
+function makeBlankItem(
+  file: File,
+  previewUrl: string,
+  systemType: SystemType,
+  element: ElementType
+): CapturedItem {
+  return {
+    imageFile: file,
+    imagePreviewUrl: previewUrl,
+    annotatedImageUrl: null,
+    systemType,
+    element,
+    locationLevel: '',
+    locationGrid: '',
+    locationDescription: '',
+    extent: 'Localised',
+    analysisResult: null,
+    nonConformance: '',
+    recommendation: '',
+    risk: '',
+    defectTypeOverride: null,
+    severityOverride: null,
+    observationOverride: null,
+    inspectorOverride: false,
+    analysisStatus: 'idle',
+    isAnalysing: false,
+    isSaved: false,
+  };
 }
 
 export default function InspectionAIPage() {
@@ -346,80 +403,91 @@ export default function InspectionAIPage() {
     }
   };
 
-  const runAnalysis = useCallback(async (
-    idx: number,
-    systemType: SystemType,
-    element: ElementType,
-    imageFile: File
-  ) => {
-    setItems((prev) => prev.map((item, i) => i === idx ? { ...item, isAnalysing: true } : item));
-    try {
-      const result = await analyseImage(imageFile, systemType, element);
-      const nc = generateNonConformance(result.defect_type, element);
-      const rec = generateRecommendation(result.defect_type, systemType);
-      const risk = generateRisk(result.severity as Severity);
-      setItems((prev) =>
-        prev.map((item, i) =>
-          i === idx
-            ? { ...item, analysisResult: result, nonConformance: nc, recommendation: rec, risk, isAnalysing: false }
-            : item
-        )
-      );
-    } catch (err) {
-      console.error('Analysis error:', err);
-      setItems((prev) => prev.map((item, i) => i === idx ? { ...item, isAnalysing: false } : item));
-      alert('Analysis failed. Please check your connection and try again.');
-    }
+  const setItemStatus = useCallback((idx: number, status: AnalysisStatus) => {
+    setItems((prev) =>
+      prev.map((item, i) =>
+        i === idx
+          ? { ...item, analysisStatus: status, isAnalysing: status === 'analysing' || status === 'retrying' || status === 'queued' }
+          : item
+      )
+    );
   }, []);
 
+  const runAnalysis = useCallback(
+    async (idx: number, systemType: SystemType, element: ElementType, imageFile: File) => {
+      const alreadyBusy = isQueueBusy() || queueLength() > 0;
+      setItemStatus(idx, alreadyBusy ? 'queued' : 'analysing');
+
+      await enqueue(async () => {
+        setItemStatus(idx, 'analysing');
+
+        const result = await analyseImage(
+          imageFile,
+          systemType,
+          element,
+          () => setItemStatus(idx, 'retrying')
+        );
+
+        const isManual = result.confidence === 0;
+        const nc = generateNonConformance(result.defect_type, element);
+        const rec = generateRecommendation(result.defect_type, systemType);
+        const risk = generateRisk(result.severity as Severity);
+
+        setItems((prev) =>
+          prev.map((item, i) => {
+            if (i !== idx) return item;
+            return {
+              ...item,
+              analysisResult: result,
+              nonConformance: nc,
+              recommendation: rec,
+              risk,
+              analysisStatus: isManual ? 'manual' : 'done',
+              isAnalysing: false,
+            };
+          })
+        );
+
+        if (isManual) {
+          setActiveIdx(idx);
+          setOverrideIdx(idx);
+        }
+      });
+    },
+    [setItemStatus]
+  );
+
   const addImageFromFile = useCallback(
-    (file: File) => {
+    (file: File, analyseLater = false) => {
       const previewUrl = URL.createObjectURL(file);
-      const newItem: CapturedItem = {
-        imageFile: file,
-        imagePreviewUrl: previewUrl,
-        annotatedImageUrl: null,
-        systemType: sessionSystemType,
-        element: sessionElement,
-        locationLevel: '',
-        locationGrid: '',
-        locationDescription: '',
-        extent: 'Localised',
-        analysisResult: null,
-        nonConformance: '',
-        recommendation: '',
-        risk: '',
-        defectTypeOverride: null,
-        severityOverride: null,
-        observationOverride: null,
-        inspectorOverride: false,
-        isAnalysing: false,
-        isSaved: false,
-      };
+      const newItem = makeBlankItem(file, previewUrl, sessionSystemType, sessionElement);
+
       setItems((prev) => {
         const next = [...prev, newItem];
         const newIdx = next.length - 1;
         setActiveIdx(newIdx);
-        setTimeout(() => runAnalysis(newIdx, sessionSystemType, sessionElement, file), 0);
+        if (!analyseLater) {
+          setTimeout(() => runAnalysis(newIdx, sessionSystemType, sessionElement, file), 0);
+        }
         return next;
       });
     },
     [sessionSystemType, sessionElement, runAnalysis]
   );
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, analyseLater = false) => {
     const file = e.target.files?.[0];
-    if (file) addImageFromFile(file);
+    if (file) addImageFromFile(file, analyseLater);
     e.target.value = '';
   };
 
-  const updateItem = (idx: number, patch: Partial<CapturedItem>) => {
+  const updateItem = useCallback((idx: number, patch: Partial<CapturedItem>) => {
     setItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
-  };
+  }, []);
 
   const handleReanalyse = (idx: number) => {
     const item = items[idx];
-    if (!item || item.isAnalysing) return;
+    if (!item || item.isAnalysing || item.analysisStatus === 'queued') return;
     updateItem(idx, {
       analysisResult: null,
       nonConformance: '',
@@ -429,6 +497,7 @@ export default function InspectionAIPage() {
       severityOverride: null,
       observationOverride: null,
       inspectorOverride: false,
+      analysisStatus: 'idle',
       isSaved: false,
     });
     runAnalysis(idx, item.systemType, item.element, item.imageFile);
@@ -436,11 +505,11 @@ export default function InspectionAIPage() {
 
   const handleSave = async (idx: number) => {
     const item = items[idx];
-    if (!item?.analysisResult || !reportId || item.isSaved) return;
+    if (!reportId || item.isSaved) return;
 
-    const effectiveDefect = item.defectTypeOverride ?? item.analysisResult.defect_type;
-    const effectiveSeverity = item.severityOverride ?? item.analysisResult.severity;
-    const effectiveObservation = item.observationOverride ?? item.analysisResult.observation;
+    const effectiveDefect = item.defectTypeOverride ?? item.analysisResult?.defect_type ?? 'Mechanical Damage';
+    const effectiveSeverity = item.severityOverride ?? item.analysisResult?.severity ?? 'Medium';
+    const effectiveObservation = item.observationOverride ?? item.analysisResult?.observation ?? getObservationTemplate('Mechanical Damage');
 
     const nc = generateNonConformance(effectiveDefect, item.element);
     const rec = generateRecommendation(effectiveDefect, item.systemType);
@@ -459,7 +528,7 @@ export default function InspectionAIPage() {
         non_conformance: nc,
         recommendation: rec,
         risk,
-        confidence: item.analysisResult.confidence,
+        confidence: item.analysisResult?.confidence ?? 0,
         location_level: item.locationLevel,
         location_grid: item.locationGrid,
         location_description: item.locationDescription,
@@ -473,7 +542,6 @@ export default function InspectionAIPage() {
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
     } catch (err) {
       console.error('Save error:', err);
-      alert('Failed to save finding. Please try again.');
     }
   };
 
@@ -547,7 +615,8 @@ export default function InspectionAIPage() {
   }
 
   const savedCount = items.filter((i) => i.isSaved).length;
-  const unsavedAnalysed = items.filter((i) => i.analysisResult && !i.isSaved);
+  const unsavedWithResult = items.filter((i) => (i.analysisResult || i.inspectorOverride) && !i.isSaved);
+  const queuedCount = items.filter((i) => i.analysisStatus === 'queued' || i.analysisStatus === 'analysing' || i.analysisStatus === 'retrying').length;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -570,7 +639,10 @@ export default function InspectionAIPage() {
           </button>
           <div className="text-center">
             <p className="font-bold text-slate-900 text-sm leading-tight truncate max-w-[160px]">{projectName}</p>
-            <p className="text-xs text-slate-500">{items.length} captured · {savedCount} saved</p>
+            <p className="text-xs text-slate-500">
+              {items.length} captured · {savedCount} saved
+              {queuedCount > 0 && ` · ${queuedCount} in queue`}
+            </p>
           </div>
           {reportId && (
             <button
@@ -607,14 +679,37 @@ export default function InspectionAIPage() {
           </button>
         </div>
 
-        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+        <AnalyseLaterRow onAnalyseLater={() => {
+          fileInputRef.current?.setAttribute('data-analyse-later', '1');
+          fileInputRef.current?.click();
+        }} />
+
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => handleFileSelect(e, false)}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const later = fileInputRef.current?.getAttribute('data-analyse-later') === '1';
+            fileInputRef.current?.removeAttribute('data-analyse-later');
+            handleFileSelect(e, later);
+          }}
+        />
 
         {items.length === 0 && (
           <div className="text-center py-14 text-slate-400">
             <Camera className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="text-base font-medium">No photos yet</p>
-            <p className="text-sm mt-1">Take a photo — analysis starts automatically</p>
+            <p className="text-sm mt-1">Take a photo — AI analysis starts automatically</p>
+            <p className="text-xs mt-1 text-slate-300">Or use "Analyse Later" to skip AI and classify manually</p>
           </div>
         )}
 
@@ -622,6 +717,9 @@ export default function InspectionAIPage() {
           const effectiveDefect = item.defectTypeOverride ?? item.analysisResult?.defect_type;
           const effectiveSeverity = item.severityOverride ?? item.analysisResult?.severity;
           const hasOverride = !!(item.defectTypeOverride || item.severityOverride || item.observationOverride);
+          const isInProgress = item.analysisStatus === 'queued' || item.analysisStatus === 'analysing' || item.analysisStatus === 'retrying';
+          const isManualMode = item.analysisStatus === 'manual';
+          const canSave = !item.isSaved && (!!item.analysisResult || item.inspectorOverride);
 
           return (
             <div
@@ -645,18 +743,12 @@ export default function InspectionAIPage() {
                           Overridden
                         </span>
                       )}
-                      {item.analysisResult?.needsReview && !hasOverride && (
-                        <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          Review
-                        </span>
-                      )}
                       {item.isSaved && <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
-                      {item.isAnalysing && <Loader2 className="w-4 h-4 text-slate-400 animate-spin flex-shrink-0" />}
+                      {!item.isSaved && <AnalysisStatusBadge status={item.analysisStatus} />}
                     </div>
                     <p className="text-xs text-slate-500 truncate">
                       {item.systemType} · {item.element}
-                      {effectiveDefect ? ` · ${effectiveDefect}` : item.isAnalysing ? ' · Analysing…' : ' · Pending'}
+                      {effectiveDefect ? ` · ${effectiveDefect}` : isInProgress ? '' : ' · Pending classification'}
                       {item.locationLevel ? ` · ${item.locationLevel}` : ''}
                     </p>
                   </div>
@@ -688,26 +780,73 @@ export default function InspectionAIPage() {
                     onChange={(v) => updateItem(idx, { extent: v })}
                   />
 
-                  {item.isAnalysing && (
-                    <div className="flex items-center justify-center gap-3 py-6 text-slate-500">
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      <span className="font-medium">Analysing image…</span>
+                  {isInProgress && (
+                    <div className="flex items-center justify-center gap-3 py-6">
+                      <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                      <div className="text-center">
+                        <p className="font-semibold text-slate-700">
+                          {item.analysisStatus === 'queued' && 'Queued — waiting for previous analysis…'}
+                          {item.analysisStatus === 'analysing' && 'Analysing image…'}
+                          {item.analysisStatus === 'retrying' && 'Rate limited — retrying in 3s…'}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">You can keep adding photos while this runs</p>
+                      </div>
                     </div>
                   )}
 
-                  {!item.isAnalysing && !item.analysisResult && (
-                    <button
-                      onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile)}
-                      className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base hover:bg-red-700 transition-all active:scale-95 shadow-sm"
-                    >
-                      <Zap className="w-5 h-5" />
-                      Analyse Image
-                    </button>
+                  {isManualMode && !item.inspectorOverride && (
+                    <div className="flex items-start gap-2.5 bg-orange-50 border border-orange-200 rounded-xl p-4">
+                      <WifiOff className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-orange-800">AI unavailable — complete manually</p>
+                        <p className="text-xs text-orange-700 mt-0.5 mb-3">
+                          A fallback classification has been pre-filled. Use Inspector Override to set the correct defect type, severity and observation.
+                        </p>
+                        <button
+                          onClick={() => setOverrideIdx(idx)}
+                          className="inline-flex items-center gap-1.5 bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Classify Manually
+                        </button>
+                      </div>
+                    </div>
                   )}
 
-                  {!item.isAnalysing && item.analysisResult && (
+                  {item.analysisStatus === 'idle' && !item.analysisResult && (
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile)}
+                        className="w-full flex items-center justify-center gap-2.5 bg-red-600 text-white py-4 rounded-xl font-bold text-base hover:bg-red-700 transition-all active:scale-95 shadow-sm"
+                      >
+                        <Zap className="w-5 h-5" />
+                        Analyse Image
+                      </button>
+                      <button
+                        onClick={() => {
+                          updateItem(idx, {
+                            analysisStatus: 'manual',
+                            analysisResult: {
+                              defect_type: 'Mechanical Damage',
+                              severity: 'Medium',
+                              observation: getObservationTemplate('Mechanical Damage'),
+                              confidence: 0,
+                              needsReview: true,
+                            },
+                          });
+                          setOverrideIdx(idx);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 border border-slate-200 text-slate-600 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Classify Manually
+                      </button>
+                    </div>
+                  )}
+
+                  {!isInProgress && item.analysisResult && (
                     <div className="space-y-4">
-                      {item.analysisResult.needsReview && !hasOverride && (
+                      {item.analysisResult.needsReview && !hasOverride && item.analysisResult.confidence > 0 && (
                         <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
                           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                           <div>
@@ -743,23 +882,25 @@ export default function InspectionAIPage() {
                           </p>
                         </div>
 
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                            AI Confidence: {Math.round(item.analysisResult.confidence)}%
-                          </p>
-                          <div className="bg-slate-200 rounded-full h-2 overflow-hidden">
-                            <div
-                              className={`h-2 rounded-full transition-all ${
-                                item.analysisResult.confidence >= 70
-                                  ? 'bg-emerald-500'
-                                  : item.analysisResult.confidence >= 50
-                                  ? 'bg-amber-500'
-                                  : 'bg-red-500'
-                              }`}
-                              style={{ width: `${item.analysisResult.confidence}%` }}
-                            />
+                        {item.analysisResult.confidence > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+                              AI Confidence: {Math.round(item.analysisResult.confidence)}%
+                            </p>
+                            <div className="bg-slate-200 rounded-full h-2 overflow-hidden">
+                              <div
+                                className={`h-2 rounded-full transition-all ${
+                                  item.analysisResult.confidence >= 70
+                                    ? 'bg-emerald-500'
+                                    : item.analysisResult.confidence >= 50
+                                    ? 'bg-amber-500'
+                                    : 'bg-red-500'
+                                }`}
+                                style={{ width: `${item.analysisResult.confidence}%` }}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       {!item.isSaved && (
@@ -780,19 +921,23 @@ export default function InspectionAIPage() {
                       ) : (
                         <button
                           onClick={() => handleSave(idx)}
-                          className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-xl font-bold text-base hover:bg-emerald-700 transition-all active:scale-95 shadow-sm"
+                          disabled={!canSave}
+                          className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-xl font-bold text-base hover:bg-emerald-700 transition-all active:scale-95 shadow-sm disabled:opacity-40"
                         >
                           <Plus className="w-5 h-5" />
                           Save to Report
                         </button>
                       )}
 
-                      <button
-                        onClick={() => handleReanalyse(idx)}
-                        className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors"
-                      >
-                        Re-analyse
-                      </button>
+                      {!item.isSaved && item.analysisResult.confidence > 0 && (
+                        <button
+                          onClick={() => handleReanalyse(idx)}
+                          disabled={isInProgress}
+                          className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors disabled:opacity-40"
+                        >
+                          Re-analyse
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -819,15 +964,33 @@ export default function InspectionAIPage() {
           </button>
         )}
 
-        {unsavedAnalysed.length > 0 && (
+        {unsavedWithResult.length > 0 && (
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-700">
-              {unsavedAnalysed.length} finding{unsavedAnalysed.length !== 1 ? 's have' : ' has'} not been saved. Tap "Save to Report" before viewing.
+              {unsavedWithResult.length} finding{unsavedWithResult.length !== 1 ? 's have' : ' has'} not been saved. Tap "Save to Report" before viewing.
             </p>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function AnalyseLaterRow({ onAnalyseLater }: { onAnalyseLater: () => void }) {
+  return (
+    <div className="flex items-center justify-between bg-white border border-dashed border-slate-200 rounded-xl px-4 py-3">
+      <div>
+        <p className="text-sm font-semibold text-slate-700">Batch capture mode</p>
+        <p className="text-xs text-slate-400 mt-0.5">Add images without AI — classify manually later</p>
+      </div>
+      <button
+        onClick={onAnalyseLater}
+        className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-3 py-2 rounded-lg transition-colors flex-shrink-0 ml-3"
+      >
+        <Clock className="w-4 h-4" />
+        Analyse Later
+      </button>
     </div>
   );
 }

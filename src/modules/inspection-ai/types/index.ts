@@ -62,6 +62,7 @@ export interface CapturedItem {
   severityOverride: string | null;
   observationOverride: string | null;
   inspectorOverride: boolean;
+  analysisStatus: AnalysisStatus;
   isAnalysing: boolean;
   isSaved: boolean;
   savedId?: string;
@@ -69,3 +70,11 @@ export interface CapturedItem {
 }
 
 export type AppPhase = 'setup' | 'capture' | 'report';
+
+export type AnalysisStatus =
+  | 'idle'
+  | 'queued'
+  | 'analysing'
+  | 'retrying'
+  | 'done'
+  | 'manual';
