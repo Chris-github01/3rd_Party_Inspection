@@ -12,10 +12,14 @@ import {
   AlertTriangle,
   CheckCircle,
   Flame,
-  Eye,
-  EyeOff,
   Info,
   Download,
+  Eye,
+  ChevronUp,
+  ArrowLeft,
+  Plus,
+  ScanLine,
+  Layers,
 } from 'lucide-react';
 import { fetchPins, createPin, deletePin } from '../../services/spatialService';
 import type { InspectionAIDrawing, InspectionAIPin } from '../../types';
@@ -23,32 +27,35 @@ import { clusterPins } from '../../utils/clusterEngine';
 import { HeatmapCanvas, ClusterOverlay, HeatmapLegend } from './HeatmapOverlay';
 import { exportDrawingSnapshot } from '../../utils/drawingExporter';
 
-// ─── Severity colours ─────────────────────────
 const SEVERITY_COLOUR: Record<string, string> = {
-  High: '#dc2626',
+  High:   '#dc2626',
   Medium: '#d97706',
-  Low: '#16a34a',
+  Low:    '#16a34a',
 };
 
 function getPinColor(severity: string): string {
   return SEVERITY_COLOUR[severity] ?? '#64748b';
 }
 
-// ─── Pin marker ───────────────────────────────
 function PinMarker({
   pin,
   index,
   selected,
   onSelect,
   onDelete,
+  onCapture,
+  onView,
 }: {
   pin: InspectionAIPin;
   index: number;
   selected: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onCapture: () => void;
+  onView: () => void;
 }) {
   const color = getPinColor(pin.severity);
+  const isHigh = pin.severity === 'High';
 
   return (
     <div
@@ -63,26 +70,43 @@ function PinMarker({
       <button
         onClick={(e) => { e.stopPropagation(); onSelect(); }}
         className="flex flex-col items-center group"
+        style={{ touchAction: 'manipulation' }}
       >
+        {isHigh && !selected && (
+          <span
+            className="absolute rounded-full animate-ping"
+            style={{
+              width: 34, height: 34,
+              backgroundColor: `${color}40`,
+              top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
         <div
-          className="relative flex items-center justify-center text-white text-xs font-bold rounded-full shadow-lg transition-transform group-hover:scale-110"
+          className="relative flex items-center justify-center text-white text-xs font-bold transition-transform group-hover:scale-110"
           style={{
-            width: selected ? 32 : 26,
-            height: selected ? 32 : 26,
+            width: selected ? 36 : 28,
+            height: selected ? 36 : 28,
             backgroundColor: color,
-            border: `2px solid white`,
-            boxShadow: selected ? `0 0 0 3px ${color}40, 0 4px 12px rgba(0,0,0,0.3)` : '0 2px 6px rgba(0,0,0,0.25)',
+            border: `2.5px solid white`,
+            borderRadius: '50%',
+            boxShadow: selected
+              ? `0 0 0 3px ${color}50, 0 4px 16px rgba(0,0,0,0.35)`
+              : '0 2px 8px rgba(0,0,0,0.30)',
+            transition: 'all 0.15s ease',
           }}
         >
           {index + 1}
         </div>
         <div
           style={{
-            width: 0,
-            height: 0,
+            width: 0, height: 0,
             borderLeft: '5px solid transparent',
             borderRight: '5px solid transparent',
-            borderTop: `7px solid ${color}`,
+            borderTop: `8px solid ${color}`,
+            filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))',
             marginTop: -1,
           }}
         />
@@ -90,45 +114,74 @@ function PinMarker({
 
       {selected && (
         <div
-          className="absolute bottom-full left-1/2 mb-1 bg-white rounded-xl shadow-xl border border-slate-200 p-3 min-w-[140px] text-left"
-          style={{ transform: 'translateX(-50%)' }}
+          className="absolute bottom-full left-1/2 mb-2 bg-white rounded-2xl shadow-2xl border border-slate-150 overflow-hidden"
+          style={{ transform: 'translateX(-50%)', minWidth: 180, width: 'max-content', maxWidth: 220 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between mb-1.5">
-            <span
-              className="text-xs font-bold rounded-full px-2 py-0.5"
-              style={{ backgroundColor: `${color}20`, color }}
-            >
-              {pin.severity}
-            </span>
+          <div
+            className="px-3 py-2 flex items-center justify-between"
+            style={{ backgroundColor: `${color}10`, borderBottom: `2px solid ${color}20` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span
+                className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${color}20`, color }}
+              >
+                {pin.severity}
+              </span>
+              <span className="text-[11px] text-slate-500 font-semibold">Pin #{index + 1}</span>
+            </div>
             <button
               onClick={onDelete}
-              className="text-slate-400 hover:text-red-500 transition-colors ml-2"
+              className="w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3 h-3" />
             </button>
           </div>
+
           {pin.label && (
-            <p className="text-xs text-slate-600 truncate max-w-[120px]">{pin.label}</p>
-          )}
-          {pin.item_id ? (
-            <p className="flex items-center gap-1 text-xs text-emerald-600 mt-1">
-              <CheckCircle className="w-3 h-3" />
-              Linked
-            </p>
-          ) : (
-            <p className="flex items-center gap-1 text-xs text-amber-600 mt-1">
-              <AlertTriangle className="w-3 h-3" />
-              No inspection
+            <p className="text-xs text-slate-600 px-3 py-1.5 font-medium truncate border-b border-slate-100">
+              {pin.label}
             </p>
           )}
+
+          <div className="p-2 flex flex-col gap-1.5">
+            {pin.item_id ? (
+              <>
+                <div className="flex items-center gap-1 px-1 text-[11px] text-emerald-600 font-semibold">
+                  <CheckCircle className="w-3 h-3" />
+                  Linked to finding
+                </div>
+                <button
+                  onClick={onView}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  View Finding
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-1 px-1 text-[11px] text-amber-600 font-semibold">
+                  <AlertTriangle className="w-3 h-3" />
+                  No inspection yet
+                </div>
+                <button
+                  onClick={onCapture}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Capture Now
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ─── Pending drop marker (before capture) ────
 function DropMarker({ x, y }: { x: number; y: number }) {
   return (
     <div
@@ -145,10 +198,10 @@ function DropMarker({ x, y }: { x: number; y: number }) {
         <div
           className="flex items-center justify-center text-white rounded-full shadow-lg"
           style={{
-            width: 28, height: 28,
+            width: 30, height: 30,
             backgroundColor: '#475569',
-            border: '2px solid white',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            border: '2.5px solid white',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.35)',
           }}
         >
           <MapPin className="w-4 h-4" />
@@ -158,7 +211,7 @@ function DropMarker({ x, y }: { x: number; y: number }) {
             width: 0, height: 0,
             borderLeft: '5px solid transparent',
             borderRight: '5px solid transparent',
-            borderTop: '7px solid #475569',
+            borderTop: '8px solid #475569',
             marginTop: -1,
           }}
         />
@@ -167,7 +220,6 @@ function DropMarker({ x, y }: { x: number; y: number }) {
   );
 }
 
-// ─── Capture action sheet ─────────────────────
 function CaptureSheet({
   onCapture,
   onUpload,
@@ -180,77 +232,366 @@ function CaptureSheet({
   onCancel: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onCancel}>
-      <div className="bg-white w-full max-w-lg rounded-t-3xl p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-bold text-slate-900 text-base">Add Inspection at Pin</h3>
-          <button onClick={onCancel} className="text-slate-400 hover:text-slate-700">
-            <X className="w-5 h-5" />
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white w-full max-w-lg rounded-t-3xl pb-safe"
+        style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Link Finding to Pin</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Capture a photo or save pin only</p>
+          </div>
+          <button
+            onClick={onCancel}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
-        <p className="text-xs text-slate-500">Pin placed. Capture a photo to link an inspection finding, or skip to save the pin only.</p>
 
-        <button
-          onClick={onCapture}
-          className="w-full flex items-center gap-3 bg-slate-900 text-white py-4 px-4 rounded-2xl font-semibold text-sm hover:bg-slate-800 transition-colors active:scale-95"
-        >
-          <Camera className="w-5 h-5" />
-          <div className="text-left">
-            <p className="font-bold">Take Photo</p>
-            <p className="text-xs text-slate-400">Capture defect with AI analysis</p>
-          </div>
-        </button>
-        <button
-          onClick={onUpload}
-          className="w-full flex items-center gap-3 border border-slate-200 text-slate-700 py-4 px-4 rounded-2xl font-semibold text-sm hover:bg-slate-50 transition-colors active:scale-95"
-        >
-          <Upload className="w-5 h-5" />
-          <div className="text-left">
-            <p className="font-bold">Upload Image</p>
-            <p className="text-xs text-slate-400">Select from gallery</p>
-          </div>
-        </button>
-        <button
-          onClick={onSkip}
-          className="w-full text-center text-slate-500 text-sm py-3 hover:text-slate-800 transition-colors"
-        >
-          Save pin without photo
-        </button>
+        <div className="px-5 space-y-2.5 pb-2">
+          <button
+            onClick={onCapture}
+            className="w-full flex items-center gap-4 bg-slate-900 text-white py-4 px-5 rounded-2xl font-semibold text-sm hover:bg-slate-800 transition-colors active:scale-95"
+          >
+            <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Camera className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-sm">Take Photo</p>
+              <p className="text-xs text-slate-400">Capture defect · AI analysis</p>
+            </div>
+          </button>
+
+          <button
+            onClick={onUpload}
+            className="w-full flex items-center gap-4 border border-slate-200 bg-slate-50 text-slate-700 py-4 px-5 rounded-2xl font-semibold text-sm hover:bg-slate-100 transition-colors active:scale-95"
+          >
+            <div className="w-10 h-10 bg-slate-200 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Upload className="w-5 h-5 text-slate-500" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-sm">Upload Image</p>
+              <p className="text-xs text-slate-400">Select from gallery</p>
+            </div>
+          </button>
+        </div>
+
+        <div className="px-5 pt-1">
+          <button
+            onClick={onSkip}
+            className="w-full text-center text-slate-400 text-sm py-3 hover:text-slate-700 transition-colors font-medium"
+          >
+            Save pin without photo
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── View mode toggle ─────────────────────────
 type ViewMode = 'pins' | 'heatmap' | 'clusters';
 
-function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+function SegmentedControl({
+  mode,
+  onChange,
+  pinCount,
+  hasHigh,
+}: {
+  mode: ViewMode;
+  onChange: (m: ViewMode) => void;
+  pinCount: number;
+  hasHigh: boolean;
+}) {
   const options: { value: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { value: 'pins',     label: 'Pins',     icon: <MapPin className="w-3.5 h-3.5" /> },
-    { value: 'heatmap',  label: 'Heat',     icon: <Flame className="w-3.5 h-3.5" /> },
-    { value: 'clusters', label: 'Zones',    icon: <Info className="w-3.5 h-3.5" /> },
+    { value: 'pins',     label: 'Pins',    icon: <MapPin className="w-3.5 h-3.5" /> },
+    { value: 'heatmap',  label: 'Heat',    icon: <Flame className="w-3.5 h-3.5" /> },
+    { value: 'clusters', label: 'Zones',   icon: <Layers className="w-3.5 h-3.5" /> },
   ];
+
   return (
-    <div className="flex rounded-lg border border-slate-700 overflow-hidden">
+    <div className="flex gap-0.5 bg-slate-800/80 rounded-xl p-1">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+          className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
             mode === o.value
-              ? 'bg-white text-slate-900'
-              : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-400 hover:text-white'
           }`}
         >
           {o.icon}
           {o.label}
+          {o.value === 'pins' && pinCount > 0 && (
+            <span
+              className={`text-[9px] font-bold px-1 rounded-full ml-0.5 ${
+                mode === 'pins' ? 'bg-slate-900 text-white' : 'bg-slate-600 text-slate-300'
+              }`}
+            >
+              {pinCount}
+            </span>
+          )}
+          {o.value === 'clusters' && hasHigh && mode !== 'clusters' && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+          )}
         </button>
       ))}
     </div>
   );
 }
 
-// ─── Main component ───────────────────────────
+function FloatingZoomControls({
+  onZoomIn,
+  onZoomOut,
+  onReset,
+}: {
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        onClick={onZoomIn}
+        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg active:scale-95"
+      >
+        <ZoomIn className="w-4.5 h-4.5" />
+      </button>
+      <button
+        onClick={onZoomOut}
+        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg active:scale-95"
+      >
+        <ZoomOut className="w-4.5 h-4.5" />
+      </button>
+      <div className="w-10 border-t border-white/10 my-0.5" />
+      <button
+        onClick={onReset}
+        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg active:scale-95"
+      >
+        <Maximize2 className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+function ZonesDrawer({
+  clusters,
+  onClose,
+}: {
+  clusters: ReturnType<typeof clusterPins>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute bottom-0 left-0 right-0 z-20 bg-slate-950/98 backdrop-blur-sm border-t border-slate-800 rounded-t-2xl shadow-2xl">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <div>
+          <p className="text-xs font-bold text-white">Defect Zones</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            {clusters.length} zone{clusters.length !== 1 ? 's' : ''} detected
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors"
+        >
+          <ChevronUp className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="max-h-44 overflow-y-auto pb-3">
+        {clusters.length === 0 ? (
+          <div className="px-4 py-4 text-center">
+            <p className="text-xs text-slate-500">No clusters detected yet</p>
+            <p className="text-[10px] text-slate-600 mt-0.5">Add 2+ nearby pins to form a zone</p>
+          </div>
+        ) : (
+          clusters.map((c) => {
+            const isCrit = c.dominantSeverity === 'High';
+            const isMed = c.dominantSeverity === 'Medium';
+            const dotClass = isCrit ? 'bg-red-500' : isMed ? 'bg-amber-500' : 'bg-emerald-500';
+            const labelClass = isCrit ? 'text-red-400' : isMed ? 'text-amber-400' : 'text-emerald-400';
+            const badgeClass = isCrit
+              ? 'bg-red-900/40 text-red-400 border-red-800'
+              : isMed
+              ? 'bg-amber-900/40 text-amber-400 border-amber-800'
+              : 'bg-emerald-900/40 text-emerald-400 border-emerald-800';
+
+            return (
+              <div
+                key={c.id}
+                className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-800/60 last:border-0"
+              >
+                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-bold ${labelClass}`}>{c.label}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {[
+                      c.severityCounts.High   > 0 && `${c.severityCounts.High} High`,
+                      c.severityCounts.Medium > 0 && `${c.severityCounts.Medium} Med`,
+                      c.severityCounts.Low    > 0 && `${c.severityCounts.Low} Low`,
+                    ].filter(Boolean).join('  ·  ')}
+                  </p>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                  {c.pins.length} pins
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HeatmapChip({ critCount, onCycle }: { critCount: number; onCycle: () => void }) {
+  if (critCount === 0) return null;
+  return (
+    <button
+      onClick={onCycle}
+      className="flex items-center gap-1.5 bg-red-600/90 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg border border-red-500 hover:bg-red-700 transition-colors active:scale-95"
+    >
+      <Flame className="w-3.5 h-3.5" />
+      {critCount} critical hotspot{critCount !== 1 ? 's' : ''}
+    </button>
+  );
+}
+
+function BottomActionBar({
+  selectedPin,
+  selectedPinIndex,
+  pinCount,
+  reportId,
+  exporting,
+  onAddPin,
+  onCapture,
+  onView,
+  onDeleteSelected,
+  onExport,
+}: {
+  selectedPin: InspectionAIPin | null;
+  selectedPinIndex: number;
+  pinCount: number;
+  reportId: string | null;
+  exporting: boolean;
+  onAddPin: () => void;
+  onCapture: () => void;
+  onView: () => void;
+  onDeleteSelected: () => void;
+  onExport: () => void;
+}) {
+  if (selectedPin) {
+    const color = getPinColor(selectedPin.severity);
+    return (
+      <div className="bg-slate-950/98 backdrop-blur-sm border-t border-slate-800 px-4 pt-3 pb-safe flex-shrink-0"
+        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+      >
+        <div className="flex items-center gap-2 mb-2.5">
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+            style={{ backgroundColor: color }}
+          >
+            {selectedPinIndex + 1}
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-xs font-bold text-white">Pin #{selectedPinIndex + 1}</span>
+            <span
+              className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: `${color}25`, color }}
+            >
+              {selectedPin.severity}
+            </span>
+          </div>
+          <button
+            onClick={onDeleteSelected}
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-red-950/60 border border-red-800 text-red-400 hover:bg-red-900 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={onCapture}
+            className="flex items-center justify-center gap-1.5 bg-red-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-red-700 transition-colors active:scale-95"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            {selectedPin.item_id ? 'Re-capture' : 'Capture'}
+          </button>
+          {selectedPin.item_id ? (
+            <button
+              onClick={onView}
+              className="flex items-center justify-center gap-1.5 bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors active:scale-95"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              View Finding
+            </button>
+          ) : (
+            <button
+              onClick={onDeleteSelected}
+              className="flex items-center justify-center gap-1.5 bg-slate-800 text-slate-400 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors active:scale-95"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Remove Pin
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-950/98 backdrop-blur-sm border-t border-slate-800 px-4 pt-3 pb-safe flex-shrink-0"
+      style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          {pinCount === 0 ? (
+            <p className="text-xs text-slate-400">
+              <ScanLine className="w-3.5 h-3.5 inline-block mr-1 -mt-0.5" />
+              Tap drawing to place a pin
+            </p>
+          ) : (
+            <p className="text-xs text-slate-400">
+              {pinCount} pin{pinCount !== 1 ? 's' : ''} · tap to select
+            </p>
+          )}
+          {!reportId && pinCount > 0 && (
+            <p className="text-[10px] text-amber-500 mt-0.5 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+              Start inspection to link findings
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {pinCount > 0 && (
+            <button
+              onClick={onExport}
+              disabled={exporting}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
+            >
+              {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              Export
+            </button>
+          )}
+          <button
+            onClick={onAddPin}
+            className="flex items-center gap-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-2 rounded-xl transition-colors active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Pin
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface DrawingViewerProps {
   drawing: InspectionAIDrawing;
   reportId: string | null;
@@ -267,7 +608,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('pins');
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
-  const [showClusterPanel, setShowClusterPanel] = useState(false);
+  const [showZoneDrawer, setShowZoneDrawer] = useState(false);
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -278,10 +619,17 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null);
   const [showCaptureSheet, setShowCaptureSheet] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const clusters = clusterPins(pins);
   const highClusters = clusters.filter((c) => c.dominantSeverity === 'High' && c.pins.length >= 2);
-  const [exporting, setExporting] = useState(false);
+
+  const highCount = pins.filter((p) => p.severity === 'High').length;
+  const medCount  = pins.filter((p) => p.severity === 'Medium').length;
+  const lowCount  = pins.filter((p) => p.severity === 'Low').length;
+
+  const selectedPin = pins.find((p) => p.id === selectedPinId) ?? null;
+  const selectedPinIndex = selectedPin ? pins.indexOf(selectedPin) : -1;
 
   useEffect(() => {
     fetchPins(drawing.id)
@@ -289,9 +637,8 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
       .finally(() => setLoadingPins(false));
   }, [drawing.id]);
 
-  const handleZoom = (direction: 'in' | 'out') => {
+  const handleZoom = (direction: 'in' | 'out') =>
     setScale((s) => Math.max(0.5, Math.min(4, s + (direction === 'in' ? 0.3 : -0.3))));
-  };
 
   const handleReset = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
 
@@ -374,12 +721,29 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
     setSelectedPinId(null);
   };
 
-  const highCount = pins.filter((p) => p.severity === 'High').length;
-  const medCount = pins.filter((p) => p.severity === 'Medium').length;
-  const lowCount = pins.filter((p) => p.severity === 'Low').length;
+  const handleAddPinButton = () => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPendingPin({ x: 50, y: 50 });
+    setShowCaptureSheet(true);
+    setSelectedPinId(null);
+  };
+
+  const handlePinCapture = (pinId: string) => {
+    onStartCapture(pinId, true);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportDrawingSnapshot(drawing, pins, clusters, 'both');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 relative">
+    <div className="flex flex-col h-full bg-slate-950 relative overflow-hidden">
       {showCaptureSheet && (
         <CaptureSheet
           onCapture={() => handleCapture(true)}
@@ -390,190 +754,171 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
       )}
 
       {savingPin && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/40">
-          <Loader2 className="w-8 h-8 text-white animate-spin" />
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl px-6 py-4 flex items-center gap-3 shadow-2xl">
+            <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+            <span className="text-sm font-semibold text-slate-700">Placing pin…</span>
+          </div>
         </div>
       )}
 
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-900 border-b border-slate-800 z-10 flex-shrink-0">
-        <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors flex-shrink-0">
-          <X className="w-5 h-5" />
-        </button>
-        <div className="flex-1 min-w-0 mx-1">
-          <p className="font-semibold text-white text-xs truncate">{drawing.name}</p>
-        </div>
-        <ViewToggle mode={viewMode} onChange={(m) => { setViewMode(m); setShowClusterPanel(m === 'clusters'); }} />
-        <div className="flex items-center gap-1 ml-1">
-          <button onClick={() => handleZoom('out')} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={() => handleZoom('in')} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={handleReset} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-hidden relative cursor-crosshair select-none"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onWheel={handleWheel}
-        onClick={() => { if (!isPanning) setSelectedPinId(null); }}
-      >
-        <div
-          style={{
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-            transformOrigin: 'center center',
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-          }}
+      <div className="flex items-center gap-2 px-3 py-3 bg-slate-950 border-b border-slate-800/60 z-10 flex-shrink-0">
+        <button
+          onClick={onBack}
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors flex-shrink-0"
         >
-          <div className="relative inline-block" style={{ maxWidth: '100%', maxHeight: '100%' }}>
-            {drawing.file_type === 'image' ? (
-              <img
-                ref={imgRef}
-                src={drawing.file_url}
-                alt={drawing.name}
-                draggable={false}
-                onLoad={(e) => {
-                  const el = e.currentTarget;
-                  setImgSize({ width: el.offsetWidth, height: el.offsetHeight });
-                }}
-                className="block max-w-full max-h-[70vh] object-contain"
-                style={{ userSelect: 'none', pointerEvents: 'none' }}
-              />
-            ) : (
-              <div className="w-64 h-80 bg-slate-700 flex items-center justify-center rounded-xl">
-                <p className="text-slate-400 text-sm text-center px-6">
-                  PDF preview not supported.<br />Pins can still be placed.
-                </p>
-              </div>
-            )}
+          <ArrowLeft className="w-4 h-4" />
+        </button>
 
-            {viewMode === 'heatmap' && pins.length > 0 && imgSize.width > 0 && (
-              <HeatmapCanvas pins={pins} width={imgSize.width} height={imgSize.height} />
-            )}
-
-            {viewMode === 'clusters' && imgSize.width > 0 && (
-              <ClusterOverlay clusters={clusters} imgWidth={imgSize.width} imgHeight={imgSize.height} />
-            )}
-
-            {(viewMode === 'pins' || viewMode === 'clusters') && !loadingPins && pins.map((pin, i) => (
-              <PinMarker
-                key={pin.id}
-                pin={pin}
-                index={i}
-                selected={selectedPinId === pin.id}
-                onSelect={() => setSelectedPinId(selectedPinId === pin.id ? null : pin.id)}
-                onDelete={() => handleDeletePin(pin.id)}
-              />
-            ))}
-
-            {pendingPin && <DropMarker x={pendingPin.x} y={pendingPin.y} />}
-          </div>
-        </div>
-      </div>
-
-      {viewMode === 'heatmap' && pins.length > 0 && <HeatmapLegend />}
-
-      {showClusterPanel && clusters.length > 0 && (
-        <div className="absolute left-0 right-0 bottom-0 z-20 bg-slate-900/95 backdrop-blur-sm border-t border-slate-800 max-h-48 overflow-y-auto">
-          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-            <p className="text-xs font-bold text-white uppercase tracking-wide">Defect Zones</p>
-            <span className="text-xs text-slate-400">{clusters.length} zone{clusters.length !== 1 ? 's' : ''}</span>
-          </div>
-          {clusters.map((c) => {
-            const colour = c.dominantSeverity === 'High' ? 'text-red-400' : c.dominantSeverity === 'Medium' ? 'text-amber-400' : 'text-emerald-400';
-            const dot = c.dominantSeverity === 'High' ? 'bg-red-500' : c.dominantSeverity === 'Medium' ? 'bg-amber-500' : 'bg-emerald-500';
-            return (
-              <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-800">
-                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dot}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-semibold ${colour} truncate`}>{c.label}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    {c.severityCounts.High > 0 && `${c.severityCounts.High} High  `}
-                    {c.severityCounts.Medium > 0 && `${c.severityCounts.Medium} Medium  `}
-                    {c.severityCounts.Low > 0 && `${c.severityCounts.Low} Low`}
-                  </p>
-                </div>
-                <span className="text-xs font-bold text-white bg-slate-700 px-2 py-0.5 rounded-full flex-shrink-0">
-                  {c.pins.length}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="bg-slate-900 border-t border-slate-800 px-4 py-2.5 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0 mx-1">
+          <p className="font-bold text-white text-sm truncate leading-tight">{drawing.name}</p>
+          <div className="flex items-center gap-2 mt-0.5">
             {highCount > 0 && (
-              <span className="flex items-center gap-1 text-xs font-semibold text-red-400">
-                <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+              <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
                 {highCount}H
               </span>
             )}
             {medCount > 0 && (
-              <span className="flex items-center gap-1 text-xs font-semibold text-amber-400">
-                <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+              <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
                 {medCount}M
               </span>
             )}
             {lowCount > 0 && (
-              <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                 {lowCount}L
               </span>
             )}
-            {pins.length === 0 && (
-              <span className="text-xs text-slate-500">Tap drawing to place a pin</span>
-            )}
-            {highClusters.length > 0 && (
-              <span className="flex items-center gap-1 text-xs font-semibold text-red-400 border border-red-800 px-2 py-0.5 rounded-full">
-                <Flame className="w-3 h-3" />
-                {highClusters.length} critical zone{highClusters.length !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
-            {pins.length > 0 && (
-              <button
-                onClick={async () => {
-                  setExporting(true);
-                  try {
-                    await exportDrawingSnapshot(drawing, pins, clusters, 'both');
-                  } finally {
-                    setExporting(false);
-                  }
-                }}
-                disabled={exporting}
-                className="flex items-center gap-1 text-xs font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 border border-slate-600 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                {exporting ? 'Exporting…' : 'Export'}
-              </button>
+            {pins.length === 0 && !loadingPins && (
+              <span className="text-[10px] text-slate-600">No pins yet</span>
             )}
           </div>
         </div>
 
-        {!reportId && pins.length > 0 && (
-          <p className="text-xs text-amber-400 mt-1.5 flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" />
-            Start an inspection to link pins to findings
-          </p>
+        <SegmentedControl
+          mode={viewMode}
+          onChange={(m) => {
+            setViewMode(m);
+            setShowZoneDrawer(m === 'clusters');
+          }}
+          pinCount={pins.length}
+          hasHigh={highClusters.length > 0}
+        />
+      </div>
+
+      <div className="flex-1 relative overflow-hidden">
+        <div
+          ref={containerRef}
+          className="w-full h-full overflow-hidden relative select-none"
+          style={{ cursor: isPanning ? 'grabbing' : 'crosshair' }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onWheel={handleWheel}
+          onClick={() => { if (!isPanning) setSelectedPinId(null); }}
+        >
+          <div
+            style={{
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+              transformOrigin: 'center center',
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              willChange: 'transform',
+            }}
+          >
+            <div className="relative inline-block" style={{ maxWidth: '100%', maxHeight: '100%' }}>
+              {drawing.file_type === 'image' ? (
+                <img
+                  ref={imgRef}
+                  src={drawing.file_url}
+                  alt={drawing.name}
+                  draggable={false}
+                  onLoad={(e) => {
+                    const el = e.currentTarget;
+                    setImgSize({ width: el.offsetWidth, height: el.offsetHeight });
+                  }}
+                  className="block max-w-full object-contain rounded-lg"
+                  style={{ maxHeight: '65vh', userSelect: 'none', pointerEvents: 'none' }}
+                />
+              ) : (
+                <div className="w-72 h-96 bg-slate-800 flex items-center justify-center rounded-2xl border border-slate-700">
+                  <div className="text-center px-6">
+                    <Info className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                    <p className="text-slate-400 text-sm font-medium">PDF Preview</p>
+                    <p className="text-slate-600 text-xs mt-1">Pins can still be placed</p>
+                  </div>
+                </div>
+              )}
+
+              {viewMode === 'heatmap' && pins.length > 0 && imgSize.width > 0 && (
+                <HeatmapCanvas pins={pins} width={imgSize.width} height={imgSize.height} />
+              )}
+
+              {viewMode === 'clusters' && imgSize.width > 0 && (
+                <ClusterOverlay clusters={clusters} imgWidth={imgSize.width} imgHeight={imgSize.height} />
+              )}
+
+              {(viewMode === 'pins' || viewMode === 'clusters') && !loadingPins && pins.map((pin, i) => (
+                <PinMarker
+                  key={pin.id}
+                  pin={pin}
+                  index={i}
+                  selected={selectedPinId === pin.id}
+                  onSelect={() => setSelectedPinId(selectedPinId === pin.id ? null : pin.id)}
+                  onDelete={() => handleDeletePin(pin.id)}
+                  onCapture={() => handlePinCapture(pin.id)}
+                  onView={() => {}}
+                />
+              ))}
+
+              {pendingPin && <DropMarker x={pendingPin.x} y={pendingPin.y} />}
+            </div>
+          </div>
+        </div>
+
+        <div className="absolute right-3 bottom-5 z-10 flex flex-col items-center gap-1">
+          <FloatingZoomControls
+            onZoomIn={() => handleZoom('in')}
+            onZoomOut={() => handleZoom('out')}
+            onReset={handleReset}
+          />
+        </div>
+
+        {viewMode === 'heatmap' && pins.length > 0 && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+            <HeatmapChip critCount={highClusters.length} onCycle={() => {}} />
+          </div>
+        )}
+
+        {viewMode === 'heatmap' && pins.length > 0 && (
+          <div className="absolute bottom-4 left-4 z-10">
+            <HeatmapLegend />
+          </div>
+        )}
+
+        {showZoneDrawer && (
+          <ZonesDrawer clusters={clusters} onClose={() => setShowZoneDrawer(false)} />
         )}
       </div>
+
+      <BottomActionBar
+        selectedPin={selectedPin}
+        selectedPinIndex={selectedPinIndex}
+        pinCount={pins.length}
+        reportId={reportId}
+        exporting={exporting}
+        onAddPin={handleAddPinButton}
+        onCapture={() => selectedPin && handlePinCapture(selectedPin.id)}
+        onView={() => {}}
+        onDeleteSelected={() => selectedPin && handleDeletePin(selectedPin.id)}
+        onExport={handleExport}
+      />
     </div>
   );
 }
