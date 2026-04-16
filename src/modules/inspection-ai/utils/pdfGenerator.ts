@@ -1,6 +1,10 @@
 import jsPDF from 'jspdf';
 import type { InspectionAIReport, InspectionAIItem } from '../types';
 import { CONFIDENCE_REVIEW_THRESHOLD } from '../services/inspectionAIService';
+import { generateCommercialSummary } from './summaryEngine';
+import { getRiskColour } from './riskEngine';
+
+type ReportMode = 'client' | 'internal';
 
 const PAGE_W = 210;
 const PAGE_H = 297;
@@ -12,7 +16,7 @@ function addPageBackground(doc: jsPDF) {
   doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
 }
 
-function addHeader(doc: jsPDF, report: InspectionAIReport, pageNum: number, totalPages: number) {
+function addHeader(doc: jsPDF, report: InspectionAIReport, pageNum: number, totalPages: number, mode: ReportMode) {
   doc.setFillColor(26, 26, 46);
   doc.rect(0, 0, PAGE_W, 22, 'F');
   doc.setFillColor(200, 16, 46);
@@ -24,7 +28,10 @@ function addHeader(doc: jsPDF, report: InspectionAIReport, pageNum: number, tota
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.text(`${report.project_name}  ·  Inspector: ${report.inspector_name}`, MARGIN, 15);
-  doc.text(`Page ${pageNum} of ${totalPages}`, PAGE_W - MARGIN, 15, { align: 'right' });
+  const rightText = mode === 'internal'
+    ? `INTERNAL  ·  Page ${pageNum} of ${totalPages}`
+    : `Page ${pageNum} of ${totalPages}`;
+  doc.text(rightText, PAGE_W - MARGIN, 15, { align: 'right' });
 }
 
 function addFooter(doc: jsPDF) {
@@ -36,7 +43,7 @@ function addFooter(doc: jsPDF) {
   doc.setFontSize(6.5);
   doc.setTextColor(140, 140, 140);
   doc.text(
-    'This assessment is based on visual inspection only. Further investigation may be required. This report does not constitute a compliance certification.',
+    'This assessment is based on visual inspection only. Scope estimates are indicative only. This report does not constitute a compliance certification.',
     PAGE_W / 2, y + 2,
     { align: 'center', maxWidth: CONTENT_W }
   );
@@ -79,20 +86,26 @@ function severityRGB(severity: string): [number, number, number] {
   }
 }
 
-function addSummaryPage(doc: jsPDF, report: InspectionAIReport, items: InspectionAIItem[], totalPages: number) {
+function addCommercialSummaryPage(
+  doc: jsPDF,
+  report: InspectionAIReport,
+  items: InspectionAIItem[],
+  totalPages: number,
+  mode: ReportMode
+) {
   addPageBackground(doc);
-  addHeader(doc, report, 1, totalPages);
+  addHeader(doc, report, 1, totalPages, mode);
 
   let y = 34;
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setTextColor(26, 26, 46);
   doc.text(report.project_name, MARGIN, y);
-  y += 8;
+  y += 7;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(90, 90, 110);
   const dateStr = new Date(report.created_at).toLocaleDateString('en-NZ', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -101,136 +114,144 @@ function addSummaryPage(doc: jsPDF, report: InspectionAIReport, items: Inspectio
     `Inspector: ${report.inspector_name}    ·    Date: ${dateStr}    ·    ${items.length} Finding${items.length !== 1 ? 's' : ''}`,
     MARGIN, y
   );
-  y += 6;
+  y += 5;
 
   doc.setFillColor(200, 16, 46);
   doc.rect(MARGIN, y, CONTENT_W, 0.5, 'F');
-  y += 8;
+  y += 7;
+
+  const summary = generateCommercialSummary(items);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(26, 26, 46);
-  doc.text('INSPECTION SUMMARY', MARGIN, y);
+  doc.text('COMMERCIAL SUMMARY', MARGIN, y);
   y += 6;
+
+  const kpiCards = [
+    { label: 'Total Findings', value: String(summary.total_findings), rgb: [60, 60, 80] as [number, number, number] },
+    { label: 'Defect Groups', value: String(summary.total_groups), rgb: [26, 26, 46] as [number, number, number] },
+    { label: 'High-Risk Groups', value: String(summary.high_risk_count), rgb: [200, 16, 46] as [number, number, number] },
+    { label: 'Est. Total Scope', value: summary.total_scope_range, rgb: [37, 99, 235] as [number, number, number] },
+  ];
+
+  const cardW = (CONTENT_W - 9) / 4;
+  kpiCards.forEach(({ label, value, rgb }, i) => {
+    const cx = MARGIN + i * (cardW + 3);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(cx, y, cardW, 20, 2, 2, 'F');
+    doc.setDrawColor(...rgb);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(cx, y, cardW, 20, 2, 2, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(value.length > 6 ? 9 : 15);
+    doc.setTextColor(...rgb);
+    doc.text(value, cx + cardW / 2, y + 11, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(100, 100, 110);
+    doc.text(label, cx + cardW / 2, y + 17, { align: 'center' });
+  });
+  y += 27;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(26, 26, 46);
+  doc.text('GROUPED FINDINGS', MARGIN, y);
+  y += 5;
+
+  summary.groups.forEach((group) => {
+    const [rr, rg, rb] = getRiskColour(group.risk_level);
+
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(MARGIN, y, CONTENT_W, mode === 'internal' && group.is_systemic ? 22 : 18, 2, 2, 'F');
+
+    doc.setFillColor(rr, rg, rb);
+    doc.roundedRect(MARGIN, y, 3, mode === 'internal' && group.is_systemic ? 22 : 18, 2, 2, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(26, 26, 46);
+    doc.text(`${group.defect_type}  ·  ${group.system_type}`, MARGIN + 6, y + 6);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 100);
+    doc.text(
+      `${group.count} occurrence${group.count !== 1 ? 's' : ''}   ·   Est. affected area: ${group.estimated_area}`,
+      MARGIN + 6, y + 12
+    );
+
+    const riskLabel = group.risk_level.toUpperCase();
+    const riskW = doc.getTextWidth(riskLabel) + 6;
+    doc.setFillColor(rr, rg, rb);
+    doc.roundedRect(PAGE_W - MARGIN - riskW, y + 2, riskW, 5.5, 1, 1, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6);
+    doc.setTextColor(255, 255, 255);
+    doc.text(riskLabel, PAGE_W - MARGIN - riskW / 2, y + 6, { align: 'center' });
+
+    if (mode === 'internal' && group.is_systemic) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7);
+      doc.setTextColor(14, 116, 144);
+      doc.text(
+        `Pattern observed across ${group.count} locations — potential systemic issue`,
+        MARGIN + 6, y + 18
+      );
+    }
+
+    y += (mode === 'internal' && group.is_systemic ? 22 : 18) + 3;
+
+    if (y > PAGE_H - 30) {
+      doc.addPage();
+      addPageBackground(doc);
+      addHeader(doc, report, 1, totalPages, mode);
+      y = 32;
+    }
+  });
+
+  y += 3;
 
   const high = items.filter((i) => i.severity === 'High').length;
   const med = items.filter((i) => i.severity === 'Medium').length;
   const low = items.filter((i) => i.severity === 'Low').length;
   const review = items.filter((i) => i.confidence < CONFIDENCE_REVIEW_THRESHOLD).length;
   const overrides = items.filter((i) => i.defect_type_override || i.severity_override || i.observation_override).length;
-  const widespread = items.filter((i) => i.extent === 'Widespread').length;
-  const moderate = items.filter((i) => i.extent === 'Moderate').length;
 
-  const summaryCards = [
-    { label: 'Total Findings', count: items.length, colour: [60, 60, 80] as [number, number, number] },
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(26, 26, 46);
+  doc.text('SEVERITY BREAKDOWN', MARGIN, y);
+  y += 5;
+
+  const sevCards = [
     { label: 'High Severity', count: high, colour: [200, 16, 46] as [number, number, number] },
     { label: 'Medium Severity', count: med, colour: [217, 119, 6] as [number, number, number] },
     { label: 'Low Severity', count: low, colour: [16, 185, 129] as [number, number, number] },
+    { label: 'Findings', count: items.length, colour: [60, 60, 80] as [number, number, number] },
   ];
 
-  const cardW = (CONTENT_W - 9) / 4;
-  summaryCards.forEach(({ label, count, colour }, i) => {
-    const cx = MARGIN + i * (cardW + 3);
+  const sCardW = (CONTENT_W - 9) / 4;
+  sevCards.forEach(({ label, count, colour }, i) => {
+    const cx = MARGIN + i * (sCardW + 3);
     doc.setFillColor(255, 255, 255);
-    doc.roundedRect(cx, y, cardW, 20, 2, 2, 'F');
+    doc.roundedRect(cx, y, sCardW, 16, 2, 2, 'F');
     doc.setDrawColor(...colour);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(cx, y, cardW, 20, 2, 2, 'S');
+    doc.setLineWidth(0.4);
+    doc.roundedRect(cx, y, sCardW, 16, 2, 2, 'S');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
+    doc.setFontSize(13);
     doc.setTextColor(...colour);
-    doc.text(String(count), cx + cardW / 2, y + 11, { align: 'center' });
+    doc.text(String(count), cx + sCardW / 2, y + 8.5, { align: 'center' });
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(5.5);
     doc.setTextColor(100, 100, 110);
-    doc.text(label, cx + cardW / 2, y + 17, { align: 'center' });
+    doc.text(label, cx + sCardW / 2, y + 13.5, { align: 'center' });
   });
-  y += 27;
+  y += 22;
 
-  const defectCounts: Record<string, number> = {};
-  items.forEach((i) => { defectCounts[i.defect_type] = (defectCounts[i.defect_type] ?? 0) + 1; });
-  const topDefects = Object.entries(defectCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-  if (topDefects.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(26, 26, 46);
-    doc.text('PRIMARY ISSUES', MARGIN, y);
-    y += 5;
-
-    const barMaxW = CONTENT_W - 30;
-    const maxCount = topDefects[0][1];
-    topDefects.forEach(([defect, count]) => {
-      const barW = barMaxW * (count / maxCount);
-      doc.setFillColor(235, 235, 245);
-      doc.roundedRect(MARGIN, y, barMaxW, 5, 1, 1, 'F');
-      doc.setFillColor(26, 26, 46);
-      doc.roundedRect(MARGIN, y, barW, 5, 1, 1, 'F');
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(40, 40, 55);
-      doc.text(defect, MARGIN + barMaxW + 3, y + 4);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
-      doc.setTextColor(255, 255, 255);
-      if (barW > 10) doc.text(String(count), MARGIN + barW - 3, y + 4, { align: 'right' });
-      y += 8;
-    });
-    y += 3;
-  }
-
-  if (widespread > 0 || moderate > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(26, 26, 46);
-    doc.text('EXTENT OF DEFECTS', MARGIN, y);
-    y += 5;
-
-    const extentItems = [
-      { label: 'Widespread', count: widespread, colour: [200, 16, 46] as [number, number, number] },
-      { label: 'Moderate', count: moderate, colour: [217, 119, 6] as [number, number, number] },
-      { label: 'Localised', count: items.length - widespread - moderate, colour: [60, 130, 200] as [number, number, number] },
-    ].filter((e) => e.count > 0);
-
-    extentItems.forEach(({ label, count, colour }) => {
-      doc.setFillColor(...colour);
-      doc.roundedRect(MARGIN, y, 3, 5, 1, 1, 'F');
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(40, 40, 55);
-      doc.text(`${label}: ${count}`, MARGIN + 6, y + 4);
-      y += 8;
-    });
-    y += 3;
-  }
-
-  const systemCounts: Record<string, number> = {};
-  items.forEach((i) => { systemCounts[i.system_type] = (systemCounts[i.system_type] ?? 0) + 1; });
-  const systemEntries = Object.entries(systemCounts);
-
-  if (systemEntries.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(26, 26, 46);
-    doc.text('SYSTEMS INSPECTED', MARGIN, y);
-    y += 5;
-    systemEntries.forEach(([sys, count]) => {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(60, 60, 80);
-      doc.text(`${sys}: ${count} finding${count !== 1 ? 's' : ''}`, MARGIN + 3, y + 4);
-      y += 7;
-    });
-    y += 3;
-  }
-
-  if (review > 0 || overrides > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(26, 26, 46);
-    doc.text('FLAGS', MARGIN, y);
-    y += 5;
-
+  if (mode === 'internal' && (review > 0 || overrides > 0)) {
     if (review > 0) {
       doc.setFillColor(255, 251, 235);
       doc.roundedRect(MARGIN, y, CONTENT_W, 7, 1, 1, 'F');
@@ -240,7 +261,6 @@ function addSummaryPage(doc: jsPDF, report: InspectionAIReport, items: Inspectio
       doc.text(`${review} finding${review !== 1 ? 's' : ''} flagged for manual review (AI confidence < ${CONFIDENCE_REVIEW_THRESHOLD}%)`, MARGIN + 3, y + 4.5);
       y += 10;
     }
-
     if (overrides > 0) {
       doc.setFillColor(239, 246, 255);
       doc.roundedRect(MARGIN, y, CONTENT_W, 7, 1, 1, 'F');
@@ -253,35 +273,40 @@ function addSummaryPage(doc: jsPDF, report: InspectionAIReport, items: Inspectio
     y += 3;
   }
 
-  doc.setFillColor(245, 245, 250);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 22, 2, 2, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  doc.setTextColor(100, 100, 120);
-  doc.text('DISCLAIMER', MARGIN + 4, y + 5);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(70, 70, 90);
-  const disclaimer = 'This assessment is based on visual inspection only. Further investigation may be required. ' +
-    'This report does not constitute a compliance certification or fire engineering assessment. ' +
-    'All standards references are for general guidance only.';
-  const dLines = doc.splitTextToSize(disclaimer, CONTENT_W - 8);
-  doc.text(dLines, MARGIN + 4, y + 10);
+  if (y < PAGE_H - 35) {
+    doc.setFillColor(245, 245, 250);
+    doc.roundedRect(MARGIN, y, CONTENT_W, 22, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 100, 120);
+    doc.text('DISCLAIMER', MARGIN + 4, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(70, 70, 90);
+    const disclaimer = 'This assessment is based on visual inspection only. Scope estimates are indicative only and are not a substitute for professional quantity surveying. ' +
+      'This report does not constitute a compliance certification or fire engineering assessment. All standards references are for general guidance only.';
+    const dLines = doc.splitTextToSize(disclaimer, CONTENT_W - 8);
+    doc.text(dLines, MARGIN + 4, y + 10);
+  }
 
   addFooter(doc);
 }
 
-export async function generatePDF(report: InspectionAIReport, items: InspectionAIItem[]): Promise<void> {
+export async function generatePDF(
+  report: InspectionAIReport,
+  items: InspectionAIItem[],
+  mode: ReportMode = 'client'
+): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const totalPages = 1 + items.length;
 
-  addSummaryPage(doc, report, items, totalPages);
+  addCommercialSummaryPage(doc, report, items, totalPages, mode);
 
   for (let idx = 0; idx < items.length; idx++) {
     const item = items[idx];
     doc.addPage();
     addPageBackground(doc);
-    addHeader(doc, report, idx + 2, totalPages);
+    addHeader(doc, report, idx + 2, totalPages, mode);
 
     let y = 32;
 
@@ -332,7 +357,7 @@ export async function generatePDF(report: InspectionAIReport, items: InspectionA
       badgeStackY += 7;
     }
 
-    if (needsReview && !hasOverride) {
+    if (mode === 'internal' && needsReview && !hasOverride) {
       const rvLabel = 'MANUAL REVIEW';
       const rvW = doc.getTextWidth(rvLabel) + 6;
       doc.setFillColor(251, 191, 36);
@@ -411,45 +436,48 @@ export async function generatePDF(report: InspectionAIReport, items: InspectionA
       }
     }
 
-    y += 3;
-    const confPct = Math.max(0, Math.min(100, Math.round(item.confidence)));
-    const [cr, cg, cb] = severityRGB(item.severity);
+    if (mode === 'internal') {
+      y += 3;
+      const confPct = Math.max(0, Math.min(100, Math.round(item.confidence)));
+      const [cr, cg, cb] = severityRGB(item.severity);
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
-    doc.setTextColor(120, 120, 140);
-    doc.text('AI CONFIDENCE', innerX, y);
-
-    if (needsReview && !hasOverride) {
-      doc.setFont('helvetica', 'italic');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(6.5);
-      doc.setTextColor(180, 100, 0);
-      doc.text('Manual review recommended', innerX + innerW, y, { align: 'right' });
-    }
+      doc.setTextColor(120, 120, 140);
+      doc.text('AI CONFIDENCE', innerX, y);
 
-    if (hasOverride) {
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(6.5);
-      doc.setTextColor(30, 80, 200);
-      doc.text('Inspector override applied', innerX + innerW, y, { align: 'right' });
-    }
+      if (needsReview && !hasOverride) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(6.5);
+        doc.setTextColor(180, 100, 0);
+        doc.text('Manual review recommended', innerX + innerW, y, { align: 'right' });
+      }
 
-    y += 4;
-    const barW = innerW - 14;
-    doc.setFillColor(225, 225, 235);
-    doc.roundedRect(innerX, y, barW, 3, 1, 1, 'F');
-    if (confPct > 0) {
-      doc.setFillColor(cr, cg, cb);
-      doc.roundedRect(innerX, y, barW * (confPct / 100), 3, 1, 1, 'F');
+      if (hasOverride) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(6.5);
+        doc.setTextColor(30, 80, 200);
+        doc.text('Inspector override applied', innerX + innerW, y, { align: 'right' });
+      }
+
+      y += 4;
+      const barW = innerW - 14;
+      doc.setFillColor(225, 225, 235);
+      doc.roundedRect(innerX, y, barW, 3, 1, 1, 'F');
+      if (confPct > 0) {
+        doc.setFillColor(cr, cg, cb);
+        doc.roundedRect(innerX, y, barW * (confPct / 100), 3, 1, 1, 'F');
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(60, 60, 80);
+      doc.text(`${confPct}%`, innerX + barW + 3, y + 3);
     }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(60, 60, 80);
-    doc.text(`${confPct}%`, innerX + barW + 3, y + 3);
 
     addFooter(doc);
   }
 
+  const modeTag = mode === 'internal' ? '_INTERNAL' : '_CLIENT';
   const safeProject = report.project_name.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-  doc.save(`Inspection_AI_Report_${safeProject}_${Date.now()}.pdf`);
+  doc.save(`Inspection_AI_Report_${safeProject}${modeTag}_${Date.now()}.pdf`);
 }

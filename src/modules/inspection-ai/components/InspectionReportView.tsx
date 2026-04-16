@@ -1,9 +1,27 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Download, AlertTriangle, CheckCircle, Clock, MapPin, Pencil } from 'lucide-react';
+import {
+  ArrowLeft,
+  Download,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Pencil,
+  BarChart2,
+  Eye,
+  EyeOff,
+  TrendingUp,
+  Layers,
+} from 'lucide-react';
 import { fetchReport, fetchReportItems } from '../services/storageService';
 import type { InspectionAIReport, InspectionAIItem } from '../types';
 import { generatePDF } from '../utils/pdfGenerator';
 import { CONFIDENCE_REVIEW_THRESHOLD } from '../services/inspectionAIService';
+import { generateCommercialSummary } from '../utils/summaryEngine';
+import { getRiskTailwindClass } from '../utils/riskEngine';
+import type { CommercialSummary } from '../utils/summaryEngine';
+
+type ReportMode = 'client' | 'internal';
 
 interface Props {
   reportId: string;
@@ -78,7 +96,104 @@ function LocationTag({ item }: { item: InspectionAIItem }) {
   );
 }
 
-function SummarySection({ items }: { items: InspectionAIItem[] }) {
+function CommercialSummarySection({
+  summary,
+  mode,
+}: {
+  summary: CommercialSummary;
+  mode: ReportMode;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-slate-900 px-5 py-4 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <BarChart2 className="w-4 h-4 text-slate-300" />
+            <h2 className="text-white font-bold text-base">Commercial Summary</h2>
+          </div>
+          <p className="text-slate-400 text-xs mt-0.5">
+            {summary.total_findings} finding{summary.total_findings !== 1 ? 's' : ''} across {summary.total_groups} defect group{summary.total_groups !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-5">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+            <p className="text-2xl font-bold text-slate-900">{summary.total_findings}</p>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">Total Findings</p>
+          </div>
+          <div className={`rounded-xl p-3 text-center border ${summary.high_risk_count > 0 ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
+            <p className={`text-2xl font-bold ${summary.high_risk_count > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+              {summary.high_risk_count}
+            </p>
+            <p className={`text-xs font-semibold mt-0.5 ${summary.high_risk_count > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              High Risk Groups
+            </p>
+          </div>
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+            <p className="text-lg font-bold text-blue-800 leading-tight">{summary.total_scope_range}</p>
+            <p className="text-xs text-blue-600 font-semibold mt-0.5">Est. Total Scope</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5" />
+            Grouped Findings
+          </p>
+          <div className="space-y-2">
+            {summary.groups.map((group, i) => (
+              <div key={i} className="border border-slate-100 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-slate-900">{group.defect_type}</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${getRiskTailwindClass(group.risk_level)}`}>
+                        {group.risk_level}
+                      </span>
+                      {group.is_systemic && mode === 'internal' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-sky-50 text-sky-700 border-sky-200 flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3" />
+                          Systemic
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">{group.system_type}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-3">
+                    <p className="text-lg font-bold text-slate-900">{group.count}</p>
+                    <p className="text-xs text-slate-400">occurrences</p>
+                  </div>
+                </div>
+                <div className="px-4 py-2.5 flex items-center justify-between gap-4 bg-white border-t border-slate-100">
+                  <div className="flex items-center gap-1.5 text-xs text-blue-700">
+                    <MapPin className="w-3 h-3 text-blue-400" />
+                    <span>Est. affected area: <strong>{group.estimated_area}</strong></span>
+                  </div>
+                  {mode === 'internal' && group.is_systemic && (
+                    <p className="text-xs text-sky-700 italic">
+                      Pattern observed across {group.count} locations — potential systemic issue
+                    </p>
+                  )}
+                </div>
+                {mode === 'internal' && group.locations.length > 0 && (
+                  <div className="px-4 pb-2.5 bg-white">
+                    <p className="text-xs text-slate-400 mt-1">
+                      Locations: {group.locations.join(', ')}{group.count > group.locations.length ? ` +${group.count - group.locations.length} more` : ''}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LegacySummarySection({ items }: { items: InspectionAIItem[] }) {
   const high = items.filter((i) => i.severity === 'High').length;
   const med = items.filter((i) => i.severity === 'Medium').length;
   const low = items.filter((i) => i.severity === 'Low').length;
@@ -87,12 +202,6 @@ function SummarySection({ items }: { items: InspectionAIItem[] }) {
 
   const systemCounts: Record<string, number> = {};
   items.forEach((i) => { systemCounts[i.system_type] = (systemCounts[i.system_type] ?? 0) + 1; });
-
-  const defectCounts: Record<string, number> = {};
-  items.forEach((i) => { defectCounts[i.defect_type] = (defectCounts[i.defect_type] ?? 0) + 1; });
-  const topDefects = Object.entries(defectCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
 
   const widespread = items.filter((i) => i.extent === 'Widespread').length;
   const moderate = items.filter((i) => i.extent === 'Moderate').length;
@@ -149,22 +258,6 @@ function SummarySection({ items }: { items: InspectionAIItem[] }) {
           </div>
         )}
 
-        {topDefects.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Primary Issues</p>
-            <div className="space-y-1.5">
-              {topDefects.map(([defect, count]) => (
-                <div key={defect} className="flex items-center justify-between">
-                  <span className="text-sm text-slate-700">{defect}</span>
-                  <span className="text-xs font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {count}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {Object.keys(systemCounts).length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Systems Inspected</p>
@@ -197,7 +290,7 @@ function SummarySection({ items }: { items: InspectionAIItem[] }) {
   );
 }
 
-function FindingCard({ item, idx }: { item: InspectionAIItem; idx: number }) {
+function FindingCard({ item, idx, mode }: { item: InspectionAIItem; idx: number; mode: ReportMode }) {
   const needsReview = item.confidence < CONFIDENCE_REVIEW_THRESHOLD;
   const hasOverride = !!(item.defect_type_override || item.severity_override || item.observation_override);
 
@@ -261,12 +354,43 @@ function FindingCard({ item, idx }: { item: InspectionAIItem; idx: number }) {
               <p className="text-sm text-slate-700 leading-relaxed">{item.risk}</p>
             </div>
 
-            <div className="pt-3">
-              <ConfidenceMeter value={item.confidence} />
-            </div>
+            {mode === 'internal' && (
+              <div className="pt-3">
+                <ConfidenceMeter value={item.confidence} />
+              </div>
+            )}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ModeSwitcher({ mode, onChange }: { mode: ReportMode; onChange: (m: ReportMode) => void }) {
+  return (
+    <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+      <button
+        onClick={() => onChange('client')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          mode === 'client'
+            ? 'bg-white text-slate-900 shadow-sm'
+            : 'text-slate-500 hover:text-slate-700'
+        }`}
+      >
+        <Eye className="w-3.5 h-3.5" />
+        Client
+      </button>
+      <button
+        onClick={() => onChange('internal')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          mode === 'internal'
+            ? 'bg-white text-slate-900 shadow-sm'
+            : 'text-slate-500 hover:text-slate-700'
+        }`}
+      >
+        <EyeOff className="w-3.5 h-3.5" />
+        Internal
+      </button>
     </div>
   );
 }
@@ -276,6 +400,7 @@ export function InspectionReportView({ reportId, onBack }: Props) {
   const [items, setItems] = useState<InspectionAIItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [mode, setMode] = useState<ReportMode>('client');
 
   useEffect(() => {
     (async () => {
@@ -293,7 +418,7 @@ export function InspectionReportView({ reportId, onBack }: Props) {
     if (!report) return;
     setExporting(true);
     try {
-      await generatePDF(report, items);
+      await generatePDF(report, items, mode);
     } finally {
       setExporting(false);
     }
@@ -315,38 +440,56 @@ export function InspectionReportView({ reportId, onBack }: Props) {
     );
   }
 
+  const commercialSummary = items.length > 0 ? generateCommercialSummary(items) : null;
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={onBack} className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <button onClick={onBack} className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors flex-shrink-0">
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">Back</span>
           </button>
-          <h1 className="font-bold text-slate-900 text-lg">Inspection Report</h1>
-          <button
-            onClick={handleExport}
-            disabled={exporting || items.length === 0}
-            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 hover:bg-slate-800 transition-colors active:scale-95"
-          >
-            <Download className="w-4 h-4" />
-            {exporting ? 'Generating…' : 'Export PDF'}
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ModeSwitcher mode={mode} onChange={setMode} />
+            <button
+              onClick={handleExport}
+              disabled={exporting || items.length === 0}
+              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 hover:bg-slate-800 transition-colors active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? 'Generating…' : 'Export PDF'}
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <h2 className="text-xl font-bold text-slate-900">{report.project_name}</h2>
-          <p className="text-slate-500 text-sm mt-0.5">Inspector: {report.inspector_name}</p>
-          <p className="text-slate-400 text-xs mt-0.5">
-            {new Date(report.created_at).toLocaleDateString('en-NZ', {
-              day: 'numeric', month: 'long', year: 'numeric',
-            })}
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">{report.project_name}</h2>
+              <p className="text-slate-500 text-sm mt-0.5">Inspector: {report.inspector_name}</p>
+              <p className="text-slate-400 text-xs mt-0.5">
+                {new Date(report.created_at).toLocaleDateString('en-NZ', {
+                  day: 'numeric', month: 'long', year: 'numeric',
+                })}
+              </p>
+            </div>
+            {mode === 'internal' && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1.5 rounded-lg flex-shrink-0">
+                <EyeOff className="w-3.5 h-3.5" />
+                Internal view
+              </span>
+            )}
+          </div>
         </div>
 
-        {items.length > 0 && <SummarySection items={items} />}
+        {mode === 'internal' && commercialSummary && (
+          <CommercialSummarySection summary={commercialSummary} mode={mode} />
+        )}
+
+        {items.length > 0 && <LegacySummarySection items={items} />}
 
         {items.length === 0 && (
           <div className="text-center py-12 text-slate-400">
@@ -354,8 +497,20 @@ export function InspectionReportView({ reportId, onBack }: Props) {
           </div>
         )}
 
+        {mode === 'internal' && commercialSummary && commercialSummary.groups.some((g) => g.is_systemic) && (
+          <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 space-y-1">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-sky-600" />
+              <p className="text-sm font-semibold text-sky-800">Systemic Patterns Detected</p>
+            </div>
+            <p className="text-xs text-sky-700 leading-relaxed">
+              {commercialSummary.groups.filter((g) => g.is_systemic).map((g) => g.defect_type).join(', ')} appear across 3+ locations, suggesting potential systemic issues. Consider including remediation scope in project variation.
+            </p>
+          </div>
+        )}
+
         {items.map((item, idx) => (
-          <FindingCard key={item.id} item={item} idx={idx} />
+          <FindingCard key={item.id} item={item} idx={idx} mode={mode} />
         ))}
 
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
@@ -364,6 +519,7 @@ export function InspectionReportView({ reportId, onBack }: Props) {
             observations of the inspector at the time of inspection. Further investigation, testing, or
             specialist assessment may be required to fully characterise the extent or cause of any identified
             conditions. This report does not constitute a compliance certification or fire engineering assessment.
+            Scope estimates are indicative only.
           </p>
         </div>
       </div>
