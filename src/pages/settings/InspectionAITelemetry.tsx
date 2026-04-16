@@ -323,6 +323,20 @@ export default function InspectionAITelemetry() {
           sub={`of ${summary.totalFindings} total findings`}
           colour={severityBreakdown.High > 0 ? 'text-red-700' : 'text-slate-900'}
         />
+        <StatCard
+          icon={<Zap className="w-5 h-5 text-sky-500" />}
+          label="Tier 1 Handled"
+          value={summary.tier1Count}
+          sub={summary.tier1Count + summary.tier2Count > 0 ? `${Math.round((summary.tier1Count / (summary.tier1Count + summary.tier2Count)) * 100)}% of AI analyses` : 'No tier data yet'}
+          colour="text-sky-700"
+        />
+        <StatCard
+          icon={<Brain className="w-5 h-5 text-slate-600" />}
+          label="Tier 2 Expert"
+          value={summary.tier2Count}
+          sub={`${summary.escalationRate}% escalation rate`}
+          colour={summary.escalationRate > 60 ? 'text-amber-700' : 'text-slate-900'}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

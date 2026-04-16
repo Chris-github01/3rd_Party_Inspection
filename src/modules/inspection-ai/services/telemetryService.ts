@@ -10,6 +10,9 @@ export interface TelemetrySummary {
   overrideRate: number;
   findingsPerReport: number;
   evidencePerFinding: number;
+  tier1Count: number;
+  tier2Count: number;
+  escalationRate: number;
 }
 
 export interface SeverityBreakdown {
@@ -65,7 +68,7 @@ export async function fetchTelemetry(): Promise<TelemetryData> {
   ] = await Promise.all([
     supabase.from('inspection_ai_reports').select('id, created_at', { count: 'exact' }),
     supabase.from('inspection_ai_items').select(
-      'id, defect_type, severity, confidence, inspector_override, defect_type_override, severity_override, report_id, created_at'
+      'id, defect_type, severity, confidence, inspector_override, defect_type_override, severity_override, report_id, created_at, tier_used, model_used'
     ),
     supabase.from('inspection_ai_item_images').select('id, item_id', { count: 'exact' }),
     supabase.from('inspection_ai_overrides').select(
@@ -96,6 +99,13 @@ export async function fetchTelemetry(): Promise<TelemetryData> {
 
   const findingsPerReport = totalReports ? Math.round((totalFindings / totalReports) * 10) / 10 : 0;
   const evidencePerFinding = totalFindings ? Math.round((totalEvidencePhotos / totalFindings) * 10) / 10 : 0;
+
+  const tieredItems = items.filter((i) => i.tier_used === 1 || i.tier_used === 2);
+  const tier1Count = tieredItems.filter((i) => i.tier_used === 1).length;
+  const tier2Count = tieredItems.filter((i) => i.tier_used === 2).length;
+  const escalationRate = tieredItems.length > 0
+    ? Math.round((tier2Count / tieredItems.length) * 100)
+    : 0;
 
   const severityBreakdown: SeverityBreakdown = { High: 0, Medium: 0, Low: 0 };
   for (const item of items) {
@@ -192,6 +202,9 @@ export async function fetchTelemetry(): Promise<TelemetryData> {
       overrideRate,
       findingsPerReport,
       evidencePerFinding,
+      tier1Count,
+      tier2Count,
+      escalationRate,
     },
     severityBreakdown,
     defectDistribution,

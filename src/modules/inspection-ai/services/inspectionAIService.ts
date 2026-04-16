@@ -3,6 +3,7 @@ import { normaliseDefectType } from '../utils/defectDictionary';
 import { getObservationTemplate } from '../utils/observationTemplates';
 import { compressImageFile, hashImageFile } from '../utils/imageCompressor';
 import { getCachedResult, setCachedResult } from '../utils/analysisCache';
+import { supabase } from '../../../lib/supabase';
 
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/inspection-ai-analyse`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -10,6 +11,46 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const CONFIDENCE_REVIEW_THRESHOLD = 70;
 
 const RETRY_DELAYS_MS = [2000, 5000, 10000];
+
+const HIGH_OVERRIDE_RATE_THRESHOLD = 40;
+let overrideRateCache: Map<string, number> | null = null;
+let overrideRateCacheTs = 0;
+const OVERRIDE_CACHE_TTL = 5 * 60 * 1000;
+
+async function getHighOverrideClasses(): Promise<Set<string>> {
+  const now = Date.now();
+  if (overrideRateCache && now - overrideRateCacheTs < OVERRIDE_CACHE_TTL) {
+    const result = new Set<string>();
+    overrideRateCache.forEach((rate, cls) => { if (rate >= HIGH_OVERRIDE_RATE_THRESHOLD) result.add(cls); });
+    return result;
+  }
+  try {
+    const { data } = await supabase
+      .from('inspection_ai_items')
+      .select('defect_type, defect_type_override')
+      .not('defect_type', 'is', null);
+    if (!data) return new Set();
+    const counts = new Map<string, { total: number; overrides: number }>();
+    for (const row of data) {
+      const cls = row.defect_type;
+      if (!cls) continue;
+      const entry = counts.get(cls) ?? { total: 0, overrides: 0 };
+      entry.total++;
+      if (row.defect_type_override && row.defect_type_override !== cls) entry.overrides++;
+      counts.set(cls, entry);
+    }
+    overrideRateCache = new Map<string, number>();
+    counts.forEach(({ total, overrides }, cls) => {
+      if (total >= 5) overrideRateCache!.set(cls, Math.round((overrides / total) * 100));
+    });
+    overrideRateCacheTs = now;
+    const result = new Set<string>();
+    overrideRateCache.forEach((rate, cls) => { if (rate >= HIGH_OVERRIDE_RATE_THRESHOLD) result.add(cls); });
+    return result;
+  } catch {
+    return new Set();
+  }
+}
 
 export type AIFailureReason = 'rate_limit' | 'ai_unavailable' | 'network_error' | 'configuration_error';
 
@@ -121,12 +162,14 @@ export async function analyseImage(
   environment?: string,
   observedConcern?: string,
   isNewInstall?: boolean,
-  currentQueueDepth?: number
+  currentQueueDepth?: number,
+  forceTier2Override?: boolean
 ): Promise<AIAnalysisResult> {
   const env = environment ?? 'Internal';
   const concern = observedConcern ?? 'Unsure';
   const newInstall = isNewInstall ?? false;
-  const forceTier2 = isSpecialistMode(systemType);
+  const highOverrideClasses = await getHighOverrideClasses();
+  const forceTier2 = forceTier2Override || isSpecialistMode(systemType);
 
   const { file: compressed, wasCompressed, originalSizeKB, compressedSizeKB } = await compressImageFile(imageFile);
   if (wasCompressed) {
@@ -144,7 +187,14 @@ export async function analyseImage(
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const result = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, forceTier2);
+      const shouldForceTier2 = forceTier2;
+      const result = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, shouldForceTier2);
+      if (result.tier_used === 1 && result.confidence !== undefined && result.confidence >= 85 && result.defect_type && highOverrideClasses.has(result.defect_type)) {
+        console.info(`[AI] Escalating to Tier 2: "${result.defect_type}" has high override history`);
+        const escalated = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, true);
+        setCachedResult(hash, escalated);
+        return escalated;
+      }
       setCachedResult(hash, result);
       return result;
     } catch (err) {

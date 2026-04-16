@@ -21,6 +21,7 @@ import {
   Calendar,
   Building2,
   Map,
+  Brain,
 } from 'lucide-react';
 import { analyseImage, AIUnavailableError } from '../services/inspectionAIService';
 import {
@@ -810,7 +811,7 @@ export default function InspectionAIPage() {
   }, []);
 
   const runAnalysis = useCallback(
-    async (idx: number, systemType: SystemType, element: ElementType, imageFile: File, environment?: string, observedConcern?: string, isNewInstall?: boolean) => {
+    async (idx: number, systemType: SystemType, element: ElementType, imageFile: File, environment?: string, observedConcern?: string, isNewInstall?: boolean, forceTier2?: boolean) => {
       const alreadyBusy = isQueueBusy() || queueLength() > 0;
       setItemStatus(idx, alreadyBusy ? 'queued' : 'analysing');
 
@@ -840,7 +841,8 @@ export default function InspectionAIPage() {
             environment,
             observedConcern,
             isNewInstall,
-            queueDepth()
+            queueDepth(),
+            forceTier2
           );
         } catch (err) {
           const msg = err instanceof AIUnavailableError ? err.message : 'AI analysis failed. Classify manually.';
@@ -912,7 +914,7 @@ export default function InspectionAIPage() {
         );
 
         if (isManual) { setActiveIdx(idx); setOverrideIdx(idx); }
-      });
+      }, undefined, forceTier2 ? 'high' : 'normal');
     },
     [setItemStatus]
   );
@@ -991,6 +993,8 @@ export default function InspectionAIPage() {
         location_level: item.locationLevel, location_grid: item.locationGrid, location_description: item.locationDescription,
         extent: item.extent, defect_type_override: item.defectTypeOverride, severity_override: item.severityOverride,
         observation_override: item.observationOverride, inspector_override: item.inspectorOverride, annotated_image_url: annotatedImageUrl,
+        tier_used: item.analysisResult?.tier_used ?? null,
+        model_used: item.analysisResult?.model_used ?? null,
       });
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
 
@@ -1398,19 +1402,30 @@ export default function InspectionAIPage() {
                   )}
 
                   {!isInProgress && item.analysisResult && (
-                    <SeniorInspectorCard
-                      result={item.analysisResult}
-                      defectTypeOverride={item.defectTypeOverride}
-                      severityOverride={item.severityOverride}
-                      observationOverride={item.observationOverride}
-                      inspectorOverride={item.inspectorOverride}
-                      analysisStatus={item.analysisStatus}
-                      isSaved={item.isSaved}
-                      canSave={canSave}
-                      onSave={() => handleSave(idx)}
-                      onOverride={() => setOverrideIdx(idx)}
-                      onReanalyse={item.analysisResult.confidence > 0 && !isInProgress ? () => handleReanalyse(idx) : undefined}
-                    />
+                    <>
+                      <SeniorInspectorCard
+                        result={item.analysisResult}
+                        defectTypeOverride={item.defectTypeOverride}
+                        severityOverride={item.severityOverride}
+                        observationOverride={item.observationOverride}
+                        inspectorOverride={item.inspectorOverride}
+                        analysisStatus={item.analysisStatus}
+                        isSaved={item.isSaved}
+                        canSave={canSave}
+                        onSave={() => handleSave(idx)}
+                        onOverride={() => setOverrideIdx(idx)}
+                        onReanalyse={item.analysisResult.confidence > 0 && !isInProgress ? () => handleReanalyse(idx) : undefined}
+                      />
+                      {item.analysisResult.tier_used === 1 && !item.isSaved && !isInProgress && (
+                        <button
+                          onClick={() => runAnalysis(idx, item.systemType, item.element, item.imageFile, item.environment, item.observedConcern, item.isNewInstall, true)}
+                          className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-600 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
+                        >
+                          <Brain className="w-4 h-4 text-slate-500" />
+                          Request Expert Review
+                        </button>
+                      )}
+                    </>
                   )}
 
                   {item.isSaved && item.savedId && (

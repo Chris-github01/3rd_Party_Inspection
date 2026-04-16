@@ -53,7 +53,7 @@ function drain() {
   }, delay);
 }
 
-export function enqueue(task: QueueTask, taskId?: string): Promise<void> {
+export function enqueue(task: QueueTask, taskId?: string, priority: 'high' | 'normal' = 'normal'): Promise<void> {
   if (taskId) {
     const last = recentRequests.get(taskId);
     if (last && Date.now() - last < DEBOUNCE_MS) {
@@ -66,7 +66,12 @@ export function enqueue(task: QueueTask, taskId?: string): Promise<void> {
   const id = taskId ?? Math.random().toString(36).slice(2);
 
   return new Promise((resolve, reject) => {
-    queue.push({ id, task, resolve, reject });
+    const entry: QueuedEntry = { id, task, resolve, reject };
+    if (priority === 'high') {
+      queue.unshift(entry);
+    } else {
+      queue.push(entry);
+    }
     emit();
     drain();
   });
