@@ -34,7 +34,7 @@ async function callEdgeFunction(
   environment: string,
   observedConcern: string,
   isNewInstall: boolean,
-  useShortPrompt: boolean
+  forceTier2: boolean
 ): Promise<AIAnalysisResult> {
   const base64 = await fileToBase64(imageFile);
   const mimeType = imageFile.type || 'image/jpeg';
@@ -56,7 +56,7 @@ async function callEdgeFunction(
         environment,
         observed_concern: observedConcern,
         is_new_install: isNewInstall,
-        short_prompt: useShortPrompt,
+        force_tier2: forceTier2,
       }),
     });
   } catch {
@@ -108,6 +108,8 @@ async function callEdgeFunction(
     requires_manual_review: Boolean(data.requires_manual_review) || confidence < 50,
     system_type_detected: String(data.system_type_detected ?? ''),
     geometry,
+    tier_used: data.tier_used === 1 ? 1 : data.tier_used === 2 ? 2 : undefined,
+    model_used: data.model_used ? String(data.model_used) : undefined,
   };
 }
 
@@ -124,8 +126,7 @@ export async function analyseImage(
   const env = environment ?? 'Internal';
   const concern = observedConcern ?? 'Unsure';
   const newInstall = isNewInstall ?? false;
-  const specialist = isSpecialistMode(systemType);
-  const useShortPrompt = !specialist && (currentQueueDepth ?? 0) > 3;
+  const forceTier2 = isSpecialistMode(systemType);
 
   const { file: compressed, wasCompressed, originalSizeKB, compressedSizeKB } = await compressImageFile(imageFile);
   if (wasCompressed) {
@@ -143,7 +144,7 @@ export async function analyseImage(
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const result = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, useShortPrompt);
+      const result = await callEdgeFunction(compressed, systemType, element, env, concern, newInstall, forceTier2);
       setCachedResult(hash, result);
       return result;
     } catch (err) {

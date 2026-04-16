@@ -21,7 +21,45 @@ const VALID_DEFECT_TYPES = [
   "Unknown",
 ];
 
-const BASE_PROMPT = `You are a senior Level 3 coatings and passive fire protection inspector with 25 years of field experience.
+const TIER1_MODEL = "gpt-4o-mini";
+const TIER2_MODEL = "gpt-4o";
+
+const TIER1_PROMPT = `You are a coatings and passive fire protection inspector. Analyse the inspection photograph and return a JSON classification.
+
+DEFECT TYPES (choose one only):
+Mechanical Damage | Cracking | Delamination | Missing Coating | Corrosion Breakthrough | Blistering | Spalling | Voids | Incomplete Firestopping | Surface Deterioration | Moisture Damage | Unknown
+
+RULES:
+- Return Unknown if you are not confident — do NOT guess
+- Mechanical Damage ONLY if a clear physical impact mark (gouge, dent, abrasion) is visible
+- Severity: Low = cosmetic, Medium = local failure, High = exposed substrate or safety breach
+- Confidence: 0-100. Use < 70 if there is any ambiguity.
+- Populate all geometry fields
+
+Return ONLY valid JSON:
+{
+  "system_type": "",
+  "defect_type": "",
+  "severity": "Low|Medium|High",
+  "confidence": 0,
+  "observation": "",
+  "likely_cause": "",
+  "visible_evidence": [],
+  "next_checks": [],
+  "escalate": false,
+  "escalation_reason": "",
+  "remediation_guidance": "",
+  "requires_manual_review": false,
+  "geometry": {
+    "location_on_member": "",
+    "pattern": "",
+    "extent": "",
+    "likely_mechanism": "",
+    "urgent_action": ""
+  }
+}`;
+
+const TIER2_BASE_PROMPT = `You are a senior Level 3 coatings and passive fire protection inspector with 25 years of field experience.
 
 Your task is to analyse ONE inspection photograph only.
 
@@ -159,47 +197,24 @@ CONNECTION ZONE LOGIC:
 
 Always populate the geometry fields with specific intumescent context.`;
 
-const SHORT_PROMPT = `You are a senior coatings and passive fire protection inspector.
-
-Analyse the inspection photograph and return a JSON classification.
-
-DEFECT TYPES (choose one only):
-Mechanical Damage | Cracking | Delamination | Missing Coating | Corrosion Breakthrough | Blistering | Spalling | Voids | Incomplete Firestopping | Surface Deterioration | Moisture Damage | Unknown
-
-RULES:
-- Unknown if insufficient evidence
-- Mechanical Damage only if physical impact mark is clearly visible
-- Return all geometry fields even if brief
-
-Return ONLY valid JSON:
-{
-  "system_type": "",
-  "defect_type": "",
-  "severity": "Low|Medium|High",
-  "confidence": 0,
-  "observation": "",
-  "likely_cause": "",
-  "visible_evidence": [],
-  "next_checks": [],
-  "escalate": false,
-  "escalation_reason": "",
-  "remediation_guidance": "",
-  "requires_manual_review": false,
-  "geometry": {
-    "location_on_member": "",
-    "pattern": "",
-    "extent": "",
-    "likely_mechanism": "",
-    "urgent_action": ""
-  }
-}`;
-
-function buildSystemPrompt(systemType: string, shortPrompt: boolean): string {
-  if (shortPrompt) return SHORT_PROMPT;
+function buildTier2Prompt(systemType: string): string {
   const isIntumescent = systemType?.toLowerCase().includes("intumescent");
-  return isIntumescent
-    ? BASE_PROMPT + INTUMESCENT_SPECIALIST_ADDENDUM
-    : BASE_PROMPT;
+  const isFirestopping = systemType?.toLowerCase().includes("firestopping");
+  if (isIntumescent || isFirestopping) {
+    return TIER2_BASE_PROMPT + INTUMESCENT_SPECIALIST_ADDENDUM;
+  }
+  return TIER2_BASE_PROMPT;
+}
+
+function requiresTier2(systemType: string, tier1Result?: Record<string, unknown>): boolean {
+  const lower = (systemType ?? "").toLowerCase();
+  if (lower.includes("intumescent") || lower.includes("firestopping")) return true;
+  if (!tier1Result) return false;
+  const confidence = Number(tier1Result.confidence ?? 0);
+  if (confidence < 70) return true;
+  if (String(tier1Result.severity) === "High") return true;
+  if (String(tier1Result.defect_type) === "Unknown") return true;
+  return false;
 }
 
 function normaliseDefectType(raw: string): string {
@@ -220,6 +235,7 @@ function sleep(ms: number): Promise<void> {
 
 async function callOpenAI(
   apiKey: string,
+  model: string,
   systemPrompt: string,
   imageBase64: string,
   mimeType: string,
@@ -230,6 +246,9 @@ async function callOpenAI(
     await sleep(Math.pow(2, attempt - 1) * 1000);
   }
 
+  const maxTokens = model === TIER1_MODEL ? 700 : 1100;
+  const imageDetail = model === TIER1_MODEL ? "low" : "high";
+
   return fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -237,8 +256,8 @@ async function callOpenAI(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o",
-      max_tokens: 1100,
+      model,
+      max_tokens: maxTokens,
       temperature: 0.1,
       response_format: { type: "json_object" },
       messages: [
@@ -250,7 +269,7 @@ async function callOpenAI(
               type: "image_url",
               image_url: {
                 url: `data:${mimeType};base64,${imageBase64}`,
-                detail: "high",
+                detail: imageDetail,
               },
             },
             { type: "text", text: userPrompt },
@@ -259,6 +278,110 @@ async function callOpenAI(
       ],
     }),
   });
+}
+
+async function runInference(
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  imageBase64: string,
+  mimeType: string,
+  userPrompt: string,
+  maxRetries: number
+): Promise<{ parsed: Record<string, unknown> | null; lastStatus: number; lastErrorText: string }> {
+  let lastStatus = 0;
+  let lastErrorText = "";
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    let res: Response;
+    try {
+      res = await callOpenAI(apiKey, model, systemPrompt, imageBase64, mimeType, userPrompt, attempt);
+    } catch (fetchErr) {
+      lastErrorText = `network_error:${String(fetchErr)}`;
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    lastStatus = res.status;
+
+    if (res.status === 429) {
+      lastErrorText = "rate_limited";
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    if (!res.ok) {
+      lastErrorText = await res.text().catch(() => `http_${res.status}`);
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      lastErrorText = "empty_response";
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    try {
+      return { parsed: JSON.parse(content), lastStatus: res.status, lastErrorText: "" };
+    } catch {
+      lastErrorText = "invalid_json";
+      if (attempt < maxRetries) continue;
+      break;
+    }
+  }
+
+  return { parsed: null, lastStatus, lastErrorText };
+}
+
+function buildResult(parsed: Record<string, unknown>, tier: 1 | 2): Record<string, unknown> {
+  const validSeverities = ["Low", "Medium", "High"];
+  const severity = validSeverities.includes(String(parsed.severity))
+    ? String(parsed.severity)
+    : "Medium";
+
+  const confidence = Math.max(0, Math.min(100, Number(parsed.confidence ?? 0)));
+  const requiresManualReview = Boolean(parsed.requires_manual_review) || confidence < 50;
+
+  const nextChecks = Array.isArray(parsed.next_checks)
+    ? (parsed.next_checks as unknown[]).map((c) => String(c)).slice(0, 5)
+    : [];
+
+  const visibleEvidence = Array.isArray(parsed.visible_evidence)
+    ? (parsed.visible_evidence as unknown[]).map((c) => String(c)).slice(0, 10)
+    : [];
+
+  const rawGeometry = parsed.geometry as Record<string, unknown> | undefined;
+  const geometry = rawGeometry
+    ? {
+        location_on_member: String(rawGeometry.location_on_member ?? ""),
+        pattern: String(rawGeometry.pattern ?? ""),
+        extent: String(rawGeometry.extent ?? ""),
+        likely_mechanism: String(rawGeometry.likely_mechanism ?? ""),
+        urgent_action: String(rawGeometry.urgent_action ?? ""),
+      }
+    : null;
+
+  return {
+    success: true,
+    defect_type: normaliseDefectType(String(parsed.defect_type ?? "Unknown")),
+    severity,
+    observation: String(parsed.observation ?? ""),
+    confidence,
+    likely_cause: String(parsed.likely_cause ?? ""),
+    visible_evidence: visibleEvidence,
+    next_checks: nextChecks,
+    escalate: Boolean(parsed.escalate) || confidence < 70,
+    escalation_reason: String(parsed.escalation_reason ?? ""),
+    remediation_guidance: String(parsed.remediation_guidance ?? ""),
+    requires_manual_review: requiresManualReview,
+    system_type_detected: String(parsed.system_type ?? ""),
+    geometry,
+    tier_used: tier,
+    model_used: tier === 1 ? TIER1_MODEL : TIER2_MODEL,
+  };
 }
 
 Deno.serve(async (req: Request) => {
@@ -298,7 +421,7 @@ Deno.serve(async (req: Request) => {
       environment,
       observed_concern,
       is_new_install,
-      short_prompt,
+      force_tier2,
     } = body;
 
     if (!image_base64) {
@@ -310,8 +433,6 @@ Deno.serve(async (req: Request) => {
         }
       );
     }
-
-    const systemPrompt = buildSystemPrompt(system_type ?? "", Boolean(short_prompt));
 
     const contextBlock = [
       "Inspector context (use as supporting information only — photo evidence overrides these assumptions):",
@@ -331,132 +452,76 @@ Deno.serve(async (req: Request) => {
 
 Now analyse the photograph above. Follow all reasoning steps. Populate all geometry fields with specific location and pattern detail. Classify the visible defect using only the controlled terms. Never default to Mechanical Damage unless a physical impact mark is clearly visible.`;
 
-    const MAX_RETRIES = 3;
-    let lastStatus = 0;
-    let lastErrorText = "";
+    const skipTier1 = Boolean(force_tier2) || requiresTier2(system_type ?? "", undefined);
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      let openaiResponse: Response;
-      try {
-        openaiResponse = await callOpenAI(
-          openaiApiKey,
-          systemPrompt,
-          image_base64,
-          mime_type ?? "image/jpeg",
-          userPrompt,
-          attempt
+    let tier: 1 | 2 = 1;
+    let finalParsed: Record<string, unknown> | null = null;
+
+    if (!skipTier1) {
+      const tier1 = await runInference(
+        openaiApiKey,
+        TIER1_MODEL,
+        TIER1_PROMPT,
+        image_base64,
+        mime_type ?? "image/jpeg",
+        userPrompt,
+        2
+      );
+
+      if (tier1.parsed && !requiresTier2(system_type ?? "", tier1.parsed)) {
+        finalParsed = tier1.parsed;
+        tier = 1;
+      } else if (tier1.lastErrorText === "rate_limited") {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            reason: "rate_limit",
+            error: "AI service is temporarily rate limited. Please retry in a moment.",
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
-      } catch (fetchErr) {
-        lastErrorText = `Network error on attempt ${attempt}: ${String(fetchErr)}`;
-        console.error(lastErrorText);
-        if (attempt < MAX_RETRIES) continue;
-        break;
       }
-
-      lastStatus = openaiResponse.status;
-
-      if (openaiResponse.status === 429) {
-        lastErrorText = "rate_limited";
-        console.warn(`OpenAI rate limited on attempt ${attempt}`);
-        if (attempt < MAX_RETRIES) continue;
-        break;
-      }
-
-      if (!openaiResponse.ok) {
-        lastErrorText = await openaiResponse.text().catch(() => `HTTP ${openaiResponse.status}`);
-        console.error(`OpenAI error on attempt ${attempt}:`, lastErrorText);
-        if (attempt < MAX_RETRIES) continue;
-        break;
-      }
-
-      const openaiData = await openaiResponse.json();
-      const content = openaiData.choices?.[0]?.message?.content;
-
-      if (!content) {
-        lastErrorText = "empty_response";
-        console.error("Empty AI response on attempt", attempt);
-        if (attempt < MAX_RETRIES) continue;
-        break;
-      }
-
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(content);
-      } catch {
-        lastErrorText = "invalid_json";
-        console.error("AI returned invalid JSON on attempt", attempt, content.slice(0, 200));
-        if (attempt < MAX_RETRIES) continue;
-        break;
-      }
-
-      const validSeverities = ["Low", "Medium", "High"];
-      const severity = validSeverities.includes(String(parsed.severity))
-        ? String(parsed.severity)
-        : "Medium";
-
-      const confidence = Math.max(0, Math.min(100, Number(parsed.confidence ?? 0)));
-      const requiresManualReview = Boolean(parsed.requires_manual_review) || confidence < 50;
-
-      const nextChecks = Array.isArray(parsed.next_checks)
-        ? (parsed.next_checks as unknown[]).map((c) => String(c)).slice(0, 5)
-        : [];
-
-      const visibleEvidence = Array.isArray(parsed.visible_evidence)
-        ? (parsed.visible_evidence as unknown[]).map((c) => String(c)).slice(0, 10)
-        : [];
-
-      const rawGeometry = parsed.geometry as Record<string, unknown> | undefined;
-      const geometry = rawGeometry
-        ? {
-            location_on_member: String(rawGeometry.location_on_member ?? ""),
-            pattern: String(rawGeometry.pattern ?? ""),
-            extent: String(rawGeometry.extent ?? ""),
-            likely_mechanism: String(rawGeometry.likely_mechanism ?? ""),
-            urgent_action: String(rawGeometry.urgent_action ?? ""),
-          }
-        : null;
-
-      const defectType = normaliseDefectType(String(parsed.defect_type ?? "Unknown"));
-
-      const result = {
-        success: true,
-        defect_type: defectType,
-        severity,
-        observation: String(parsed.observation ?? ""),
-        confidence,
-        likely_cause: String(parsed.likely_cause ?? ""),
-        visible_evidence: visibleEvidence,
-        next_checks: nextChecks,
-        escalate: Boolean(parsed.escalate) || confidence < 70,
-        escalation_reason: String(parsed.escalation_reason ?? ""),
-        remediation_guidance: String(parsed.remediation_guidance ?? ""),
-        requires_manual_review: requiresManualReview,
-        system_type_detected: String(parsed.system_type ?? ""),
-        geometry,
-        intumescent_mode: isIntumescent,
-      };
-
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
-    const isRateLimit = lastErrorText === "rate_limited" || lastStatus === 429;
+    if (!finalParsed) {
+      tier = 2;
+      const tier2SystemPrompt = buildTier2Prompt(system_type ?? "");
+      const tier2 = await runInference(
+        openaiApiKey,
+        TIER2_MODEL,
+        tier2SystemPrompt,
+        image_base64,
+        mime_type ?? "image/jpeg",
+        userPrompt,
+        3
+      );
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        reason: isRateLimit ? "rate_limit" : "ai_unavailable",
-        error: isRateLimit
-          ? "AI service is temporarily rate limited. Please retry in a moment."
-          : "AI analysis service is currently unavailable. Classify manually.",
-      }),
-      {
-        status: isRateLimit ? 429 : 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (!tier2.parsed) {
+        const isRateLimit = tier2.lastErrorText === "rate_limited" || tier2.lastStatus === 429;
+        return new Response(
+          JSON.stringify({
+            success: false,
+            reason: isRateLimit ? "rate_limit" : "ai_unavailable",
+            error: isRateLimit
+              ? "AI service is temporarily rate limited. Please retry in a moment."
+              : "AI analysis service is currently unavailable. Classify manually.",
+          }),
+          {
+            status: isRateLimit ? 429 : 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
-    );
+
+      finalParsed = tier2.parsed;
+    }
+
+    const result = buildResult(finalParsed, tier);
+
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
     console.error("Unhandled error:", err);
     return new Response(

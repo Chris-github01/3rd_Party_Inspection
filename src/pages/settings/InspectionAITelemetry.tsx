@@ -413,6 +413,52 @@ export default function InspectionAITelemetry() {
         <OverrideTable patterns={overridePatterns} />
       </div>
 
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-sky-500" />
+          Two-Tier Model Routing
+        </h3>
+        <p className="text-xs text-slate-400 mb-4">How the AI engine decides which model handles each analysis.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 bg-white border border-sky-200 px-2 py-0.5 rounded-full">
+                <Zap className="w-3 h-3" />
+                Tier 1 — gpt-4o-mini
+              </span>
+            </div>
+            <p className="text-xs text-sky-800 font-medium">Used for routine defects on standard systems</p>
+            <ul className="text-xs text-sky-700 space-y-1 list-disc list-inside">
+              <li>Protective Coatings</li>
+              <li>Cementitious fireproofing</li>
+              <li>Confidence ≥ 70% from Tier 1</li>
+              <li>Severity is Low or Medium</li>
+              <li>Defect type is not Unknown</li>
+            </ul>
+            <p className="text-[11px] text-sky-500 mt-1">~60–80% of requests handled here. Faster &amp; cheaper.</p>
+          </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-white border border-slate-300 px-2 py-0.5 rounded-full">
+                <Brain className="w-3 h-3" />
+                Tier 2 — gpt-4o
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 font-medium">Escalated automatically when:</p>
+            <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
+              <li>System is Intumescent or Firestopping</li>
+              <li>Tier 1 confidence &lt; 70%</li>
+              <li>Tier 1 severity = High</li>
+              <li>Tier 1 defect type = Unknown</li>
+            </ul>
+            <p className="text-[11px] text-slate-400 mt-1">Full 9-step reasoning. Specialist prompt for passive fire.</p>
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-4">
+          Tier used per-finding is visible as a badge in each inspector card. Routing decisions are logged in Edge Function output.
+        </p>
+      </div>
+
       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
         <p className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">Reading this data</p>
         <ul className="text-xs text-slate-500 space-y-1.5 list-disc list-inside">
@@ -421,6 +467,7 @@ export default function InspectionAITelemetry() {
           <li>Consistent AI→Inspector correction pairs = add those patterns to the system prompt</li>
           <li>Confidence mostly in 0–49% = images too blurry or context fields not filled in</li>
           <li>Evidence photos per finding below 1 = inspectors not uploading supporting photos</li>
+          <li>High Tier 2 usage = most defects are complex or on specialist systems (expected for fire protection)</li>
         </ul>
       </div>
     </div>

@@ -215,6 +215,22 @@ export function SeniorInspectorCard({
 
             {result.confidence > 0 && <ConfidenceBar value={result.confidence} />}
 
+            {result.tier_used && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {result.tier_used === 1 ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                    <Zap className="w-3 h-3" />
+                    Tier 1 — Fast triage
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-full">
+                    <Brain className="w-3 h-3" />
+                    Tier 2 — Expert review
+                  </span>
+                )}
+              </div>
+            )}
+
             {brainMode && brainMode !== 'ai-only' && (
               <div className="flex items-center gap-2 flex-wrap pt-0.5">
                 {brainMode === 'ai-rules-agree' && (

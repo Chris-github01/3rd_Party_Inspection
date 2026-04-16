@@ -46,6 +46,8 @@ export interface AIAnalysisResult {
   _v4MatchCount?: number;
   _v4CoachingNote?: string;
   _v4ConfidenceShift?: number;
+  tier_used?: 1 | 2;
+  model_used?: string;
 }
 
 export type ObservedConcern =
