@@ -175,9 +175,17 @@ export async function analyseImage(
   const highOverrideClasses = await getHighOverrideClasses();
   const forceTier2 = forceTier2Override || isSpecialistMode(systemType);
 
-  const { file: compressed, wasCompressed, originalSizeKB, compressedSizeKB } = await compressImageFile(imageFile);
+  const { file: compressed, wasCompressed, originalSizeKB, compressedSizeKB, quality } = await compressImageFile(imageFile);
   if (wasCompressed) {
     console.info(`[AI] Image compressed ${originalSizeKB}KB -> ${compressedSizeKB}KB`);
+  }
+  if (!quality.usable && quality.reason !== 'quality_check_failed') {
+    const reasonMap: Record<string, string> = {
+      too_blurry: 'This photo appears too blurry to analyse reliably. Please retake with the camera held steady.',
+      image_too_small: 'This image is too small. Please use a higher resolution photo.',
+      not_an_image: 'The selected file is not an image.',
+    };
+    throw new Error(reasonMap[quality.reason] ?? `Image rejected: ${quality.reason}`);
   }
 
   const hash = await hashImageFile(compressed);

@@ -5,23 +5,46 @@ interface QueuedEntry {
   task: QueueTask;
   resolve: () => void;
   reject: (err: unknown) => void;
+  enqueuedAt: number;
 }
 
 type QueueListener = () => void;
 
-const MIN_GAP_MS = 10000;
-const DEBOUNCE_MS = 8000;
-const RATE_LIMIT_PAUSE_MS = 30000;
+const BUCKET_CAPACITY = 3;
+const BUCKET_REFILL_RATE_MS = 6000;
+const MIN_GAP_MS = 3000;
+const DEBOUNCE_MS = 5000;
+const RATE_LIMIT_PAUSE_BASE_MS = 30000;
 
 let isRunning = false;
 let lastCompletedAt = 0;
 let pausedUntil = 0;
+let consecutiveRateLimits = 0;
+let tokens = BUCKET_CAPACITY;
+let lastRefillAt = Date.now();
+
 const queue: QueuedEntry[] = [];
 const listeners = new Set<QueueListener>();
 const recentRequests = new Map<string, number>();
 
 function emit() {
   listeners.forEach((l) => l());
+}
+
+function refillTokens() {
+  const now = Date.now();
+  const elapsed = now - lastRefillAt;
+  const newTokens = Math.floor(elapsed / BUCKET_REFILL_RATE_MS);
+  if (newTokens > 0) {
+    tokens = Math.min(BUCKET_CAPACITY, tokens + newTokens);
+    lastRefillAt = now;
+  }
+}
+
+function jitteredPauseDuration(consecutiveHits: number): number {
+  const base = RATE_LIMIT_PAUSE_BASE_MS * Math.pow(1.5, Math.min(consecutiveHits - 1, 4));
+  const jitter = Math.random() * 5000;
+  return Math.min(base + jitter, 180000);
 }
 
 export function addQueueListener(fn: QueueListener): () => void {
@@ -33,6 +56,7 @@ function drain() {
   if (isRunning || queue.length === 0) return;
 
   const now = Date.now();
+
   if (now < pausedUntil) {
     const waitMs = pausedUntil - now;
     console.warn(`[Queue] Rate-limit pause active — resuming in ${Math.ceil(waitMs / 1000)}s`);
@@ -40,25 +64,42 @@ function drain() {
     return;
   }
 
+  refillTokens();
+
+  if (tokens <= 0) {
+    setTimeout(drain, BUCKET_REFILL_RATE_MS);
+    return;
+  }
+
+  const gapMs = now - lastCompletedAt;
+  if (gapMs < MIN_GAP_MS) {
+    setTimeout(drain, MIN_GAP_MS - gapMs + 50);
+    return;
+  }
+
   const entry = queue.shift()!;
+  tokens -= 1;
   isRunning = true;
   emit();
 
-  const elapsed = now - lastCompletedAt;
-  const delay = elapsed < MIN_GAP_MS ? MIN_GAP_MS - elapsed : 0;
-
-  setTimeout(async () => {
+  (async () => {
     try {
       await entry.task();
       entry.resolve();
+      consecutiveRateLimits = 0;
     } catch (err) {
-      const isRateLimit =
-        err instanceof Error &&
-        (err.message?.toLowerCase().includes('rate') || err.message?.toLowerCase().includes('429'));
+      const msg = err instanceof Error ? err.message.toLowerCase() : '';
+      const isRateLimit = msg.includes('rate') || msg.includes('429') || msg.includes('throttl');
+
       if (isRateLimit) {
-        pausedUntil = Date.now() + RATE_LIMIT_PAUSE_MS;
-        console.warn(`[Queue] 429 detected — pausing queue for ${RATE_LIMIT_PAUSE_MS / 1000}s`);
+        consecutiveRateLimits += 1;
+        const pauseMs = jitteredPauseDuration(consecutiveRateLimits);
+        pausedUntil = Date.now() + pauseMs;
+        tokens = 0;
+        lastRefillAt = Date.now();
+        console.warn(`[Queue] 429 hit #${consecutiveRateLimits} — pausing for ${Math.round(pauseMs / 1000)}s`);
       }
+
       entry.reject(err);
     } finally {
       lastCompletedAt = Date.now();
@@ -66,10 +107,14 @@ function drain() {
       emit();
       drain();
     }
-  }, delay);
+  })();
 }
 
-export function enqueue(task: QueueTask, taskId?: string, priority: 'high' | 'normal' = 'normal'): Promise<void> {
+export function enqueue(
+  task: QueueTask,
+  taskId?: string,
+  priority: 'high' | 'normal' = 'normal'
+): Promise<void> {
   if (taskId) {
     const last = recentRequests.get(taskId);
     if (last && Date.now() - last < DEBOUNCE_MS) {
@@ -82,7 +127,7 @@ export function enqueue(task: QueueTask, taskId?: string, priority: 'high' | 'no
   const id = taskId ?? Math.random().toString(36).slice(2);
 
   return new Promise((resolve, reject) => {
-    const entry: QueuedEntry = { id, task, resolve, reject };
+    const entry: QueuedEntry = { id, task, resolve, reject, enqueuedAt: Date.now() };
     if (priority === 'high') {
       queue.unshift(entry);
     } else {
@@ -111,6 +156,11 @@ export function queuePausedForMs(): number {
 
 export function queueDepth(): number {
   return queue.length + (isRunning ? 1 : 0);
+}
+
+export function availableTokens(): number {
+  refillTokens();
+  return tokens;
 }
 
 export function clearQueue() {

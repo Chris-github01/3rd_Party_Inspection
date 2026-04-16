@@ -21,8 +21,9 @@ const VALID_DEFECT_TYPES = [
   "Unknown",
 ];
 
-const TIER1_MODEL = "gpt-4o-mini";
-const TIER2_MODEL = "gpt-4o";
+const TIER1_MODEL_OPENAI = "gpt-4o-mini";
+const TIER2_MODEL_OPENAI = "gpt-4o";
+const TIER2_MODEL_ANTHROPIC = "claude-opus-4-5";
 
 const TIER1_PROMPT = `You are a coatings and passive fire protection inspector. Analyse the inspection photograph and return a JSON classification.
 
@@ -198,9 +199,8 @@ CONNECTION ZONE LOGIC:
 Always populate the geometry fields with specific intumescent context.`;
 
 function buildTier2Prompt(systemType: string): string {
-  const isIntumescent = systemType?.toLowerCase().includes("intumescent");
-  const isFirestopping = systemType?.toLowerCase().includes("firestopping");
-  if (isIntumescent || isFirestopping) {
+  const lower = (systemType ?? "").toLowerCase();
+  if (lower.includes("intumescent") || lower.includes("firestopping")) {
     return TIER2_BASE_PROMPT + INTUMESCENT_SPECIALIST_ADDENDUM;
   }
   return TIER2_BASE_PROMPT;
@@ -233,6 +233,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function jitteredBackoff(attempt: number): number {
+  const base = Math.pow(2, attempt - 1) * 1000;
+  const jitter = Math.random() * 500;
+  return base + jitter;
+}
+
 async function callOpenAI(
   apiKey: string,
   model: string,
@@ -243,11 +249,11 @@ async function callOpenAI(
   attempt: number
 ): Promise<Response> {
   if (attempt > 1) {
-    await sleep(Math.pow(2, attempt - 1) * 1000);
+    await sleep(jitteredBackoff(attempt - 1));
   }
 
-  const maxTokens = model === TIER1_MODEL ? 700 : 1100;
-  const imageDetail = model === TIER1_MODEL ? "low" : "high";
+  const maxTokens = model === TIER1_MODEL_OPENAI ? 700 : 1100;
+  const imageDetail = model === TIER1_MODEL_OPENAI ? "low" : "high";
 
   return fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -280,7 +286,83 @@ async function callOpenAI(
   });
 }
 
-async function runInference(
+async function callAnthropic(
+  apiKey: string,
+  systemPrompt: string,
+  imageBase64: string,
+  mimeType: string,
+  userPrompt: string,
+  attempt: number
+): Promise<Response> {
+  if (attempt > 1) {
+    await sleep(jitteredBackoff(attempt - 1));
+  }
+
+  const validMime = (mimeType === "image/jpeg" || mimeType === "image/png" || mimeType === "image/gif" || mimeType === "image/webp")
+    ? mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp"
+    : "image/jpeg";
+
+  return fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: TIER2_MODEL_ANTHROPIC,
+      max_tokens: 1100,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: validMime,
+                data: imageBase64,
+              },
+            },
+            { type: "text", text: userPrompt },
+          ],
+        },
+      ],
+    }),
+  });
+}
+
+function validateOutputSchema(parsed: Record<string, unknown>): { valid: boolean; reason: string } {
+  if (typeof parsed.defect_type !== "string" || !parsed.defect_type) {
+    return { valid: false, reason: "missing_defect_type" };
+  }
+  if (typeof parsed.severity !== "string" || !["Low", "Medium", "High"].includes(parsed.severity as string)) {
+    return { valid: false, reason: "invalid_severity" };
+  }
+  if (typeof parsed.confidence !== "number") {
+    return { valid: false, reason: "missing_confidence" };
+  }
+  if (typeof parsed.observation !== "string") {
+    return { valid: false, reason: "missing_observation" };
+  }
+
+  const defect = String(parsed.defect_type);
+  const severity = String(parsed.severity);
+  const geometryOk = parsed.geometry && typeof parsed.geometry === "object";
+
+  if (defect === "Unknown" && severity === "High") {
+    return { valid: false, reason: "impossible_unknown_high" };
+  }
+
+  if (!geometryOk) {
+    return { valid: false, reason: "missing_geometry" };
+  }
+
+  return { valid: true, reason: "" };
+}
+
+async function runOpenAIInference(
   apiKey: string,
   model: string,
   systemPrompt: string,
@@ -306,7 +388,10 @@ async function runInference(
 
     if (res.status === 429) {
       lastErrorText = "rate_limited";
-      if (attempt < maxRetries) continue;
+      if (attempt < maxRetries) {
+        await sleep(jitteredBackoff(attempt) * 2);
+        continue;
+      }
       break;
     }
 
@@ -324,19 +409,108 @@ async function runInference(
       break;
     }
 
+    let parsed: Record<string, unknown>;
     try {
-      return { parsed: JSON.parse(content), lastStatus: res.status, lastErrorText: "" };
+      parsed = JSON.parse(content);
     } catch {
       lastErrorText = "invalid_json";
       if (attempt < maxRetries) continue;
       break;
     }
+
+    const { valid, reason } = validateOutputSchema(parsed);
+    if (!valid) {
+      lastErrorText = `schema_invalid:${reason}`;
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    return { parsed, lastStatus: res.status, lastErrorText: "" };
   }
 
   return { parsed: null, lastStatus, lastErrorText };
 }
 
-function buildResult(parsed: Record<string, unknown>, tier: 1 | 2): Record<string, unknown> {
+async function runAnthropicInference(
+  apiKey: string,
+  systemPrompt: string,
+  imageBase64: string,
+  mimeType: string,
+  userPrompt: string,
+  maxRetries: number
+): Promise<{ parsed: Record<string, unknown> | null; lastStatus: number; lastErrorText: string }> {
+  let lastStatus = 0;
+  let lastErrorText = "";
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    let res: Response;
+    try {
+      res = await callAnthropic(apiKey, systemPrompt, imageBase64, mimeType, userPrompt, attempt);
+    } catch (fetchErr) {
+      lastErrorText = `anthropic_network_error:${String(fetchErr)}`;
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    lastStatus = res.status;
+
+    if (res.status === 429 || res.status === 529) {
+      lastErrorText = "rate_limited";
+      if (attempt < maxRetries) {
+        await sleep(jitteredBackoff(attempt) * 2);
+        continue;
+      }
+      break;
+    }
+
+    if (!res.ok) {
+      lastErrorText = await res.text().catch(() => `anthropic_http_${res.status}`);
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    const data = await res.json();
+    const content = data.content?.[0]?.text;
+    if (!content) {
+      lastErrorText = "anthropic_empty_response";
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      lastErrorText = "anthropic_no_json_in_response";
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      lastErrorText = "anthropic_invalid_json";
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    const { valid, reason } = validateOutputSchema(parsed);
+    if (!valid) {
+      lastErrorText = `anthropic_schema_invalid:${reason}`;
+      if (attempt < maxRetries) continue;
+      break;
+    }
+
+    return { parsed, lastStatus: res.status, lastErrorText: "" };
+  }
+
+  return { parsed: null, lastStatus, lastErrorText };
+}
+
+function buildResult(
+  parsed: Record<string, unknown>,
+  tier: 1 | 2,
+  provider: "openai" | "anthropic"
+): Record<string, unknown> {
   const validSeverities = ["Low", "Medium", "High"];
   const severity = validSeverities.includes(String(parsed.severity))
     ? String(parsed.severity)
@@ -380,7 +554,8 @@ function buildResult(parsed: Record<string, unknown>, tier: 1 | 2): Record<strin
     system_type_detected: String(parsed.system_type ?? ""),
     geometry,
     tier_used: tier,
-    model_used: tier === 1 ? TIER1_MODEL : TIER2_MODEL,
+    model_used: provider === "anthropic" ? TIER2_MODEL_ANTHROPIC : (tier === 1 ? TIER1_MODEL_OPENAI : TIER2_MODEL_OPENAI),
+    provider_used: provider,
   };
 }
 
@@ -398,12 +573,14 @@ Deno.serve(async (req: Request) => {
     }
 
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiApiKey) {
+    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
+
+    if (!openaiApiKey && !anthropicApiKey) {
       return new Response(
         JSON.stringify({
           success: false,
           reason: "configuration_error",
-          error: "OpenAI API key not configured",
+          error: "No AI provider API key configured",
         }),
         {
           status: 500,
@@ -453,17 +630,19 @@ Deno.serve(async (req: Request) => {
 Now analyse the photograph above. Follow all reasoning steps. Populate all geometry fields with specific location and pattern detail. Classify the visible defect using only the controlled terms. Never default to Mechanical Damage unless a physical impact mark is clearly visible.`;
 
     const skipTier1 = Boolean(force_tier2) || requiresTier2(system_type ?? "", undefined);
+    const effectiveMime = mime_type ?? "image/jpeg";
 
     let tier: 1 | 2 = 1;
     let finalParsed: Record<string, unknown> | null = null;
+    let usedProvider: "openai" | "anthropic" = "openai";
 
-    if (!skipTier1) {
-      const tier1 = await runInference(
+    if (!skipTier1 && openaiApiKey) {
+      const tier1 = await runOpenAIInference(
         openaiApiKey,
-        TIER1_MODEL,
+        TIER1_MODEL_OPENAI,
         TIER1_PROMPT,
         image_base64,
-        mime_type ?? "image/jpeg",
+        effectiveMime,
         userPrompt,
         2
       );
@@ -471,52 +650,66 @@ Now analyse the photograph above. Follow all reasoning steps. Populate all geome
       if (tier1.parsed && !requiresTier2(system_type ?? "", tier1.parsed)) {
         finalParsed = tier1.parsed;
         tier = 1;
-      } else if (tier1.lastErrorText === "rate_limited") {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            reason: "rate_limit",
-            error: "AI service is temporarily rate limited. Please retry in a moment.",
-          }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        usedProvider = "openai";
       }
     }
 
     if (!finalParsed) {
       tier = 2;
       const tier2SystemPrompt = buildTier2Prompt(system_type ?? "");
-      const tier2 = await runInference(
-        openaiApiKey,
-        TIER2_MODEL,
-        tier2SystemPrompt,
-        image_base64,
-        mime_type ?? "image/jpeg",
-        userPrompt,
-        3
-      );
 
-      if (!tier2.parsed) {
-        const isRateLimit = tier2.lastErrorText === "rate_limited" || tier2.lastStatus === 429;
+      if (openaiApiKey) {
+        const tier2 = await runOpenAIInference(
+          openaiApiKey,
+          TIER2_MODEL_OPENAI,
+          tier2SystemPrompt,
+          image_base64,
+          effectiveMime,
+          userPrompt,
+          3
+        );
+
+        if (tier2.parsed) {
+          finalParsed = tier2.parsed;
+          usedProvider = "openai";
+        } else if (tier2.lastErrorText === "rate_limited" || tier2.lastStatus === 429) {
+          console.warn("[inspection-ai] OpenAI rate limited — attempting Anthropic fallback");
+        }
+      }
+
+      if (!finalParsed && anthropicApiKey) {
+        console.log("[inspection-ai] Using Anthropic fallback provider");
+        const anthropicResult = await runAnthropicInference(
+          anthropicApiKey,
+          tier2SystemPrompt,
+          image_base64,
+          effectiveMime,
+          userPrompt,
+          2
+        );
+
+        if (anthropicResult.parsed) {
+          finalParsed = anthropicResult.parsed;
+          usedProvider = "anthropic";
+        }
+      }
+
+      if (!finalParsed) {
         return new Response(
           JSON.stringify({
             success: false,
-            reason: isRateLimit ? "rate_limit" : "ai_unavailable",
-            error: isRateLimit
-              ? "AI service is temporarily rate limited. Please retry in a moment."
-              : "AI analysis service is currently unavailable. Classify manually.",
+            reason: "ai_unavailable",
+            error: "All AI providers are unavailable. Please classify manually.",
           }),
           {
-            status: isRateLimit ? 429 : 502,
+            status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           }
         );
       }
-
-      finalParsed = tier2.parsed;
     }
 
-    const result = buildResult(finalParsed, tier);
+    const result = buildResult(finalParsed, tier, usedProvider);
 
     return new Response(JSON.stringify(result), {
       status: 200,
