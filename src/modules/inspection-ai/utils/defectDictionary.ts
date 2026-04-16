@@ -8,14 +8,21 @@ export const DEFECT_TYPES = [
   "Spalling",
   "Voids",
   "Incomplete Firestopping",
+  "Surface Deterioration",
+  "Moisture Damage",
+  "Unknown",
 ] as const;
 
 export type DefectType = (typeof DEFECT_TYPES)[number];
 
 export function normaliseDefectType(raw: string): DefectType {
   const cleaned = raw.trim().toLowerCase();
-  const match = DEFECT_TYPES.find(
-    (d) => d.toLowerCase() === cleaned || cleaned.includes(d.toLowerCase())
-  );
-  return match ?? "Mechanical Damage";
+  const exact = DEFECT_TYPES.find((d) => d.toLowerCase() === cleaned);
+  if (exact) return exact;
+  const partial = DEFECT_TYPES.find((d) => cleaned.includes(d.toLowerCase()));
+  return partial ?? "Unknown";
+}
+
+export function isKnownDefect(raw: string): boolean {
+  return raw !== "Unknown" && DEFECT_TYPES.includes(raw as DefectType);
 }

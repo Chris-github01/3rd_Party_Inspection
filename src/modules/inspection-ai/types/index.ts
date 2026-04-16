@@ -3,6 +3,14 @@ export type ElementType = 'Beam' | 'Column' | 'Slab' | 'Penetration' | 'Other';
 export type Severity = 'Low' | 'Medium' | 'High';
 export type Extent = 'Localised' | 'Moderate' | 'Widespread';
 
+export interface DefectGeometry {
+  location_on_member: string;
+  pattern: string;
+  extent: string;
+  likely_mechanism: string;
+  urgent_action: string;
+}
+
 export interface AIAnalysisResult {
   defect_type: string;
   severity: Severity;
@@ -10,10 +18,14 @@ export interface AIAnalysisResult {
   confidence: number;
   needsReview: boolean;
   likely_cause?: string;
+  visible_evidence?: string[];
   next_checks?: string[];
   escalate?: boolean;
   escalation_reason?: string;
   remediation_guidance?: string;
+  requires_manual_review?: boolean;
+  system_type_detected?: string;
+  geometry?: DefectGeometry;
   _brainMode?: 'ai-only' | 'rules-only' | 'ai-rules-agree' | 'ai-rules-conflict';
   _confidenceBoost?: number;
   _triggeredRules?: Array<{ ruleId: string; ruleName: string; [key: string]: unknown }>;

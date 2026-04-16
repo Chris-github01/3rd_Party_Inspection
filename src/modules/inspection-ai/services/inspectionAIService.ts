@@ -74,6 +74,14 @@ async function attemptAnalyse(
 
   const confidence = Math.max(0, Math.min(100, Number(data.confidence ?? 0)));
 
+  const geometry = data.geometry && typeof data.geometry === 'object' ? {
+    location_on_member: String((data.geometry as Record<string, unknown>).location_on_member ?? ''),
+    pattern: String((data.geometry as Record<string, unknown>).pattern ?? ''),
+    extent: String((data.geometry as Record<string, unknown>).extent ?? ''),
+    likely_mechanism: String((data.geometry as Record<string, unknown>).likely_mechanism ?? ''),
+    urgent_action: String((data.geometry as Record<string, unknown>).urgent_action ?? ''),
+  } : undefined;
+
   return {
     defect_type: normaliseDefectType(String(data.defect_type)),
     severity: data.severity,
@@ -81,10 +89,14 @@ async function attemptAnalyse(
     confidence,
     needsReview: confidence < CONFIDENCE_REVIEW_THRESHOLD,
     likely_cause: String(data.likely_cause ?? ''),
+    visible_evidence: Array.isArray(data.visible_evidence) ? data.visible_evidence.map(String) : [],
     next_checks: Array.isArray(data.next_checks) ? data.next_checks.map(String) : [],
     escalate: Boolean(data.escalate) || confidence < CONFIDENCE_REVIEW_THRESHOLD,
     escalation_reason: String(data.escalation_reason ?? ''),
     remediation_guidance: String(data.remediation_guidance ?? ''),
+    requires_manual_review: Boolean(data.requires_manual_review) || confidence < 50,
+    system_type_detected: String(data.system_type_detected ?? ''),
+    geometry,
   };
 }
 
@@ -115,16 +127,18 @@ export async function analyseImage(
 
 export function makeManualModeResult(): AIAnalysisResult {
   return {
-    defect_type: getObservationTemplate('Mechanical Damage') ? 'Mechanical Damage' : 'Mechanical Damage',
+    defect_type: 'Unknown',
     severity: 'Medium',
-    observation: getObservationTemplate('Mechanical Damage'),
+    observation: getObservationTemplate('Unknown') || '',
     confidence: 0,
     needsReview: true,
     likely_cause: '',
+    visible_evidence: [],
     next_checks: [],
     escalate: false,
     escalation_reason: '',
     remediation_guidance: '',
+    requires_manual_review: true,
   };
 }
 

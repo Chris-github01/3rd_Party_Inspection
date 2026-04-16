@@ -21,7 +21,7 @@ const VALID_DEFECT_TYPES = [
   "Unknown",
 ];
 
-const SYSTEM_PROMPT = `You are a senior Level 3 coatings and passive fire protection inspector with 25 years of field experience.
+const BASE_PROMPT = `You are a senior Level 3 coatings and passive fire protection inspector with 25 years of field experience.
 
 Your task is to analyse ONE inspection photograph only.
 
@@ -77,14 +77,24 @@ MEDIUM if: local failure, cracking, moderate impact damage, isolated moisture is
 LOW if: cosmetic wear, minor marking, light fade, superficial scuff.
 
 --------------------------------------------------
-STEP 6 — CONFIDENCE (0 to 100)
-90+: clear, obvious defect with high certainty
-70–89: likely defect with good visual evidence
-50–69: partial evidence, some uncertainty
-0–49: insufficient image quality or ambiguous evidence — set requires_manual_review = true
+STEP 6 — DEFECT GEOMETRY
+Describe WHERE and HOW the defect presents on the element.
+
+location_on_member: where on the element (e.g. "lower flange edge", "web midspan", "column base", "around bolt group", "penetration perimeter", "connection plate junction", "top flange", "soffit")
+pattern: how it distributes (e.g. "linear", "radial from point", "isolated patch", "widespread", "repeated at intervals", "edge-following", "circumferential")
+extent: how much area is affected (e.g. "< 50mm isolated", "50-200mm localised", "200-500mm moderate", "> 500mm widespread", "full element")
+likely_mechanism: specific mechanism given location and pattern (e.g. "steel connection movement causing stress crack", "moisture tracking from penetration", "impact from construction traffic", "thermal cycling at unprotected edge")
+urgent_action: site action priority (e.g. "monitor", "document and notify", "temporary protection required", "repair before next inspection", "immediate repair — safety critical")
 
 --------------------------------------------------
-STEP 7 — ESCALATION
+STEP 7 — CONFIDENCE (0 to 100)
+90+: clear, obvious defect with high certainty
+70-89: likely defect with good visual evidence
+50-69: partial evidence, some uncertainty
+0-49: insufficient image quality or ambiguous evidence — set requires_manual_review = true
+
+--------------------------------------------------
+STEP 8 — ESCALATION
 Escalate if any of:
 - Confidence < 70
 - Corrosion Breakthrough on structural steel
@@ -94,7 +104,7 @@ Escalate if any of:
 - Multiple defects on same element
 
 --------------------------------------------------
-STEP 8 — RESPONSE FORMAT
+STEP 9 — RESPONSE FORMAT
 Return ONLY a valid JSON object. No markdown. No extra text.
 
 {
@@ -109,11 +119,52 @@ Return ONLY a valid JSON object. No markdown. No extra text.
   "escalate": false,
   "escalation_reason": "",
   "remediation_guidance": "",
-  "requires_manual_review": false
+  "requires_manual_review": false,
+  "geometry": {
+    "location_on_member": "",
+    "pattern": "",
+    "extent": "",
+    "likely_mechanism": "",
+    "urgent_action": ""
+  }
 }
 
 If confidence < 50, set requires_manual_review = true.
 Never set defect_type = "Mechanical Damage" unless you can see a clear physical impact mark in the image.`;
+
+const INTUMESCENT_SPECIALIST_ADDENDUM = `
+
+--------------------------------------------------
+INTUMESCENT SPECIALIST MODE — ACTIVE
+You have identified or been told this is an intumescent system. Apply these additional reasoning rules:
+
+INTUMESCENT-SPECIFIC DEFECT PATTERNS:
+- Edge cracking at connection plates / bolt groups = movement stress. Classify as Cracking. Escalate always.
+- Topcoat crazing or microcracking without delamination = UV/thermal ageing. Classify as Surface Deterioration or Cracking (if penetrating).
+- Lifting or peeling at steel edges = Delamination. Common at unprotected flange edges and web stiffeners.
+- Overbuild texture clues (orange peel, ribbing, runs) = application defect. Note in observation, classify primary visible defect.
+- Waterborne system softening: if coating appears tacky, swollen, or discoloured near water ingress = Moisture Damage.
+- Repair patch mismatch: visible colour/texture boundary = note patch repair in visible_evidence. Classify underlying defect if visible.
+- Missing material at open sections = Missing Coating. Always high priority on structural fire protection.
+- Impact on intumescent: look for depression without peeling — if gouge is present = Mechanical Damage. If no impact mark but material loss = Delamination or Spalling.
+
+THIN-FILM vs THICK-FILM REASONING:
+- Thin-film (<3mm): cracking often hairline, may follow steel surface profile
+- Thick-film (>3mm): cracking often wider, spalling more likely if impact
+- If you cannot determine thickness from image, note in observation
+
+CONNECTION ZONE LOGIC:
+- Cracking adjacent to bolts, cleats, or weld toes = thermal/movement mechanism, not workmanship
+- Missing coating near bolt heads = common installation defect, note as Missing Coating
+
+Always populate the geometry fields with specific intumescent context.`;
+
+function buildSystemPrompt(systemType: string): string {
+  const isIntumescent = systemType?.toLowerCase().includes("intumescent");
+  return isIntumescent
+    ? BASE_PROMPT + INTUMESCENT_SPECIALIST_ADDENDUM
+    : BASE_PROMPT;
+}
 
 function normaliseDefectType(raw: string): string {
   const cleaned = raw.trim();
@@ -133,6 +184,7 @@ function sleep(ms: number): Promise<void> {
 
 async function callOpenAI(
   apiKey: string,
+  systemPrompt: string,
   imageBase64: string,
   mimeType: string,
   userPrompt: string,
@@ -150,11 +202,11 @@ async function callOpenAI(
     },
     body: JSON.stringify({
       model: "gpt-4o",
-      max_tokens: 900,
+      max_tokens: 1100,
       temperature: 0.1,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: [
@@ -222,6 +274,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const systemPrompt = buildSystemPrompt(system_type ?? "");
+
     const contextBlock = [
       "Inspector context (use as supporting information only — photo evidence overrides these assumptions):",
       `Likely system: ${system_type ?? "Unknown"}`,
@@ -231,9 +285,14 @@ Deno.serve(async (req: Request) => {
       `Inspector's observed concern: ${observed_concern ?? "Not specified"}`,
     ].join("\n");
 
-    const userPrompt = `${contextBlock}
+    const isIntumescent = (system_type ?? "").toLowerCase().includes("intumescent");
+    const modeNote = isIntumescent
+      ? "\nIntumescent Specialist Mode is active. Apply intumescent-specific reasoning rules."
+      : "";
 
-Now analyse the photograph above. Follow the 8-step reasoning process from your instructions. Classify the visible defect using only the controlled terms. Never default to Mechanical Damage unless a physical impact mark is clearly visible.`;
+    const userPrompt = `${contextBlock}${modeNote}
+
+Now analyse the photograph above. Follow all reasoning steps. Populate all geometry fields with specific location and pattern detail. Classify the visible defect using only the controlled terms. Never default to Mechanical Damage unless a physical impact mark is clearly visible.`;
 
     const MAX_RETRIES = 3;
     let lastStatus = 0;
@@ -244,6 +303,7 @@ Now analyse the photograph above. Follow the 8-step reasoning process from your 
       try {
         openaiResponse = await callOpenAI(
           openaiApiKey,
+          systemPrompt,
           image_base64,
           mime_type ?? "image/jpeg",
           userPrompt,
@@ -308,6 +368,17 @@ Now analyse the photograph above. Follow the 8-step reasoning process from your 
         ? (parsed.visible_evidence as unknown[]).map((c) => String(c)).slice(0, 10)
         : [];
 
+      const rawGeometry = parsed.geometry as Record<string, unknown> | undefined;
+      const geometry = rawGeometry
+        ? {
+            location_on_member: String(rawGeometry.location_on_member ?? ""),
+            pattern: String(rawGeometry.pattern ?? ""),
+            extent: String(rawGeometry.extent ?? ""),
+            likely_mechanism: String(rawGeometry.likely_mechanism ?? ""),
+            urgent_action: String(rawGeometry.urgent_action ?? ""),
+          }
+        : null;
+
       const defectType = normaliseDefectType(String(parsed.defect_type ?? "Unknown"));
 
       const result = {
@@ -324,6 +395,8 @@ Now analyse the photograph above. Follow the 8-step reasoning process from your 
         remediation_guidance: String(parsed.remediation_guidance ?? ""),
         requires_manual_review: requiresManualReview,
         system_type_detected: String(parsed.system_type ?? ""),
+        geometry,
+        intumescent_mode: isIntumescent,
       };
 
       return new Response(JSON.stringify(result), {
