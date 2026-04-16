@@ -24,6 +24,11 @@ export interface AIAnalysisResult {
   _manufacturerLogicNotes?: string[];
   _intumescentSystemNotes?: string[];
   _complianceRationale?: string;
+  _v3FamilyHint?: string;
+  _v3FamilyConfidence?: 'low' | 'medium' | 'high';
+  _v3ReviewTriggers?: string[];
+  _v3ManufacturerLogicNotes?: string[];
+  _v3MatchedRuleIds?: string[];
 }
 
 export type ObservedConcern =

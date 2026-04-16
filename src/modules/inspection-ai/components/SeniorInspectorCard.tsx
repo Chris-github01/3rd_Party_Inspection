@@ -17,6 +17,8 @@ import {
   BookOpen,
   TrendingUp,
   EyeOff,
+  Layers,
+  FlaskConical,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { AIAnalysisResult, Severity } from '../types';
@@ -97,8 +99,13 @@ export function SeniorInspectorCard({
   const manufacturerLogicNotes = result._manufacturerLogicNotes ?? [];
   const intumescentSystemNotes = result._intumescentSystemNotes ?? [];
   const complianceRationale = result._complianceRationale;
+  const v3FamilyHint = result._v3FamilyHint as string | undefined;
+  const v3FamilyConfidence = result._v3FamilyConfidence as 'low' | 'medium' | 'high' | undefined;
+  const v3ReviewTriggers = result._v3ReviewTriggers as string[] | undefined;
+  const v3ManufacturerLogicNotes = result._v3ManufacturerLogicNotes as string[] | undefined;
   const [showRules, setShowRules] = useState(false);
   const [showStandards, setShowStandards] = useState(false);
+  const [showFamilyDetail, setShowFamilyDetail] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -308,6 +315,72 @@ export function SeniorInspectorCard({
             )}
           </div>
         </div>
+
+        {v3FamilyHint && (
+          <div className="border-t border-slate-100 px-4 py-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                <Layers className="w-3.5 h-3.5 text-slate-400" />
+                Product Family Behaviour
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                <FlaskConical className="w-3 h-3 text-slate-500" />
+                {v3FamilyHint === 'waterborne_thinfilm' && 'Waterborne Thin-Film'}
+                {v3FamilyHint === 'solventborne_thinfilm' && 'Solventborne Thin-Film'}
+                {v3FamilyHint === 'hybrid_fasttrack' && 'Hybrid Fast-Track'}
+                {v3FamilyHint === 'epoxy_highdurability' && 'Epoxy / High-Durability'}
+              </span>
+              {v3FamilyConfidence && (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                  v3FamilyConfidence === 'high' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : v3FamilyConfidence === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-slate-50 text-slate-500 border-slate-200'
+                }`}>
+                  {v3FamilyConfidence} confidence
+                </span>
+              )}
+              {(v3ReviewTriggers?.length || v3ManufacturerLogicNotes?.length) && (
+                <button
+                  type="button"
+                  onClick={() => setShowFamilyDetail((v) => !v)}
+                  className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  {showFamilyDetail ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              )}
+            </div>
+
+            {showFamilyDetail && (
+              <div className="mt-2.5 space-y-2">
+                {v3ManufacturerLogicNotes && v3ManufacturerLogicNotes.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">System Behaviour Notes</p>
+                    <ul className="space-y-1.5">
+                      {v3ManufacturerLogicNotes.map((note, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0 mt-1.5" />
+                          {note}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {v3ReviewTriggers && v3ReviewTriggers.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Verification Required</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {v3ReviewTriggers.map((t, i) => (
+                        <span key={i} className="text-[10px] font-mono font-medium bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded">
+                          {t.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {hasGuidance && showGuidance && (
           <div className="border-t border-slate-100 bg-slate-50 divide-y divide-slate-100">

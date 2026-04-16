@@ -1,8 +1,10 @@
 import { runRulebook } from './inspectionRulebook';
 import { runRulebookV2 } from './inspectionRulebookV2';
+import { runInspectionRulebookV3, deriveVisualCuesFromAI } from './inspectionRulebookV3';
 import type { AIAnalysisResult, CaptureIntakeContext, Severity } from '../types';
 import type { RulebookResult } from './inspectionRulebook';
 import type { V2RulebookResult } from './inspectionRulebookV2';
+import type { RulebookV3Result } from './inspectionRulebookV3';
 
 export interface BrainResult {
   defect_type: string;
@@ -17,6 +19,7 @@ export interface BrainResult {
   remediation_guidance: string;
   rulebook: RulebookResult;
   rulebookV2: V2RulebookResult;
+  rulebookV3: RulebookV3Result;
   brainMode: 'ai-only' | 'rules-only' | 'ai-rules-agree' | 'ai-rules-conflict';
   confidenceBoost: number;
 }
@@ -57,6 +60,23 @@ export function applyInspectionBrain(
 
   const rulebook = runRulebook(rulebookInput);
   const rulebookV2 = runRulebookV2(rulebookInput);
+
+  const visualCues = deriveVisualCuesFromAI(
+    ctx.observedConcern,
+    aiResult.defect_type,
+    aiResult.observation
+  );
+  const rulebookV3 = runInspectionRulebookV3({
+    systemType: ctx.systemType,
+    elementType: ctx.element,
+    environment: ctx.environment,
+    age: ctx.isNewInstall ? 'New' : 'Unknown',
+    observedConcern: ctx.observedConcern,
+    aiDefectType: aiResult.defect_type,
+    aiSeverity: aiResult.severity,
+    visualCues,
+  });
+
   const hasRules = rulebook.triggeredRules.length > 0;
 
   if (!hasRules) {
@@ -73,6 +93,7 @@ export function applyInspectionBrain(
       remediation_guidance: aiResult.remediation_guidance ?? '',
       rulebook,
       rulebookV2,
+      rulebookV3,
       brainMode: 'ai-only',
       confidenceBoost: 0,
     };
@@ -103,6 +124,7 @@ export function applyInspectionBrain(
 
   if (rulebookV2.complianceConcernLevel === 'High' && !fullAgreement) confidenceBoost -= 3;
   if (rulebookV2.likelyIssueType === 'Systemic') confidenceBoost -= 2;
+  confidenceBoost += Math.max(-8, Math.min(10, rulebookV3.confidenceModifier));
 
   const finalConfidence = Math.max(10, Math.min(99, aiResult.confidence + confidenceBoost));
 
@@ -116,10 +138,10 @@ export function applyInspectionBrain(
       : 'none'
   );
 
-  const finalEscalate = aiEscalate || ruleEscalate || rulebookV2.complianceConcernLevel === 'High';
+  const finalEscalate = aiEscalate || ruleEscalate || rulebookV2.complianceConcernLevel === 'High' || rulebookV3.escalation;
 
   const mergedNextChecks = Array.from(
-    new Set([...(aiResult.next_checks ?? []), ...rulebook.nextChecks])
+    new Set([...(aiResult.next_checks ?? []), ...rulebook.nextChecks, ...rulebookV3.nextChecks])
   ).slice(0, 6);
 
   const escalationParts: string[] = [];
@@ -145,6 +167,7 @@ export function applyInspectionBrain(
     remediation_guidance: aiResult.remediation_guidance || rulebook.remediationGuidance || '',
     rulebook,
     rulebookV2,
+    rulebookV3,
     brainMode,
     confidenceBoost,
   };
