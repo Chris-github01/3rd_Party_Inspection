@@ -126,6 +126,8 @@ export interface CapturedItem {
   isSaved: boolean;
   savedId?: string;
   savedImageUrl?: string;
+  aiErrorMessage?: string;
+  aiErrorIsRateLimit?: boolean;
 }
 
 export type AppPhase = 'setup' | 'capture' | 'report';
@@ -170,7 +172,8 @@ export type AnalysisStatus =
   | 'analysing'
   | 'retrying'
   | 'done'
-  | 'manual';
+  | 'manual'
+  | 'failed';
 
 export interface InspectionAIItemImage {
   id: string;

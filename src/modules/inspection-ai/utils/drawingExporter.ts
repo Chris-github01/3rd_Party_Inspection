@@ -204,3 +204,84 @@ export async function exportDrawingSnapshot(
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
+
+export async function generatePinSnapshot(
+  drawingUrl: string,
+  pin: { x_percent: number; y_percent: number; severity: string; label: string }
+): Promise<Blob | null> {
+  try {
+    let src = drawingUrl;
+    try {
+      const r = await fetch(drawingUrl);
+      if (r.ok) {
+        const blob = await r.blob();
+        src = URL.createObjectURL(blob);
+      }
+    } catch {
+    }
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+      img.src = src;
+    });
+
+    const MAX = 800;
+    const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * scale);
+    const h = Math.round(img.naturalHeight * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const px = (pin.x_percent / 100) * w;
+    const py = (pin.y_percent / 100) * h;
+    const colour = SEVERITY_COLOUR[pin.severity] ?? '#64748b';
+    const r = 14;
+
+    ctx.beginPath();
+    ctx.arc(px, py - r, r, 0, Math.PI * 2);
+    ctx.fillStyle = colour;
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px - 6, py - r);
+    ctx.lineTo(px + 6, py - r);
+    ctx.closePath();
+    ctx.fillStyle = colour;
+    ctx.fill();
+
+    if (pin.label) {
+      ctx.font = `bold ${Math.max(11, Math.min(16, w / 40))}px sans-serif`;
+      const textW = ctx.measureText(pin.label).width + 12;
+      const textH = 22;
+      const tx = Math.max(4, Math.min(w - textW - 4, px - textW / 2));
+      const ty = py - r * 2 - textH - 4;
+      ctx.fillStyle = colour;
+      ctx.beginPath();
+      ctx.roundRect(tx, ty, textW, textH, 4);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pin.label, tx + 6, ty + textH / 2);
+    }
+
+    if (src.startsWith('blob:')) URL.revokeObjectURL(src);
+
+    return await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.88);
+    });
+  } catch {
+    return null;
+  }
+}

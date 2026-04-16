@@ -7,18 +7,16 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const CONFIDENCE_REVIEW_THRESHOLD = 70;
 
-const FALLBACK_RESULT: AIAnalysisResult = {
-  defect_type: 'Mechanical Damage',
-  severity: 'Medium',
-  observation: getObservationTemplate('Mechanical Damage'),
-  confidence: 0,
-  needsReview: true,
-  likely_cause: '',
-  next_checks: [],
-  escalate: false,
-  escalation_reason: '',
-  remediation_guidance: '',
-};
+export type AIFailureReason = 'rate_limit' | 'ai_unavailable' | 'network_error' | 'configuration_error';
+
+export class AIUnavailableError extends Error {
+  public readonly reason: AIFailureReason;
+  constructor(reason: AIFailureReason, message: string) {
+    super(message);
+    this.name = 'AIUnavailableError';
+    this.reason = reason;
+  }
+}
 
 async function attemptAnalyse(
   imageFile: File,
@@ -31,37 +29,47 @@ async function attemptAnalyse(
   const base64 = await fileToBase64(imageFile);
   const mimeType = imageFile.type || 'image/jpeg';
 
-  const response = await fetch(EDGE_FUNCTION_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${ANON_KEY}`,
-      Apikey: ANON_KEY,
-    },
-    body: JSON.stringify({
-      image_base64: base64,
-      mime_type: mimeType,
-      system_type: systemType,
-      element,
-      environment: environment ?? 'Internal',
-      observed_concern: observedConcern ?? 'Unsure',
-      is_new_install: isNewInstall ?? false,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(EDGE_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ANON_KEY}`,
+        Apikey: ANON_KEY,
+      },
+      body: JSON.stringify({
+        image_base64: base64,
+        mime_type: mimeType,
+        system_type: systemType,
+        element,
+        environment: environment ?? 'Internal',
+        observed_concern: observedConcern ?? 'Unsure',
+        is_new_install: isNewInstall ?? false,
+      }),
+    });
+  } catch {
+    throw new AIUnavailableError('network_error', 'Network error — check connection and retry.');
+  }
 
   if (response.status === 429) {
-    throw Object.assign(new Error('Rate limited'), { isRateLimit: true });
+    throw new AIUnavailableError('rate_limit', 'AI service is temporarily rate limited. Please wait a moment and retry.');
   }
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Analysis failed: ${response.status} — ${text}`);
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok || data?.success === false) {
+    const reason: AIFailureReason = data?.reason === 'rate_limit'
+      ? 'rate_limit'
+      : data?.reason === 'configuration_error'
+        ? 'configuration_error'
+        : 'ai_unavailable';
+    const message = data?.error ?? 'AI analysis service is currently unavailable. Classify manually.';
+    throw new AIUnavailableError(reason, message);
   }
 
-  const data = await response.json();
-
-  if (!data.defect_type || !data.severity || !data.observation) {
-    throw new Error('Unexpected response format from AI service.');
+  if (!data?.defect_type || !data?.severity || !data?.observation) {
+    throw new AIUnavailableError('ai_unavailable', 'Unexpected response format from AI service.');
   }
 
   const confidence = Math.max(0, Math.min(100, Number(data.confidence ?? 0)));
@@ -91,21 +99,33 @@ export async function analyseImage(
 ): Promise<AIAnalysisResult> {
   try {
     return await attemptAnalyse(imageFile, systemType, element, environment, observedConcern, isNewInstall);
-  } catch (firstErr) {
-    const isRateLimit = (firstErr as { isRateLimit?: boolean }).isRateLimit;
-
-    if (isRateLimit) {
+  } catch (err) {
+    if (err instanceof AIUnavailableError && err.reason === 'rate_limit') {
       onRetry?.();
-      await sleep(3000);
+      await sleep(3500);
       try {
         return await attemptAnalyse(imageFile, systemType, element, environment, observedConcern, isNewInstall);
-      } catch {
-        return { ...FALLBACK_RESULT };
+      } catch (retryErr) {
+        throw retryErr;
       }
     }
-
-    return { ...FALLBACK_RESULT };
+    throw err;
   }
+}
+
+export function makeManualModeResult(): AIAnalysisResult {
+  return {
+    defect_type: getObservationTemplate('Mechanical Damage') ? 'Mechanical Damage' : 'Mechanical Damage',
+    severity: 'Medium',
+    observation: getObservationTemplate('Mechanical Damage'),
+    confidence: 0,
+    needsReview: true,
+    likely_cause: '',
+    next_checks: [],
+    escalate: false,
+    escalation_reason: '',
+    remediation_guidance: '',
+  };
 }
 
 function sleep(ms: number): Promise<void> {

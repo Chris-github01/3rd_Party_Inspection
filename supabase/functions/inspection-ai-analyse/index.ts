@@ -27,10 +27,22 @@ VISUAL ANALYSIS RULES:
 - Do NOT infer coating thickness, fire ratings, or internal conditions
 - Do NOT reference product brands or proprietary system names
 - Use plain, professional consultant language
+- Be specific about the defect you can see. Do not default to "Mechanical Damage" unless you can see clear physical impact evidence.
 
 DEFECT CLASSIFICATION — use ONLY one of these exact terms:
   Delamination | Cracking | Mechanical Damage | Missing Coating |
   Corrosion Breakthrough | Blistering | Spalling | Voids | Incomplete Firestopping
+
+CHOOSING THE RIGHT DEFECT TYPE:
+- Delamination: coating or material separating in layers, peeling, detachment from substrate
+- Cracking: visible fissures, fractures, hairline cracks in coating or matrix
+- Mechanical Damage: clear evidence of physical impact — gouges, dents, scrapes
+- Missing Coating: bare steel or substrate exposed where coating should be present
+- Corrosion Breakthrough: rust staining visible through or at edges of coating
+- Blistering: bubbles, raised domes, hollow sections under surface
+- Spalling: fragments breaking off, chunking, surface material loss
+- Voids: gaps, holes, unfilled penetrations
+- Incomplete Firestopping: firestopping system not fully sealed or installed
 
 CONTEXT-AWARE REASONING:
 You will receive the system type, element type, environment, and the inspector's observed concern.
@@ -80,6 +92,52 @@ function normaliseDefectType(raw: string): string {
   return partial ?? "Mechanical Damage";
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function callOpenAI(
+  apiKey: string,
+  imageBase64: string,
+  mimeType: string,
+  userPrompt: string,
+  attempt: number
+): Promise<Response> {
+  if (attempt > 1) {
+    await sleep(Math.pow(2, attempt - 1) * 1000);
+  }
+
+  return fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      max_tokens: 700,
+      temperature: 0.15,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${imageBase64}`,
+                detail: "high",
+              },
+            },
+            { type: "text", text: userPrompt },
+          ],
+        },
+      ],
+    }),
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -96,7 +154,11 @@ Deno.serve(async (req: Request) => {
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {
       return new Response(
-        JSON.stringify({ error: "OpenAI API key not configured" }),
+        JSON.stringify({
+          success: false,
+          reason: "configuration_error",
+          error: "OpenAI API key not configured",
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -116,10 +178,13 @@ Deno.serve(async (req: Request) => {
     } = body;
 
     if (!image_base64) {
-      return new Response(JSON.stringify({ error: "image_base64 is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: false, reason: "missing_image", error: "image_base64 is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     const contextLines = [
@@ -137,100 +202,120 @@ ${contextLines.join("\n")}
 
 Analyse only what is visible. Apply your domain expertise and the context above to reason about the likely defect, its cause, what to check next, and whether escalation is required.`;
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        max_tokens: 700,
-        temperature: 0.15,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mime_type ?? "image/jpeg"};base64,${image_base64}`,
-                  detail: "high",
-                },
-              },
-              { type: "text", text: userPrompt },
-            ],
-          },
-        ],
+    const MAX_RETRIES = 3;
+    let lastStatus = 0;
+    let lastErrorText = "";
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      let openaiResponse: Response;
+      try {
+        openaiResponse = await callOpenAI(
+          openaiApiKey,
+          image_base64,
+          mime_type ?? "image/jpeg",
+          userPrompt,
+          attempt
+        );
+      } catch (fetchErr) {
+        lastErrorText = `Network error on attempt ${attempt}: ${String(fetchErr)}`;
+        console.error(lastErrorText);
+        if (attempt < MAX_RETRIES) continue;
+        break;
+      }
+
+      lastStatus = openaiResponse.status;
+
+      if (openaiResponse.status === 429) {
+        lastErrorText = "rate_limited";
+        console.warn(`OpenAI rate limited on attempt ${attempt}`);
+        if (attempt < MAX_RETRIES) continue;
+        break;
+      }
+
+      if (!openaiResponse.ok) {
+        lastErrorText = await openaiResponse.text().catch(() => `HTTP ${openaiResponse.status}`);
+        console.error(`OpenAI error on attempt ${attempt}:`, lastErrorText);
+        if (attempt < MAX_RETRIES) continue;
+        break;
+      }
+
+      const openaiData = await openaiResponse.json();
+      const content = openaiData.choices?.[0]?.message?.content;
+
+      if (!content) {
+        lastErrorText = "empty_response";
+        console.error("Empty AI response on attempt", attempt);
+        if (attempt < MAX_RETRIES) continue;
+        break;
+      }
+
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        lastErrorText = "invalid_json";
+        console.error("AI returned invalid JSON on attempt", attempt, content.slice(0, 200));
+        if (attempt < MAX_RETRIES) continue;
+        break;
+      }
+
+      const validSeverities = ["Low", "Medium", "High"];
+      const severity = validSeverities.includes(String(parsed.severity))
+        ? String(parsed.severity)
+        : "Medium";
+
+      const confidence = Math.max(0, Math.min(100, Number(parsed.confidence ?? 50)));
+
+      const nextChecks = Array.isArray(parsed.next_checks)
+        ? (parsed.next_checks as unknown[]).map((c) => String(c)).slice(0, 5)
+        : [];
+
+      const result = {
+        success: true,
+        defect_type: normaliseDefectType(String(parsed.defect_type ?? "")),
+        severity,
+        observation: String(parsed.observation ?? ""),
+        confidence,
+        likely_cause: String(parsed.likely_cause ?? ""),
+        next_checks: nextChecks,
+        escalate: Boolean(parsed.escalate) || confidence < 70,
+        escalation_reason: String(parsed.escalation_reason ?? ""),
+        remediation_guidance: String(parsed.remediation_guidance ?? ""),
+      };
+
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const isRateLimit = lastErrorText === "rate_limited" || lastStatus === 429;
+
+    return new Response(
+      JSON.stringify({
+        success: false,
+        reason: isRateLimit ? "rate_limit" : "ai_unavailable",
+        error: isRateLimit
+          ? "AI service is temporarily rate limited. Please retry in a moment."
+          : "AI analysis service is currently unavailable. Classify manually.",
       }),
-    });
-
-    if (!openaiResponse.ok) {
-      const errText = await openaiResponse.text();
-      console.error("OpenAI error:", errText);
-      return new Response(
-        JSON.stringify({ error: `OpenAI request failed: ${openaiResponse.status}` }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const openaiData = await openaiResponse.json();
-    const content = openaiData.choices?.[0]?.message?.content;
-
-    if (!content) {
-      return new Response(JSON.stringify({ error: "Empty response from AI model" }), {
-        status: 502,
+      {
+        status: isRateLimit ? 429 : 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      return new Response(JSON.stringify({ error: "AI response was not valid JSON" }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const validSeverities = ["Low", "Medium", "High"];
-    const severity = validSeverities.includes(String(parsed.severity))
-      ? String(parsed.severity)
-      : "Low";
-
-    const confidence = Math.max(0, Math.min(100, Number(parsed.confidence ?? 50)));
-
-    const nextChecks = Array.isArray(parsed.next_checks)
-      ? (parsed.next_checks as unknown[]).map((c) => String(c)).slice(0, 5)
-      : [];
-
-    const result = {
-      defect_type: normaliseDefectType(String(parsed.defect_type ?? "")),
-      severity,
-      observation: String(parsed.observation ?? ""),
-      confidence,
-      likely_cause: String(parsed.likely_cause ?? ""),
-      next_checks: nextChecks,
-      escalate: Boolean(parsed.escalate) || confidence < 70,
-      escalation_reason: String(parsed.escalation_reason ?? ""),
-      remediation_guidance: String(parsed.remediation_guidance ?? ""),
-    };
-
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      }
+    );
   } catch (err) {
     console.error("Unhandled error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        reason: "internal_error",
+        error: "Internal server error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });

@@ -599,9 +599,41 @@ interface DrawingViewerProps {
   onStartCapture: (pinId: string, useCamera: boolean) => void;
 }
 
+function useBlobUrl(remoteUrl: string): string {
+  const [blobUrl, setBlobUrl] = useState(remoteUrl);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl = '';
+
+    fetch(remoteUrl)
+      .then((r) => {
+        if (!r.ok) throw new Error('fetch failed');
+        return r.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setBlobUrl(remoteUrl);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [remoteUrl]);
+
+  return blobUrl;
+}
+
 export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: DrawingViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+
+  const drawingSrc = useBlobUrl(drawing.file_url);
 
   const [pins, setPins] = useState<InspectionAIPin[]>([]);
   const [loadingPins, setLoadingPins] = useState(true);
@@ -836,7 +868,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
               {drawing.file_type === 'image' ? (
                 <img
                   ref={imgRef}
-                  src={drawing.file_url}
+                  src={drawingSrc}
                   alt={drawing.name}
                   draggable={false}
                   onLoad={(e) => {

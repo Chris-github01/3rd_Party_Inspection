@@ -22,7 +22,7 @@ import {
   Building2,
   Map,
 } from 'lucide-react';
-import { analyseImage } from '../services/inspectionAIService';
+import { analyseImage, AIUnavailableError } from '../services/inspectionAIService';
 import {
   uploadInspectionImage,
   createReport,
@@ -45,6 +45,7 @@ import { BlockLevelNavigator } from '../components/spatial/BlockLevelNavigator';
 import { DrawingViewer } from '../components/spatial/DrawingViewer';
 import { ExecutiveDashboard } from '../components/ExecutiveDashboard';
 import { OverrideAnalyticsPanel } from '../components/OverrideAnalyticsPanel';
+import { generatePinSnapshot } from '../utils/drawingExporter';
 import { CaptureIntakeWizard } from '../components/CaptureIntakeWizard';
 import { SeniorInspectorCard, AnalysingState } from '../components/SeniorInspectorCard';
 import type { PortfolioProjectStat } from '../services/storageService';
@@ -90,6 +91,7 @@ function AnalysisStatusBadge({ status }: { status: AnalysisStatus }) {
     retrying: { label: 'Retrying…', className: 'bg-amber-50 text-amber-600 border-amber-200', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
     done: { label: 'Done', className: 'bg-emerald-50 text-emerald-600 border-emerald-200', icon: <CheckCircle className="w-3 h-3" /> },
     manual: { label: 'Manual mode', className: 'bg-orange-50 text-orange-600 border-orange-200', icon: <WifiOff className="w-3 h-3" /> },
+    failed: { label: 'AI unavailable', className: 'bg-red-50 text-red-600 border-red-200', icon: <AlertTriangle className="w-3 h-3" /> },
   };
   const { label, className, icon } = map[status];
   return (
@@ -809,7 +811,26 @@ export default function InspectionAIPage() {
 
       await enqueue(async () => {
         setItemStatus(idx, 'analysing');
-        const aiResult = await analyseImage(imageFile, systemType, element, () => setItemStatus(idx, 'retrying'), environment, observedConcern, isNewInstall);
+        let aiResult;
+        try {
+          aiResult = await analyseImage(imageFile, systemType, element, () => setItemStatus(idx, 'retrying'), environment, observedConcern, isNewInstall);
+        } catch (err) {
+          const msg = err instanceof AIUnavailableError ? err.message : 'AI analysis failed. Classify manually.';
+          const isRateLimit = err instanceof AIUnavailableError && err.reason === 'rate_limit';
+          setItems((prev) =>
+            prev.map((item, i) =>
+              i !== idx ? item : {
+                ...item,
+                analysisStatus: 'failed' as AnalysisStatus,
+                isAnalysing: false,
+                aiErrorMessage: msg,
+                aiErrorIsRateLimit: isRateLimit,
+              }
+            )
+          );
+          setActiveIdx(idx);
+          return;
+        }
         const isManual = aiResult.confidence === 0;
 
         let result = aiResult;
@@ -899,7 +920,7 @@ export default function InspectionAIPage() {
   const handleReanalyse = (idx: number) => {
     const item = items[idx];
     if (!item || item.isAnalysing || item.analysisStatus === 'queued') return;
-    updateItem(idx, { analysisResult: null, nonConformance: '', recommendation: '', risk: '', defectTypeOverride: null, severityOverride: null, observationOverride: null, inspectorOverride: false, analysisStatus: 'idle', isSaved: false });
+    updateItem(idx, { analysisResult: null, nonConformance: '', recommendation: '', risk: '', defectTypeOverride: null, severityOverride: null, observationOverride: null, inspectorOverride: false, analysisStatus: 'idle', isSaved: false, aiErrorMessage: undefined, aiErrorIsRateLimit: undefined });
     runAnalysis(idx, item.systemType, item.element, item.imageFile, item.environment, item.observedConcern, item.isNewInstall);
   };
 
@@ -914,6 +935,25 @@ export default function InspectionAIPage() {
     const risk = generateRisk(effectiveSeverity as Severity);
 
     try {
+      let annotatedImageUrl = item.annotatedImageUrl;
+
+      if (pendingPinId && activeDrawing) {
+        const snapshotBlob = await generatePinSnapshot(activeDrawing.file_url, {
+          x_percent: 50,
+          y_percent: 50,
+          severity: effectiveSeverity,
+          label: effectiveDefect,
+        });
+        if (snapshotBlob) {
+          const snapshotFile = new File([snapshotBlob], 'markup.jpg', { type: 'image/jpeg' });
+          try {
+            const snapshotUrl = await uploadInspectionImage(snapshotFile, `${reportId}-markups`);
+            annotatedImageUrl = snapshotUrl;
+          } catch {
+          }
+        }
+      }
+
       const imageUrl = await uploadInspectionImage(item.imageFile, reportId);
       const saved = await saveInspectionItem({
         report_id: reportId, image_url: imageUrl, system_type: item.systemType, element: item.element,
@@ -921,7 +961,7 @@ export default function InspectionAIPage() {
         non_conformance: nc, recommendation: rec, risk, confidence: item.analysisResult?.confidence ?? 0,
         location_level: item.locationLevel, location_grid: item.locationGrid, location_description: item.locationDescription,
         extent: item.extent, defect_type_override: item.defectTypeOverride, severity_override: item.severityOverride,
-        observation_override: item.observationOverride, inspector_override: item.inspectorOverride, annotated_image_url: item.annotatedImageUrl,
+        observation_override: item.observationOverride, inspector_override: item.inspectorOverride, annotated_image_url: annotatedImageUrl,
       });
       updateItem(idx, { isSaved: true, savedId: saved.id, savedImageUrl: imageUrl });
 
@@ -1200,6 +1240,7 @@ export default function InspectionAIPage() {
           const effectiveSeverity = item.severityOverride ?? item.analysisResult?.severity;
           const hasOverride = !!(item.defectTypeOverride || item.severityOverride || item.observationOverride);
           const isInProgress = item.analysisStatus === 'queued' || item.analysisStatus === 'analysing' || item.analysisStatus === 'retrying';
+          const isFailed = item.analysisStatus === 'failed';
           const canSave = !item.isSaved && (!!item.analysisResult || item.inspectorOverride);
 
           return (
@@ -1256,6 +1297,42 @@ export default function InspectionAIPage() {
                     onChange={(v) => updateItem(idx, { extent: v })} />
 
                   {isInProgress && <AnalysingState status={item.analysisStatus} />}
+
+                  {isFailed && (
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                        <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-red-800">
+                            {item.aiErrorIsRateLimit ? 'AI temporarily rate limited' : 'AI analysis unavailable'}
+                          </p>
+                          <p className="text-xs text-red-600 mt-0.5 leading-relaxed">
+                            {item.aiErrorMessage ?? 'Classify this finding manually or retry.'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleReanalyse(idx)}
+                        className="w-full flex items-center justify-center gap-2 border border-slate-200 text-slate-700 py-3 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Retry AI Analysis
+                      </button>
+                      <button
+                        onClick={() => {
+                          updateItem(idx, {
+                            analysisStatus: 'manual',
+                            analysisResult: { defect_type: 'Mechanical Damage', severity: 'Medium', observation: getObservationTemplate('Mechanical Damage'), confidence: 0, needsReview: true },
+                          });
+                          setOverrideIdx(idx);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Classify Manually
+                      </button>
+                    </div>
+                  )}
 
                   {item.analysisStatus === 'idle' && !item.analysisResult && (
                     <div className="space-y-2">
