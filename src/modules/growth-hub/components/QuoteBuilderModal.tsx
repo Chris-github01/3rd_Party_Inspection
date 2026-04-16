@@ -18,6 +18,7 @@ import PricingIntelligencePanel from './PricingIntelligencePanel';
 import type { WinProbability } from './PricingIntelligencePanel';
 import AIScopeEstimator from './AIScopeEstimator';
 import PricingAnalyticsModal from './PricingAnalyticsModal';
+import TravelPricingWidget from './TravelPricingWidget';
 
 const CATEGORIES = ['Labour', 'Materials', 'Equipment', 'Travel', 'Subcontract', 'Other'];
 const NZ_REGIONS = ['Auckland', 'Wellington', 'Canterbury', 'Waikato', 'Bay of Plenty', 'Otago', "Hawke's Bay", 'Manawatu-Whanganui', 'Northland', 'Other'];
@@ -157,6 +158,20 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
       line_total: calcLineTotal({ ...li, _key: '' }),
     })));
     setActiveTab('details');
+  };
+
+  const handleTravelApply = (opts: {
+    travelZone: string;
+    travelKm: number;
+    travelSurcharge: number;
+    suggestedTravelCost: number;
+    parkingNote: string;
+  }) => {
+    setCostInputs(c => ({
+      ...c,
+      travelZone: opts.travelZone,
+      travelKm: opts.travelKm,
+    }));
   };
 
   const handleAIApply = (
@@ -372,6 +387,12 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
                       >
                         {NZ_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
+                    </div>
+                    <div className="col-span-2">
+                      <TravelPricingWidget
+                        siteAddress={form.site_address ?? ''}
+                        onApply={handleTravelApply}
+                      />
                     </div>
                     <div>
                       <label className="block text-xs text-slate-400 mb-1">Valid Until</label>
