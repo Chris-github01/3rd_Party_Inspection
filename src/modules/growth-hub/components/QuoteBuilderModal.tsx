@@ -20,6 +20,7 @@ import AIScopeEstimator from './AIScopeEstimator';
 import PricingAnalyticsModal from './PricingAnalyticsModal';
 import TravelPricingWidget from './TravelPricingWidget';
 import type { TravelApplyPayload } from './TravelPricingWidget';
+import RecommendedOfficeEngine from './RecommendedOfficeEngine';
 import { supabase } from '../../../lib/supabase';
 
 const CATEGORIES = ['Labour', 'Materials', 'Equipment', 'Travel', 'Subcontract', 'Other'];
@@ -96,6 +97,7 @@ interface Props {
       win_probability?: string;
       pricing_tier?: string;
       region?: string;
+      office_id?: string;
     },
     items: Partial<QuoteLineItem>[]
   ) => Promise<void>;
@@ -109,6 +111,8 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
   const [region, setRegion] = useState<string>('Auckland');
   const [showAIEstimator, setShowAIEstimator] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
+  const [selectedOfficeName, setSelectedOfficeName] = useState<string>('');
   const [defaultOfficeId, setDefaultOfficeId] = useState<string>('');
   const [defaultOfficeName, setDefaultOfficeName] = useState<string>('');
 
@@ -124,6 +128,8 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
         if (data) {
           setDefaultOfficeId(data.id);
           setDefaultOfficeName(data.name);
+          setSelectedOfficeId(data.id);
+          setSelectedOfficeName(data.name);
           setCostInputs(c => ({ ...c, office_id: data.id } as any));
         }
       });
@@ -207,6 +213,12 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
     setActiveTab('items');
   };
 
+  const handleOfficeSelect = (officeId: string, officeName: string) => {
+    setSelectedOfficeId(officeId);
+    setSelectedOfficeName(officeName);
+    setCostInputs(c => ({ ...c, office_id: officeId } as any));
+  };
+
   const subtotal = items.reduce((s, i) => s + (i.line_total ?? 0), 0);
   const gstAmount = subtotal * (form.gst_rate ?? 0.15);
   const total = subtotal + gstAmount;
@@ -235,6 +247,7 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
           win_probability: winProbability,
           pricing_tier: winProbability,
           region,
+          office_id: selectedOfficeId || undefined,
         },
         validItems
       );
@@ -407,17 +420,16 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
                         {NZ_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </div>
-                    <div className="col-span-2">
-                      {defaultOfficeName && (
-                        <div className="flex items-center gap-2 mb-2 text-xs text-slate-500">
-                          <Building className="w-3 h-3 text-slate-600" />
-                          <span>Origin: <span className="text-slate-300 font-medium">{defaultOfficeName}</span></span>
-                        </div>
-                      )}
+                    <div className="col-span-2 space-y-3">
+                      <RecommendedOfficeEngine
+                        siteAddress={form.site_address ?? ''}
+                        selectedOfficeId={selectedOfficeId}
+                        onSelectOffice={handleOfficeSelect}
+                      />
                       <TravelPricingWidget
                         siteAddress={form.site_address ?? ''}
                         onApply={handleTravelApply}
-                        defaultOfficeId={defaultOfficeId}
+                        defaultOfficeId={selectedOfficeId || defaultOfficeId}
                       />
                     </div>
                     <div>

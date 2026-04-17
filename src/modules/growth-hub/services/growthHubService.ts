@@ -158,6 +158,9 @@ export async function createQuote(quote: Partial<Quote>, lineItems: Partial<Quot
       gross_margin: quote.gross_margin ?? null,
       gross_margin_pct: quote.gross_margin_pct ?? null,
       template_type: quote.template_type ?? null,
+      office_id: (quote as any).office_id ?? null,
+      win_probability: (quote as any).win_probability ?? 'balanced',
+      lost_reason: (quote as any).lost_reason ?? null,
     })
     .select()
     .single();

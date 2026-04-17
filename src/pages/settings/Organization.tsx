@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { ImageUpload } from '../../components/ImageUpload';
 import { useNavigate } from 'react-router-dom';
 import OfficesManager from '../../components/settings/OfficesManager';
+import OfficeWorkloadPanel from '../../components/settings/OfficeWorkloadPanel';
 
 interface CompanySettings {
   id: string;
@@ -39,9 +40,22 @@ export function Organization() {
   const [travelKmRate, setTravelKmRate] = useState('1.20');
   const [travelParkingNote, setTravelParkingNote] = useState('Parking charged at cost');
   const [geocoding, setGeocoding] = useState(false);
+  const [orgId, setOrgId] = useState<string>('');
 
   useEffect(() => {
     loadSettings();
+    async function fetchOrgId() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data: ou } = await supabase
+        .from('organization_users')
+        .select('organization_id')
+        .eq('user_id', userData.user.id)
+        .limit(1)
+        .maybeSingle();
+      if (ou?.organization_id) setOrgId(ou.organization_id);
+    }
+    fetchOrgId();
   }, []);
 
   const loadSettings = async () => {
@@ -419,6 +433,24 @@ export function Organization() {
             <OfficesManager />
           </div>
         </div>
+
+        {/* Office Workload / Capacity */}
+        {orgId && (
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl shadow-xl p-8">
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <Navigation className="w-6 h-6 text-sky-400" />
+                <h2 className="text-xl font-bold text-white">Office Capacity & Workload</h2>
+              </div>
+              <p className="text-blue-200 text-sm">
+                Track weekly inspector availability and booked jobs per office. This data feeds the Recommended Office engine in Quote Builder.
+              </p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+              <OfficeWorkloadPanel orgId={orgId} />
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

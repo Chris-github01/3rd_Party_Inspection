@@ -10,6 +10,7 @@ import { STAGE_LABELS, STAGE_COLORS } from '../types';
 import OfficeComparisonPanel from '../components/OfficeComparisonPanel';
 import OfficeProfitabilityDashboard from '../components/OfficeProfitabilityDashboard';
 import RouteBundleWidget from '../components/RouteBundleWidget';
+import WinLossAnalyticsPanel from '../components/WinLossAnalyticsPanel';
 
 function StatCard({
   icon: Icon, label, value, sub, color = 'text-white'
@@ -182,6 +183,11 @@ export default function GrowthDashboard() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Win / Loss Analytics */}
+        <div className="mt-6">
+          <WinLossAnalyticsPanel />
         </div>
 
         {/* Office Intelligence */}
