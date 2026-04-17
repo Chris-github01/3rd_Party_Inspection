@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Route, MapPin, Clock, DollarSign, Package, ChevronRight, Plus, X, Zap, Trash2, Building2, RefreshCw } from 'lucide-react';
+import { Route, MapPin, Clock, DollarSign, Package, ChevronRight, Plus, X, Zap, Trash2, Building2, RefreshCw, TrendingUp } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { CALLOUT_MINIMUMS, KM_RATE_DEFAULT } from '../utils/costingEngine';
+
+const INSPECTOR_HOURLY_RATE = 145;
+const BUNDLE_MARGIN_RATE = 0.45;
 
 interface Lead {
   id: string;
@@ -113,9 +116,18 @@ function StopItem({ stop, index, onRemove }: { stop: RouteStop; index: number; o
   );
 }
 
+function computeBundleProfitability(bundle: RouteBundle) {
+  const separateTravelCost = bundle.stops.length * (CALLOUT_MINIMUMS['local'] + 10 * bundle.kmRate);
+  const travelSaved = Math.max(0, separateTravelCost - bundle.estimatedTravelCost);
+  const hoursSaved = Math.round((bundle.totalTravelMins / 60) * 10) / 10;
+  const marginGained = Math.round(travelSaved * BUNDLE_MARGIN_RATE);
+  return { travelSaved, hoursSaved, marginGained };
+}
+
 function BundleCard({ bundle, onDelete }: { bundle: RouteBundle; onDelete: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const zoneLabel = ZONE_LABELS[bundle.zone] ?? bundle.zone;
+  const profitability = computeBundleProfitability(bundle);
 
   return (
     <div className="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden">
@@ -138,6 +150,12 @@ function BundleCard({ bundle, onDelete }: { bundle: RouteBundle; onDelete: () =>
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {profitability.travelSaved > 0 && (
+            <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-0.5">
+              <TrendingUp className="w-3 h-3" />
+              ${profitability.travelSaved.toFixed(0)} saved
+            </span>
+          )}
           <span className="text-xs text-slate-500">{zoneLabel}</span>
           <button
             onClick={e => { e.stopPropagation(); onDelete(); }}
@@ -155,6 +173,7 @@ function BundleCard({ bundle, onDelete }: { bundle: RouteBundle; onDelete: () =>
               <StopItem key={stop.leadId} stop={stop} index={i} />
             ))}
           </div>
+
           <div className="grid grid-cols-3 gap-2 border-t border-slate-700 pt-3">
             <div className="text-center">
               <p className="text-sm font-bold text-white">{bundle.totalKm} km</p>
@@ -169,6 +188,30 @@ function BundleCard({ bundle, onDelete }: { bundle: RouteBundle; onDelete: () =>
                 {bundle.savingVsSeparate > 0 ? `$${bundle.savingVsSeparate.toFixed(0)}` : '—'}
               </p>
               <p className="text-[10px] text-slate-500">Saving vs separate</p>
+            </div>
+          </div>
+
+          <div className="mt-3 bg-emerald-900/10 border border-emerald-900/40 rounded-lg px-3 py-2.5">
+            <p className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-2">Profitability</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-sm font-bold text-emerald-400">
+                  {profitability.travelSaved > 0 ? `$${profitability.travelSaved.toFixed(0)}` : '—'}
+                </p>
+                <p className="text-[10px] text-slate-500">Travel saved</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-blue-400">
+                  {profitability.hoursSaved > 0 ? `${profitability.hoursSaved}h` : '—'}
+                </p>
+                <p className="text-[10px] text-slate-500">Hours saved</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-400">
+                  {profitability.marginGained > 0 ? `$${profitability.marginGained.toFixed(0)}` : '—'}
+                </p>
+                <p className="text-[10px] text-slate-500">Margin gained</p>
+              </div>
             </div>
           </div>
         </div>
@@ -611,13 +654,22 @@ export default function RouteBundleWidget() {
       )}
 
       {bundles.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
-          <span>{bundles.length} bundle{bundles.length !== 1 ? 's' : ''} saved</span>
-          <span>
-            Total saving: <span className="text-emerald-400 font-medium">
-              ${bundles.reduce((s, b) => s + b.savingVsSeparate, 0).toFixed(0)}
+        <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-3 gap-2 text-xs text-center">
+          <div>
+            <span className="text-slate-500">{bundles.length} bundle{bundles.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div>
+            <span className="text-emerald-400 font-medium">
+              ${bundles.reduce((s, b) => s + computeBundleProfitability(b).travelSaved, 0).toFixed(0)}
             </span>
-          </span>
+            <span className="text-slate-500 ml-1">travel saved</span>
+          </div>
+          <div>
+            <span className="text-amber-400 font-medium">
+              ${bundles.reduce((s, b) => s + computeBundleProfitability(b).marginGained, 0).toFixed(0)}
+            </span>
+            <span className="text-slate-500 ml-1">margin gained</span>
+          </div>
         </div>
       )}
     </div>

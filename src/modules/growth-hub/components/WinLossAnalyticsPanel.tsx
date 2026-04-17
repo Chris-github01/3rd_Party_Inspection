@@ -105,9 +105,23 @@ function computeStats(quotes: Quote[]): WinLossStats {
     .sort((a, b) => b.sent - a.sent)
     .slice(0, 6);
 
+  const LOST_REASON_LABELS: Record<string, string> = {
+    price_too_high: 'Price too high',
+    competitor_chosen: 'Competitor chosen',
+    project_cancelled: 'Project cancelled',
+    no_response: 'No response',
+    scope_mismatch: 'Scope mismatch',
+    timeline_mismatch: 'Timeline mismatch',
+    budget_cut: 'Budget cut',
+    went_inhouse: 'Went in-house',
+    other: 'Other',
+  };
+
   const reasonMap: Record<string, number> = {};
   declined.forEach(q => {
-    const r = (q as any).lost_reason?.trim() || 'Not specified';
+    const code = (q as any).lost_reason_code;
+    const freeText = (q as any).lost_reason?.trim();
+    const r = code ? (LOST_REASON_LABELS[code] ?? code) : freeText || 'Not specified';
     reasonMap[r] = (reasonMap[r] ?? 0) + 1;
   });
   const lostReasons = Object.entries(reasonMap)
@@ -152,7 +166,7 @@ export default function WinLossAnalyticsPanel() {
       try {
         const { data } = await supabase
           .from('quotes')
-          .select('id, status, total, gross_margin_pct, template_type, sent_at, accepted_at, declined_at, created_at, cost_inputs')
+          .select('id, status, total, gross_margin_pct, template_type, sent_at, accepted_at, declined_at, created_at, cost_inputs, lost_reason, lost_reason_code')
           .not('organization_id', 'is', null)
           .order('created_at', { ascending: false });
         if (data) setStats(computeStats(data as Quote[]));
