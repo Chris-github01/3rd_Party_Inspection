@@ -5,6 +5,12 @@ export type ProductFamilyHint =
   | 'solventborne_thinfilm'
   | 'hybrid_fasttrack'
   | 'epoxy_highdurability'
+  | 'cementitious_lightweight'
+  | 'cementitious_dense'
+  | 'protective_zinc_epoxy'
+  | 'protective_alkyd'
+  | 'firestopping_intumescent_sealant'
+  | 'firestopping_collar_wrap'
   | 'unknown';
 
 export type FamilyConfidence = 'low' | 'medium' | 'high';
@@ -29,7 +35,17 @@ export type VisualCue =
   | 'repair_patch'
   | 'hollow_zone'
   | 'bolt_cluster_damage'
-  | 'service_breach';
+  | 'service_breach'
+  | 'spalling'
+  | 'efflorescence'
+  | 'surface_erosion'
+  | 'adhesion_loss'
+  | 'open_gap'
+  | 'non_rated_foam'
+  | 'incomplete_seal'
+  | 'corrosion_edge_creep'
+  | 'full_depth_crack'
+  | 'osmotic_blister';
 
 export type InstallationAge = 'New' | 'Recent' | 'Aged' | 'Unknown';
 export type V3ComplianceConcernLevel = 'Low' | 'Moderate' | 'High';
@@ -102,7 +118,7 @@ const mergeUnique = (a: string[], b?: string[]): string[] => {
 
 const rules: InspectionRuleV3[] = [
 
-  // ─── WATERBORNE THIN-FILM FAMILY ─────────────────────────────────────────
+  // ─── INTUMESCENT — WATERBORNE THIN-FILM ──────────────────────────────────
 
   {
     id: 'V3-WB-01',
@@ -128,7 +144,7 @@ const rules: InspectionRuleV3[] = [
         'Durability mismatch may lead to progressive breakdown beyond the visibly affected area.',
       ],
       manufacturerLogicNotes: [
-        'Waterborne thin-film families are generally positioned for internal or lower-corrosivity building environments. A topcoat is required where higher humidity or mechanical protection is needed.',
+        'Waterborne thin-film families (e.g. Nullifire S607, Jotun Steelmaster WB, International Interchar 1120) are positioned for internal or lower-corrosivity environments. A topcoat is required where higher humidity or mechanical protection is needed.',
       ],
       reviewTriggers: ['verify_exposure_suitability', 'verify_topcoat_system'],
       escalation: true,
@@ -147,7 +163,7 @@ const rules: InspectionRuleV3[] = [
         ctx.environment === 'Exposed / Harsh' ||
         hasCue(ctx, 'wash_marks')),
     output: {
-      defectType: 'Moisture Compromise',
+      defectType: 'Moisture Damage',
       familyHint: 'waterborne_thinfilm',
       familyConfidence: 'medium',
       complianceConcernLevel: 'High',
@@ -160,10 +176,10 @@ const rules: InspectionRuleV3[] = [
         'Confirm whether any topcoat breach or seal discontinuity is present.',
       ],
       hiddenRisks: [
-        'Softened areas may have reduced durability and may conceal wider deterioration beyond the visible area.',
+        'Softened areas may have reduced fire expansion performance and may conceal wider deterioration.',
       ],
       remediationGuidance: [
-        'Remove compromised material to sound edges and reinstate the system with appropriate topcoat protection where required.',
+        'Remove compromised material to sound edges and reinstate the system with appropriate topcoat protection.',
       ],
       escalation: true,
       confidenceModifier: 10,
@@ -177,7 +193,7 @@ const rules: InspectionRuleV3[] = [
     applies: (ctx) =>
       ctx.systemType === 'Intumescent' &&
       hasCue(ctx, 'edge_cracking') &&
-      (ctx.elementType === 'Beam' || ctx.elementType === 'Column' || ctx.elementType === 'Connection'),
+      (ctx.elementType === 'Beam' || ctx.elementType === 'Column'),
     output: {
       familyHint: 'waterborne_thinfilm',
       familyConfidence: 'low',
@@ -218,7 +234,7 @@ const rules: InspectionRuleV3[] = [
     },
   },
 
-  // ─── SOLVENTBORNE THIN-FILM FAMILY ────────────────────────────────────────
+  // ─── INTUMESCENT — SOLVENTBORNE THIN-FILM ────────────────────────────────
 
   {
     id: 'V3-SB-01',
@@ -236,7 +252,7 @@ const rules: InspectionRuleV3[] = [
       likelyIssueType: 'Verification',
       complianceConcernLevel: 'Moderate',
       manufacturerLogicNotes: [
-        'Solventborne thin-film families are generally more tolerant of variable humidity and weather during construction than waterborne families — exposure alone in a new install may not indicate a defect.',
+        'Solventborne thin-film families (e.g. Nullifire S802, Jotun Steelmaster SB) are generally more tolerant of variable humidity and weather during construction than waterborne families.',
       ],
       nextChecks: [
         'Verify actual product family before treating exposure alone as a defect indicator.',
@@ -266,7 +282,7 @@ const rules: InspectionRuleV3[] = [
         'Determine whether the defect is isolated to a local application pass or repeated across members.',
       ],
       standardsNotes: [
-        'Visible workmanship irregularities on new work should be reviewed against site inspection test plan expectations.',
+        'Visible workmanship irregularities on new work should be reviewed against site inspection test plan expectations (AS 3894).',
       ],
       confidenceModifier: 6,
     },
@@ -296,7 +312,7 @@ const rules: InspectionRuleV3[] = [
     },
   },
 
-  // ─── HYBRID FAST-TRACK FAMILY ─────────────────────────────────────────────
+  // ─── INTUMESCENT — HYBRID FAST-TRACK ─────────────────────────────────────
 
   {
     id: 'V3-HY-01',
@@ -314,7 +330,7 @@ const rules: InspectionRuleV3[] = [
       likelyIssueType: 'Verification',
       complianceConcernLevel: 'Low',
       manufacturerLogicNotes: [
-        'Fast-track hybrid families may tolerate early weather exposure better than standard waterborne systems — early construction exposure alone may not be a defect for this family.',
+        'Fast-track hybrid families (e.g. Sherwin-Williams Firetex FX) may tolerate early weather exposure better than standard waterborne systems.',
       ],
       nextChecks: [
         'Verify actual product family before classifying early exposure as damage.',
@@ -338,7 +354,7 @@ const rules: InspectionRuleV3[] = [
       likelyIssueType: 'Workmanship',
       complianceConcernLevel: 'High',
       likelyCauses: [
-        'High-build fast-track application may have introduced local cure or shrinkage stress — consistent with single-coat over-application.',
+        'High-build fast-track application may have introduced local cure or shrinkage stress.',
       ],
       nextChecks: [
         'Inspect whether cracking follows heavy local build zones or repaired areas.',
@@ -367,14 +383,14 @@ const rules: InspectionRuleV3[] = [
       likelyIssueType: 'Verification',
       complianceConcernLevel: 'Moderate',
       nextChecks: [
-        'Verify whether the declared hybrid system has any stated tolerance window for light post-blast rust before classifying the observation.',
+        'Verify whether the declared hybrid system has any stated tolerance window for light post-blast rust.',
       ],
       reviewTriggers: ['verify_surface_prep_window'],
       confidenceModifier: 1,
     },
   },
 
-  // ─── EPOXY / HIGH-DURABILITY FAMILY ───────────────────────────────────────
+  // ─── INTUMESCENT — EPOXY / HIGH-DURABILITY ───────────────────────────────
 
   {
     id: 'V3-EP-01',
@@ -413,7 +429,7 @@ const rules: InspectionRuleV3[] = [
       likelyIssueType: 'Verification',
       complianceConcernLevel: 'Moderate',
       manufacturerLogicNotes: [
-        'Some epoxy and high-durability intumescent families are designed for service without a topcoat in specified corrosivity categories — absence of topcoat is not automatically a non-conformance.',
+        'Some epoxy intumescent families (e.g. Carboline Interam, Nullifire S908) are designed for service without a topcoat in specified corrosivity categories.',
       ],
       nextChecks: [
         'Verify whether the specified system required a topcoat before classifying its absence as non-conformance.',
@@ -430,7 +446,7 @@ const rules: InspectionRuleV3[] = [
     applies: (ctx) =>
       ctx.systemType === 'Intumescent' &&
       hasCue(ctx, 'chunk_loss') &&
-      (ctx.elementType === 'Beam' || ctx.elementType === 'Column' || ctx.elementType === 'Connection'),
+      (ctx.elementType === 'Beam' || ctx.elementType === 'Column'),
     output: {
       familyHint: 'epoxy_highdurability',
       familyConfidence: 'medium',
@@ -466,11 +482,605 @@ const rules: InspectionRuleV3[] = [
         'Observed service context may align more closely with a high-durability epoxy or high-hazard passive fire family than standard architectural thin-film logic.',
       ],
       nextChecks: [
-        'Verify actual product family, service environment, and required protection basis before applying standard thin-film reasoning.',
+        'Verify actual product family, service environment, and required protection basis.',
       ],
       reviewTriggers: ['branch_high_hazard_family_review'],
       escalation: true,
       confidenceModifier: 10,
+    },
+  },
+
+  // ─── CEMENTITIOUS — SPALLING ──────────────────────────────────────────────
+
+  {
+    id: 'V3-CEM-01',
+    name: 'Cementitious spalling with substrate exposure',
+    priority: 115,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      (hasCue(ctx, 'spalling') || hasCue(ctx, 'chunk_loss')) &&
+      hasCue(ctx, 'exposed_substrate'),
+    output: {
+      defectType: 'Spalling',
+      familyHint: 'cementitious_lightweight',
+      familyConfidence: 'medium',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Full-depth material loss exposing structural steel — FRL continuity is breached.',
+        'Likely causes: mechanical impact, freeze-thaw cycling, adhesion failure, water saturation.',
+      ],
+      nextChecks: [
+        'Tap test surrounding material to identify additional hollow or loose zones.',
+        'Check entire column/beam face for further adhesion loss.',
+        'Verify depth of remaining material at spall perimeter.',
+      ],
+      hiddenRisks: [
+        'Visible spall area is often smaller than the underlying adhesion loss zone — adjacent material may be at risk.',
+      ],
+      remediationGuidance: [
+        'Remove all loose and hollow material to sound edges. Reinstate with compatible cementitious fire protection mix to specified DFT. Surface must be clean and lightly roughened before repair.',
+      ],
+      standardsNotes: [
+        'NZBC Clause C / NCC: FRL of element requires full continuous coverage — spalling to substrate = system failure in a fire event.',
+      ],
+      manufacturerLogicNotes: [
+        'Common NZ cementitious products: Cafco 300/400, Isolatek Blaze-Shield, GCP Monokote legacy systems. Repair must use compatible product.',
+      ],
+      escalation: true,
+      confidenceModifier: 12,
+    },
+  },
+
+  {
+    id: 'V3-CEM-02',
+    name: 'Cementitious spalling without visible substrate',
+    priority: 100,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      (hasCue(ctx, 'spalling') || hasCue(ctx, 'chunk_loss')) &&
+      !hasCue(ctx, 'exposed_substrate'),
+    output: {
+      defectType: 'Spalling',
+      familyHint: 'cementitious_lightweight',
+      familyConfidence: 'medium',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Material loss from cementitious layer — substrate may not yet be exposed but FRL margin is reduced.',
+      ],
+      nextChecks: [
+        'Probe spall cavity depth to determine whether substrate is exposed.',
+        'Tap test surrounding area for hollow zones indicating wider adhesion loss.',
+      ],
+      escalation: true,
+      confidenceModifier: 9,
+    },
+  },
+
+  {
+    id: 'V3-CEM-03',
+    name: 'Cementitious adhesion loss / delamination',
+    priority: 98,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      (hasCue(ctx, 'adhesion_loss') || hasCue(ctx, 'hollow_zone')),
+    output: {
+      defectType: 'Delamination',
+      familyHint: 'cementitious_lightweight',
+      familyConfidence: 'medium',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Adhesion loss between cementitious material and steel substrate.',
+        'Common causes: poor surface preparation, moisture infiltration, contaminated substrate, freeze-thaw cycling.',
+      ],
+      nextChecks: [
+        'Perform systematic tap test across full element face to map extent of hollow zones.',
+        'Check for water infiltration pathways above or adjacent to affected zone.',
+      ],
+      hiddenRisks: [
+        'Hollow zone extent is typically 3-5x larger than visible surface indication.',
+      ],
+      remediationGuidance: [
+        'Remove all delaminated and hollow material. Wire brush substrate to Sa 2.5 equivalent. Reinstate with compatible cementitious mix.',
+      ],
+      escalation: true,
+      confidenceModifier: 10,
+    },
+  },
+
+  {
+    id: 'V3-CEM-04',
+    name: 'Cementitious full-depth cracking',
+    priority: 95,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      hasCue(ctx, 'full_depth_crack'),
+    output: {
+      defectType: 'Cracking',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Full-depth crack penetrating to substrate — FRL continuity is breached at crack plane.',
+      ],
+      nextChecks: [
+        'Confirm crack depth by probing or visual inspection at crack face.',
+        'Check for associated adhesion loss along crack edges.',
+      ],
+      escalation: true,
+      confidenceModifier: 9,
+    },
+  },
+
+  {
+    id: 'V3-CEM-05',
+    name: 'Cementitious surface crazing only',
+    priority: 60,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      hasCue(ctx, 'edge_cracking') &&
+      !hasCue(ctx, 'full_depth_crack') &&
+      !hasCue(ctx, 'exposed_substrate') &&
+      !hasCue(ctx, 'adhesion_loss'),
+    output: {
+      defectType: 'Surface Deterioration',
+      complianceConcernLevel: 'Low',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Surface crazing is very common in cementitious fireproofing and is typically caused by shrinkage during curing or differential thermal movement.',
+        'Surface crazing alone does not breach FRL continuity if material remains adhered.',
+      ],
+      nextChecks: [
+        'Confirm crack does not penetrate full depth to substrate.',
+        'Tap test surrounding area to verify adhesion is maintained.',
+      ],
+      confidenceModifier: 3,
+    },
+  },
+
+  {
+    id: 'V3-CEM-06',
+    name: 'Cementitious moisture damage / efflorescence',
+    priority: 85,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      (hasCue(ctx, 'efflorescence') || hasCue(ctx, 'wash_marks') || hasCue(ctx, 'softening')),
+    output: {
+      defectType: 'Moisture Damage',
+      complianceConcernLevel: 'Moderate',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Moisture infiltrating the cementitious matrix — efflorescence indicates active moisture movement through material.',
+      ],
+      nextChecks: [
+        'Identify and address moisture source (roof penetration, pipe leak, wet construction).',
+        'Test surface hardness — softened or friable zones indicate integrity loss.',
+        'Check for associated adhesion loss in wet-stained areas.',
+      ],
+      hiddenRisks: [
+        'Prolonged moisture cycling weakens the cement matrix and accelerates adhesion loss.',
+      ],
+      escalation: false,
+      confidenceModifier: 6,
+    },
+  },
+
+  {
+    id: 'V3-CEM-07',
+    name: 'Cementitious surface erosion / powdering',
+    priority: 65,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      (hasCue(ctx, 'surface_erosion') || hasCue(ctx, 'powdering')) &&
+      !hasCue(ctx, 'exposed_substrate'),
+    output: {
+      defectType: 'Surface Deterioration',
+      complianceConcernLevel: 'Low',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Surface hardener loss or ongoing moisture weathering causing granular surface erosion.',
+      ],
+      nextChecks: [
+        'Measure remaining material thickness if possible.',
+        'Monitor for progression — if DFT margin is thin, reinstate surface protection.',
+      ],
+      confidenceModifier: 4,
+    },
+  },
+
+  {
+    id: 'V3-CEM-08',
+    name: 'Cementitious missing material at penetrations or bases',
+    priority: 110,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      hasCue(ctx, 'exposed_substrate') &&
+      (ctx.elementType === 'Penetration' || ctx.observedConcern === 'Missing Material'),
+    output: {
+      defectType: 'Missing Coating',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Workmanship',
+      likelyCauses: [
+        'Cementitious material was never applied or was removed and not reinstated around penetration or at base detail.',
+      ],
+      nextChecks: [
+        'Confirm extent of missing material around full penetration perimeter or element base.',
+        'Check whether gap is original installation defect or post-installation damage.',
+      ],
+      remediationGuidance: [
+        'Apply cementitious material to full specified DFT around penetration and seal edges to prevent moisture infiltration.',
+      ],
+      escalation: true,
+      confidenceModifier: 10,
+    },
+  },
+
+  {
+    id: 'V3-CEM-09',
+    name: 'Cementitious impact damage on dense systems',
+    priority: 92,
+    applies: (ctx) =>
+      ctx.systemType === 'Cementitious' &&
+      hasCue(ctx, 'impact_gouge') &&
+      !hasCue(ctx, 'exposed_substrate'),
+    output: {
+      defectType: 'Mechanical Damage',
+      familyHint: 'cementitious_dense',
+      familyConfidence: 'low',
+      complianceConcernLevel: 'Moderate',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Construction traffic or equipment impact has damaged the cementitious surface.',
+      ],
+      nextChecks: [
+        'Probe impact zone to confirm substrate is not exposed at the base of the gouge.',
+        'Check remaining material thickness at impact centre.',
+      ],
+      confidenceModifier: 6,
+    },
+  },
+
+  // ─── PROTECTIVE COATING ───────────────────────────────────────────────────
+
+  {
+    id: 'V3-PC-01',
+    name: 'Protective coating corrosion breakthrough with edge creep',
+    priority: 108,
+    applies: (ctx) =>
+      ctx.systemType === 'Protective Coating' &&
+      hasCue(ctx, 'corrosion_edge_creep') &&
+      hasCue(ctx, 'rust_staining'),
+    output: {
+      defectType: 'Corrosion Breakthrough',
+      familyHint: 'protective_zinc_epoxy',
+      familyConfidence: 'medium',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Corrosion has broken through coating film and is spreading via undercutting from coating edges or damage points.',
+      ],
+      nextChecks: [
+        'Measure rust grade using ISO 4628-3 (Ri scale).',
+        'Check coating adhesion around corrosion perimeter — probe for cathodic disbondment.',
+        'Inspect all edges, weld toes, and cut sections across element.',
+      ],
+      standardsNotes: [
+        'ISO 4628-3: rust grade Ri 3+ (>1% rusted area) = maintenance threshold for most industrial coating systems.',
+        'ISO 12944: C3+ environment with edge creep = maintenance action required.',
+      ],
+      remediationGuidance: [
+        'Abrasive blast or power-tool clean corroded area to Sa 2 or St 3. Feather coating edges. Reinstate full primer/intermediate/topcoat system.',
+      ],
+      escalation: true,
+      confidenceModifier: 11,
+    },
+  },
+
+  {
+    id: 'V3-PC-02',
+    name: 'Protective coating osmotic blistering over rust',
+    priority: 105,
+    applies: (ctx) =>
+      ctx.systemType === 'Protective Coating' &&
+      hasCue(ctx, 'osmotic_blister') &&
+      hasCue(ctx, 'rust_staining'),
+    output: {
+      defectType: 'Blistering',
+      familyHint: 'protective_zinc_epoxy',
+      familyConfidence: 'medium',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Osmotic corrosion cells forming under coating film — rust driving cathodic disbondment and blister formation.',
+      ],
+      nextChecks: [
+        'Open a sample blister to check for rust product or liquid inside.',
+        'Assess rust grade across the full element using ISO 4628-3.',
+      ],
+      hiddenRisks: [
+        'Blistered areas over rust may have significantly greater corrosion extent under the film than surface appearance suggests.',
+      ],
+      escalation: true,
+      confidenceModifier: 10,
+    },
+  },
+
+  {
+    id: 'V3-PC-03',
+    name: 'Protective coating delamination intercoat failure',
+    priority: 95,
+    applies: (ctx) =>
+      ctx.systemType === 'Protective Coating' &&
+      (hasCue(ctx, 'hollow_zone') || hasCue(ctx, 'adhesion_loss')) &&
+      !hasCue(ctx, 'rust_staining'),
+    output: {
+      defectType: 'Delamination',
+      familyHint: 'protective_zinc_epoxy',
+      familyConfidence: 'low',
+      complianceConcernLevel: 'Moderate',
+      likelyIssueType: 'Workmanship',
+      likelyCauses: [
+        'Intercoat adhesion failure — likely caused by contamination between coats, overcoat interval exceeded, or incompatible intercoat combination.',
+      ],
+      nextChecks: [
+        'Cross-cut adhesion test (ISO 2409) at representative areas.',
+        'Verify recoat interval was not exceeded for specified system.',
+      ],
+      remediationGuidance: [
+        'Remove delaminated coating to sound substrate. Clean thoroughly. Reinstate compatible primer/coat system.',
+      ],
+      confidenceModifier: 7,
+    },
+  },
+
+  {
+    id: 'V3-PC-04',
+    name: 'Protective coating UV chalking and gloss loss',
+    priority: 55,
+    applies: (ctx) =>
+      ctx.systemType === 'Protective Coating' &&
+      (hasCue(ctx, 'uv_fade') || hasCue(ctx, 'powdering')) &&
+      !hasCue(ctx, 'rust_staining') &&
+      !hasCue(ctx, 'exposed_substrate'),
+    output: {
+      defectType: 'Surface Deterioration',
+      familyHint: 'protective_alkyd',
+      familyConfidence: 'low',
+      complianceConcernLevel: 'Low',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'UV degradation of topcoat resin — chalking is normal end-of-service for many alkyd and acrylic topcoats.',
+      ],
+      nextChecks: [
+        'Assess chalk degree using ISO 4628-6.',
+        'Check underlying coat for integrity — if chalk is severe, moisture may reach midcoat.',
+      ],
+      standardsNotes: [
+        'ISO 4628-6: chalk degree 4+ typically triggers topcoat maintenance in most maintenance specifications.',
+      ],
+      confidenceModifier: 3,
+    },
+  },
+
+  {
+    id: 'V3-PC-05',
+    name: 'Protective coating new work application defects',
+    priority: 88,
+    applies: (ctx) =>
+      ctx.systemType === 'Protective Coating' &&
+      (hasCue(ctx, 'runs_sags') || hasCue(ctx, 'patch_texture_mismatch')) &&
+      (ctx.age === 'New' || ctx.age === 'Recent'),
+    output: {
+      complianceConcernLevel: 'Moderate',
+      likelyIssueType: 'Workmanship',
+      likelyCauses: [
+        'Application control defects on new work — runs, sags, or texture inconsistency indicating incorrect application technique or product viscosity.',
+      ],
+      nextChecks: [
+        'Check DFT at defective areas — sags may have local over-application while adjacent areas may be under-applied.',
+        'Verify application conditions (temperature, humidity, wind) were within specification.',
+      ],
+      standardsNotes: [
+        'AS 3894: visible application defects on new work require repair before final DFT survey acceptance.',
+      ],
+      confidenceModifier: 5,
+    },
+  },
+
+  {
+    id: 'V3-PC-06',
+    name: 'Protective coating missing at weld or edge',
+    priority: 102,
+    applies: (ctx) =>
+      ctx.systemType === 'Protective Coating' &&
+      hasCue(ctx, 'exposed_substrate'),
+    output: {
+      defectType: 'Missing Coating',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Workmanship',
+      likelyCauses: [
+        'Bare metal at weld, edge, penetration, or damage point — corrosion will initiate rapidly at exposed areas in C3+ environments.',
+      ],
+      nextChecks: [
+        'Measure extent of bare metal area.',
+        'Check adjacent welds and cut edges for similar coating absence.',
+        'Identify whether bare area is original workmanship defect or post-installation damage.',
+      ],
+      remediationGuidance: [
+        'Abrasive blast or power-tool clean bare area. Apply stripe coat to edges and welds before full system reinstatement.',
+      ],
+      escalation: true,
+      confidenceModifier: 9,
+    },
+  },
+
+  // ─── FIRESTOPPING ─────────────────────────────────────────────────────────
+
+  {
+    id: 'V3-FS-01',
+    name: 'Firestopping open penetration gap',
+    priority: 120,
+    applies: (ctx) =>
+      ctx.systemType === 'Firestopping' &&
+      hasCue(ctx, 'open_gap'),
+    output: {
+      defectType: 'Incomplete Firestopping',
+      familyHint: 'firestopping_intumescent_sealant',
+      familyConfidence: 'medium',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Workmanship',
+      likelyCauses: [
+        'Open gap in fire-rated penetration — firestopping seal is absent, incomplete, or has failed.',
+        'Common at cable, pipe, or duct penetrations through fire-rated walls and floors.',
+      ],
+      nextChecks: [
+        'Measure annular gap dimensions.',
+        'Confirm whether a tested firestopping system was ever installed at this location.',
+        'Check all penetrations in the same fire compartment boundary for similar gaps.',
+      ],
+      hiddenRisks: [
+        'Open penetration gap allows fire and smoke to travel between compartments, directly undermining building FRL.',
+      ],
+      remediationGuidance: [
+        'Install tested firestopping system appropriate for the penetration type (service, substrate, gap dimensions). Use Codemark or third-party assessed system per NZBC Clause C / AS 4072.1.',
+      ],
+      standardsNotes: [
+        'NZBC Clause C / NCC C2: all penetrations through fire-rated construction must be sealed with a tested firestopping system. AS 4072.1 specifies performance requirements.',
+      ],
+      manufacturerLogicNotes: [
+        'Suitable products: Hilti CP 601/606, Sika Pyroplug/Pyroflex, 3M Fire Barrier, Promat Promaseal, FSi Fireflex. Selection depends on substrate, annular gap, and service type.',
+      ],
+      escalation: true,
+      confidenceModifier: 15,
+    },
+  },
+
+  {
+    id: 'V3-FS-02',
+    name: 'Firestopping non-rated expanding foam',
+    priority: 118,
+    applies: (ctx) =>
+      ctx.systemType === 'Firestopping' &&
+      hasCue(ctx, 'non_rated_foam'),
+    output: {
+      defectType: 'Incomplete Firestopping',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Workmanship',
+      likelyCauses: [
+        'Non-rated polyurethane expanding foam used in place of a tested firestopping system — non-compliant installation.',
+      ],
+      nextChecks: [
+        'Confirm foam is not a tested intumescent foam product (check labelling/colour).',
+        'Identify all penetrations sealed with non-rated foam across the affected area.',
+      ],
+      remediationGuidance: [
+        'Remove all non-rated foam. Reinstate with compliant tested firestopping system. Document installation with system certification.',
+      ],
+      standardsNotes: [
+        'Generic expanding foam has no fire resistance — it burns. Only products with AS 4072.1 assessed performance may be used as firestopping.',
+      ],
+      escalation: true,
+      confidenceModifier: 12,
+    },
+  },
+
+  {
+    id: 'V3-FS-03',
+    name: 'Firestopping incomplete seal / partial installation',
+    priority: 112,
+    applies: (ctx) =>
+      ctx.systemType === 'Firestopping' &&
+      hasCue(ctx, 'incomplete_seal'),
+    output: {
+      defectType: 'Incomplete Firestopping',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Workmanship',
+      likelyCauses: [
+        'Firestopping product partially applied — sealant bead incomplete, collar not fully tightened, or batt packing missing.',
+      ],
+      nextChecks: [
+        'Verify full perimeter of penetration is sealed without gaps.',
+        'Check whether installation was terminated before completion (common at cable bundles and duct penetrations).',
+      ],
+      escalation: true,
+      confidenceModifier: 11,
+    },
+  },
+
+  {
+    id: 'V3-FS-04',
+    name: 'Firestopping sealant shrinkage / adhesion loss',
+    priority: 90,
+    applies: (ctx) =>
+      ctx.systemType === 'Firestopping' &&
+      hasCue(ctx, 'adhesion_loss') &&
+      !hasCue(ctx, 'open_gap'),
+    output: {
+      defectType: 'Delamination',
+      familyHint: 'firestopping_intumescent_sealant',
+      familyConfidence: 'medium',
+      complianceConcernLevel: 'Moderate',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Sealant pulling away from substrate at penetration perimeter — adhesion failure due to service movement, substrate contamination, or age.',
+      ],
+      nextChecks: [
+        'Check whether a gap has opened at the substrate interface.',
+        'Inspect whether service movement is ongoing — flexible re-entrant sealant may be required.',
+      ],
+      escalation: false,
+      confidenceModifier: 7,
+    },
+  },
+
+  {
+    id: 'V3-FS-05',
+    name: 'Firestopping post-install breach by new service',
+    priority: 115,
+    applies: (ctx) =>
+      ctx.systemType === 'Firestopping' &&
+      hasCue(ctx, 'service_breach'),
+    output: {
+      defectType: 'Incomplete Firestopping',
+      complianceConcernLevel: 'High',
+      likelyIssueType: 'Workmanship',
+      likelyCauses: [
+        'New service installed through a previously sealed penetration without reinstatement of firestopping.',
+      ],
+      nextChecks: [
+        'Identify the responsible trade and confirm whether a permit-to-penetrate was issued.',
+        'Check all penetrations in the same area for similar post-install breaches.',
+      ],
+      remediationGuidance: [
+        'Reinstate tested firestopping system around new service. Document with system certification reference.',
+      ],
+      escalation: true,
+      confidenceModifier: 13,
+    },
+  },
+
+  {
+    id: 'V3-FS-06',
+    name: 'Firestopping physical damage to installed seal',
+    priority: 95,
+    applies: (ctx) =>
+      ctx.systemType === 'Firestopping' &&
+      hasCue(ctx, 'impact_gouge') &&
+      !hasCue(ctx, 'open_gap'),
+    output: {
+      defectType: 'Mechanical Damage',
+      complianceConcernLevel: 'Moderate',
+      likelyIssueType: 'Maintenance',
+      likelyCauses: [
+        'Physical damage to installed firestop seal — puncture, cut, or pull-out from service movement or construction activity.',
+      ],
+      nextChecks: [
+        'Confirm seal integrity is maintained — check whether damage penetrates full depth of sealant bead.',
+        'If seal is breached, treat as open gap and escalate.',
+      ],
+      escalation: false,
+      confidenceModifier: 6,
     },
   },
 
@@ -530,7 +1140,7 @@ const rules: InspectionRuleV3[] = [
     id: 'V3-GEN-04',
     name: 'Service breach post-install',
     priority: 87,
-    applies: (ctx) => hasCue(ctx, 'service_breach'),
+    applies: (ctx) => hasCue(ctx, 'service_breach') && ctx.systemType !== 'Firestopping',
     output: {
       likelyIssueType: 'Workmanship',
       complianceConcernLevel: 'Moderate',
@@ -550,7 +1160,7 @@ const rules: InspectionRuleV3[] = [
     id: 'V3-GEN-05',
     name: 'Hollow zone delamination risk',
     priority: 85,
-    applies: (ctx) => hasCue(ctx, 'hollow_zone'),
+    applies: (ctx) => hasCue(ctx, 'hollow_zone') && ctx.systemType !== 'Cementitious',
     output: {
       complianceConcernLevel: 'High',
       likelyIssueType: 'Maintenance',
@@ -595,9 +1205,12 @@ function maxFamilyConfidence(a: FamilyConfidence, b: FamilyConfidence): FamilyCo
   return FAMILY_CONFIDENCE_RANK[b] > FAMILY_CONFIDENCE_RANK[a] ? b : a;
 }
 
-// ─── INFERENCE: DERIVE VISUAL CUES FROM AI TEXT ──────────────────────────────
+// ─── VISUAL CUE DERIVATION ────────────────────────────────────────────────────
+// systemType is now used to inject context-specific cues that the AI text may
+// not explicitly name, preventing cross-system reasoning contamination.
 
 export function deriveVisualCuesFromAI(
+  systemType: SystemType,
   observedConcern: ObservedConcern,
   aiDefectType?: string,
   aiObservation?: string
@@ -605,16 +1218,17 @@ export function deriveVisualCuesFromAI(
   const text = [(aiDefectType ?? ''), (aiObservation ?? '')].join(' ').toLowerCase();
   const cues: VisualCue[] = [];
 
+  // Universal text-derived cues
   if (text.includes('exposed') || text.includes('bare') || text.includes('substrate')) cues.push('exposed_substrate');
   if (text.includes('edge') || text.includes('arris') || text.includes('corner')) cues.push('edge_cracking');
   if (text.includes('rust') || text.includes('corrosion') || text.includes('stain')) cues.push('rust_staining');
   if (text.includes('blister') || text.includes('bubble')) cues.push('blistering');
   if (text.includes('soft') || text.includes('friable') || text.includes('tacky')) cues.push('softening');
   if (text.includes('wash') || text.includes('rain') || text.includes('run off') || text.includes('moisture')) cues.push('wash_marks');
-  if (text.includes('powder') || text.includes('chalk') || text.includes('dust')) cues.push('powdering');
+  if (text.includes('chalk') || text.includes('dust')) cues.push('powdering');
   if (text.includes('patch') && (text.includes('texture') || text.includes('mismatch') || text.includes('colour') || text.includes('color'))) cues.push('patch_texture_mismatch');
   if (text.includes('gouge') || text.includes('impact')) cues.push('impact_gouge');
-  if (text.includes('chunk') || text.includes('spall') || text.includes('fracture')) cues.push('chunk_loss');
+  if (text.includes('chunk') || text.includes('fracture')) cues.push('chunk_loss');
   if (text.includes('run') || text.includes('sag') || text.includes('drip')) cues.push('runs_sags');
   if (text.includes('heavy') || text.includes('high build') || text.includes('thick')) cues.push('heavy_build');
   if (text.includes('water trap') || text.includes('ponding') || text.includes('ledge')) cues.push('water_trap_pattern');
@@ -626,11 +1240,39 @@ export function deriveVisualCuesFromAI(
   if (text.includes('bolt') || text.includes('fastener') || text.includes('washer')) cues.push('bolt_cluster_damage');
   if (text.includes('cable') || text.includes('pipe') || text.includes('penetrat') || text.includes('breach')) cues.push('service_breach');
 
+  // System-type-specific cues injected from context
+  if (systemType === 'Cementitious') {
+    if (text.includes('spall') || text.includes('chunk') || text.includes('fragment') || text.includes('break off')) cues.push('spalling');
+    if (text.includes('efflores') || text.includes('salt') || text.includes('white deposit')) cues.push('efflorescence');
+    if (text.includes('eros') || text.includes('powder') || text.includes('granular') || text.includes('dusty')) cues.push('surface_erosion');
+    if (text.includes('adhesion') || text.includes('detach') || text.includes('lifting') || text.includes('peel')) cues.push('adhesion_loss');
+    if (text.includes('full depth') || text.includes('through crack') || text.includes('penetrat')) cues.push('full_depth_crack');
+  }
+
+  if (systemType === 'Protective Coating') {
+    if (text.includes('edge creep') || text.includes('undercutting') || text.includes('spread') || text.includes('advance')) cues.push('corrosion_edge_creep');
+    if (text.includes('osmot') || text.includes('liquid') || text.includes('wet blister')) cues.push('osmotic_blister');
+    if (text.includes('adhesion') || text.includes('detach') || text.includes('intercoat')) cues.push('adhesion_loss');
+    if (text.includes('eros') || text.includes('powder') || text.includes('chalk')) cues.push('surface_erosion');
+  }
+
+  if (systemType === 'Firestopping') {
+    if (text.includes('gap') || text.includes('open') || text.includes('unsealed') || text.includes('void')) cues.push('open_gap');
+    if (text.includes('foam') || text.includes('polyurethane') || text.includes('pu foam') || text.includes('expanding foam')) cues.push('non_rated_foam');
+    if (text.includes('partial') || text.includes('incomplete') || text.includes('missing seal') || text.includes('not sealed')) cues.push('incomplete_seal');
+    if (text.includes('adhesion') || text.includes('pull') || text.includes('shrink') || text.includes('separated')) cues.push('adhesion_loss');
+    if (text.includes('new service') || text.includes('additional') || text.includes('subsequent')) cues.push('service_breach');
+  }
+
+  // Observed concern overrides
   if (observedConcern === 'Cracking') { if (!cues.includes('edge_cracking')) cues.push('edge_cracking'); }
   if (observedConcern === 'Rust / Corrosion') { if (!cues.includes('rust_staining')) cues.push('rust_staining'); }
   if (observedConcern === 'Blistering / Bubbling') { if (!cues.includes('blistering')) cues.push('blistering'); }
   if (observedConcern === 'Delamination') { if (!cues.includes('hollow_zone')) cues.push('hollow_zone'); }
   if (observedConcern === 'Missing Material') { if (!cues.includes('exposed_substrate')) cues.push('exposed_substrate'); }
+  if (observedConcern === 'Spalling') { if (!cues.includes('spalling')) cues.push('spalling'); }
+  if (observedConcern === 'Incomplete Seal') { if (!cues.includes('incomplete_seal')) cues.push('incomplete_seal'); }
+  if (observedConcern === 'Moisture / Water Damage') { if (!cues.includes('wash_marks')) cues.push('wash_marks'); }
 
   return [...new Set(cues)];
 }
@@ -703,5 +1345,11 @@ export const FAMILY_LABEL: Record<ProductFamilyHint, string> = {
   solventborne_thinfilm: 'Solventborne Thin-Film',
   hybrid_fasttrack: 'Hybrid Fast-Track',
   epoxy_highdurability: 'Epoxy / High-Durability',
+  cementitious_lightweight: 'Cementitious Lightweight',
+  cementitious_dense: 'Cementitious Dense Mix',
+  protective_zinc_epoxy: 'Zinc-Rich / Epoxy System',
+  protective_alkyd: 'Alkyd / Acrylic System',
+  firestopping_intumescent_sealant: 'Intumescent Sealant / Collar',
+  firestopping_collar_wrap: 'Firestopping Collar / Wrap',
   unknown: 'Unknown',
 };

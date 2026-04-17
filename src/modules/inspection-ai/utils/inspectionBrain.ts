@@ -62,6 +62,7 @@ export function applyInspectionBrain(
   const rulebookV2 = runRulebookV2(rulebookInput);
 
   const visualCues = deriveVisualCuesFromAI(
+    ctx.systemType,
     ctx.observedConcern,
     aiResult.defect_type,
     aiResult.observation
