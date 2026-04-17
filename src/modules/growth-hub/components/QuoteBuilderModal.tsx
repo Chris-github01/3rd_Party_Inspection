@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X, Plus, LayoutTemplate, TrendingUp, AlertTriangle,
   Building, Users, Zap, FileText as FileTextIcon,
@@ -20,6 +20,7 @@ import AIScopeEstimator from './AIScopeEstimator';
 import PricingAnalyticsModal from './PricingAnalyticsModal';
 import TravelPricingWidget from './TravelPricingWidget';
 import type { TravelApplyPayload } from './TravelPricingWidget';
+import { supabase } from '../../../lib/supabase';
 
 const CATEGORIES = ['Labour', 'Materials', 'Equipment', 'Travel', 'Subcontract', 'Other'];
 const NZ_REGIONS = ['Auckland', 'Wellington', 'Canterbury', 'Waikato', 'Bay of Plenty', 'Otago', "Hawke's Bay", 'Manawatu-Whanganui', 'Northland', 'Other'];
@@ -108,6 +109,25 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
   const [region, setRegion] = useState<string>('Auckland');
   const [showAIEstimator, setShowAIEstimator] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [defaultOfficeId, setDefaultOfficeId] = useState<string>('');
+  const [defaultOfficeName, setDefaultOfficeName] = useState<string>('');
+
+  useEffect(() => {
+    supabase
+      .from('offices')
+      .select('id, name, address')
+      .eq('active', true)
+      .eq('is_default', true)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setDefaultOfficeId(data.id);
+          setDefaultOfficeName(data.name);
+          setCostInputs(c => ({ ...c, office_id: data.id } as any));
+        }
+      });
+  }, []);
 
   const [form, setForm] = useState<Partial<Quote>>({
     client_name: '',
@@ -388,9 +408,16 @@ export default function QuoteBuilderModal({ onSave, onClose }: Props) {
                       </select>
                     </div>
                     <div className="col-span-2">
+                      {defaultOfficeName && (
+                        <div className="flex items-center gap-2 mb-2 text-xs text-slate-500">
+                          <Building className="w-3 h-3 text-slate-600" />
+                          <span>Origin: <span className="text-slate-300 font-medium">{defaultOfficeName}</span></span>
+                        </div>
+                      )}
                       <TravelPricingWidget
                         siteAddress={form.site_address ?? ''}
                         onApply={handleTravelApply}
+                        defaultOfficeId={defaultOfficeId}
                       />
                     </div>
                     <div>

@@ -43,6 +43,7 @@ export interface TravelApplyPayload {
 interface Props {
   siteAddress: string;
   onApply: (opts: TravelApplyPayload) => void;
+  defaultOfficeId?: string;
 }
 
 const ZONE_COLORS: Record<string, string> = {
@@ -71,13 +72,13 @@ const BILL_PCT_OPTIONS = [
   { value: 100, label: '100% — full rate' },
 ];
 
-export default function TravelPricingWidget({ siteAddress, onApply }: Props) {
+export default function TravelPricingWidget({ siteAddress, onApply, defaultOfficeId }: Props) {
   const [result, setResult] = useState<TravelPricingResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
   const [overrideMode, setOverrideMode] = useState(false);
-  const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>(defaultOfficeId ?? '');
 
   // Travel labour billing
   const [billPct, setBillPct] = useState<0 | 50 | 100>(0);
@@ -93,8 +94,34 @@ export default function TravelPricingWidget({ siteAddress, onApply }: Props) {
   const [overrideSurcharge, setOverrideSurcharge] = useState(0);
   const [overrideCost, setOverrideCost] = useState(0);
 
+  // Pre-load known offices for the selector (shown before any calculation)
+  const [knownOffices, setKnownOffices] = useState<Array<{ id: string; name: string; address: string | null }>>([]);
+  useEffect(() => {
+    supabase
+      .from('offices')
+      .select('id, name, address')
+      .eq('active', true)
+      .order('is_default', { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setKnownOffices(data);
+          if (!selectedOfficeId) {
+            const def = data.find((o: any) => o.id === defaultOfficeId) ?? data[0];
+            setSelectedOfficeId(def.id);
+          }
+        }
+      });
+  }, []);
+
   // Reset applied when address changes
   useEffect(() => { setApplied(false); }, [siteAddress]);
+
+  // Sync default office id when it arrives (loaded async in parent)
+  useEffect(() => {
+    if (defaultOfficeId && !selectedOfficeId) {
+      setSelectedOfficeId(defaultOfficeId);
+    }
+  }, [defaultOfficeId]);
 
   const calculate = useCallback(async (addr: string, officeId?: string) => {
     if (!addr?.trim() || addr.trim().length < 5) return;
@@ -200,8 +227,8 @@ export default function TravelPricingWidget({ siteAddress, onApply }: Props) {
           </div>
         )}
 
-        {/* Multi-office selector — shown once we have data */}
-        {result && result.allOffices.length > 1 && (
+        {/* Office selector — always shown when offices are available */}
+        {(knownOffices.length > 0 || (result && result.allOffices.length > 0)) && (
           <div>
             <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
               <Building2 className="w-3 h-3" />
@@ -213,9 +240,9 @@ export default function TravelPricingWidget({ siteAddress, onApply }: Props) {
                 onChange={e => handleOfficeChange(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs appearance-none focus:outline-none focus:border-sky-600 pr-7"
               >
-                {result.allOffices.map(o => (
+                {(result && result.allOffices.length > 0 ? result.allOffices : knownOffices).map(o => (
                   <option key={o.id} value={o.id}>
-                    {o.name}{o.distanceKm < 9000 ? ` — ${o.distanceKm} km away` : ''}
+                    {o.name}{'distanceKm' in o && (o as any).distanceKm < 9000 ? ` — ${(o as any).distanceKm} km away` : ''}
                   </option>
                 ))}
               </select>
