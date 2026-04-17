@@ -101,7 +101,7 @@ export async function createProject(
 }
 
 export async function saveInspectionItem(
-  item: Omit<InspectionAIItem, 'id' | 'created_at'> & { inspector_override?: boolean; annotated_image_url?: string | null }
+  item: Omit<InspectionAIItem, 'id' | 'created_at'> & { inspector_override?: boolean; annotated_image_url?: string | null; tier_used?: number | null; model_used?: string | null }
 ): Promise<InspectionAIItem> {
   const { data, error } = await supabase
     .from('inspection_ai_items')

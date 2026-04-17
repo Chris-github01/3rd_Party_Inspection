@@ -77,8 +77,6 @@ import { updatePin } from '../services/spatialService';
 import { supabase } from '../../../lib/supabase';
 import { format } from 'date-fns';
 
-const SYSTEM_TYPES: SystemType[] = ['Intumescent', 'Cementitious', 'Protective Coating', 'Firestopping'];
-const ELEMENT_TYPES: ElementType[] = ['Beam', 'Column', 'Slab', 'Penetration', 'Other'];
 const EXTENT_OPTIONS: Extent[] = ['Localised', 'Moderate', 'Widespread'];
 const SEVERITIES: Severity[] = ['Low', 'Medium', 'High'];
 
@@ -308,22 +306,6 @@ function makeBlankItem(file: File, previewUrl: string, ctx: CaptureIntakeContext
     defectTypeOverride: null, severityOverride: null, observationOverride: null,
     inspectorOverride: false, analysisStatus: 'idle', isAnalysing: false, isSaved: false,
   };
-}
-
-function AnalyseLaterRow({ onAnalyseLater }: { onAnalyseLater: () => void }) {
-  return (
-    <div className="flex items-center justify-between bg-white border border-dashed border-slate-200 rounded-xl px-4 py-3">
-      <div>
-        <p className="text-sm font-semibold text-slate-700">Batch capture mode</p>
-        <p className="text-xs text-slate-400 mt-0.5">Add images without AI — classify manually later</p>
-      </div>
-      <button onClick={onAnalyseLater}
-        className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-3 py-2 rounded-lg transition-colors flex-shrink-0 ml-3">
-        <Clock className="w-4 h-4" />
-        Analyse Later
-      </button>
-    </div>
-  );
 }
 
 // ─────────────────────────────────────────────
@@ -737,8 +719,8 @@ export default function InspectionAIPage() {
   const [projectReports, setProjectReports] = useState<InspectionAIReport[]>([]);
 
   const [activeDrawing, setActiveDrawing] = useState<InspectionAIDrawing | null>(null);
-  const [activeDrawingLevel, setActiveDrawingLevel] = useState<InspectionAILevel | null>(null);
-  const [activeDrawingBlock, setActiveDrawingBlock] = useState<InspectionAIBlock | null>(null);
+  const [, setActiveDrawingLevel] = useState<InspectionAILevel | null>(null);
+  const [, setActiveDrawingBlock] = useState<InspectionAIBlock | null>(null);
   const [pendingPinId, setPendingPinId] = useState<string | null>(null);
 
   const [inspectorName, setInspectorName] = useState(() => localStorage.getItem(LS_INSPECTOR_KEY) ?? '');
