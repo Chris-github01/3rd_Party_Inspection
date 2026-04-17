@@ -5,7 +5,46 @@ import type {
   InspectionAILevel,
   InspectionAIDrawing,
   InspectionAIPin,
+  ImageCategory,
+  ImageCategorySource,
 } from '../types';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+// Confidence score assigned to heuristic results (0–1)
+const HEURISTIC_CONFIDENCE = 0.52;
+
+async function triggerAIClassification(
+  drawingId: string,
+  imageUrl: string,
+  heuristicCategory: ImageCategory | null,
+  heuristicConfidence: number
+): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token ?? SUPABASE_ANON_KEY;
+
+    await fetch(
+      `${SUPABASE_URL}/functions/v1/inspection-ai-classify-image`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          drawing_id: drawingId,
+          image_url: imageUrl,
+          heuristic_category: heuristicCategory,
+          heuristic_confidence: heuristicConfidence,
+        }),
+      }
+    );
+  } catch {
+    // fire-and-forget — never block the upload
+  }
+}
 
 const DRAWING_BUCKET = 'inspection-ai-drawings';
 
@@ -102,6 +141,11 @@ export async function uploadDrawing(
     .getPublicUrl(filename);
 
   onProgress?.('Saving drawing…');
+
+  const isImage = !isPdf;
+  const heuristicConf = isImage && imageCategory ? HEURISTIC_CONFIDENCE : null;
+  const heuristicSource: ImageCategorySource | null = isImage && imageCategory ? 'heuristic' : null;
+
   const { data, error } = await supabase
     .from('inspection_ai_drawings')
     .insert({
@@ -112,11 +156,25 @@ export async function uploadDrawing(
       mime_type: mime,
       page_count: isPdf ? pageCount : 1,
       image_category: imageCategory ?? null,
+      image_category_confidence: heuristicConf,
+      image_category_source: heuristicSource,
+      image_category_reason: null,
+      image_category_pending_ai: isImage,
     })
     .select()
     .single();
 
   if (error) throw new Error(error.message);
+
+  if (isImage && data?.id) {
+    triggerAIClassification(
+      data.id,
+      urlData.publicUrl,
+      imageCategory ?? null,
+      heuristicConf ?? 0
+    );
+  }
+
   return data;
 }
 
@@ -126,6 +184,36 @@ export async function deleteDrawing(drawingId: string): Promise<void> {
     .delete()
     .eq('id', drawingId);
   if (error) throw new Error(error.message);
+}
+
+export async function overrideDrawingCategory(
+  drawingId: string,
+  newCategory: ImageCategory,
+  originalCategory: ImageCategory | null,
+  originalSource: ImageCategorySource | null,
+  originalConfidence: number | null
+): Promise<void> {
+  const { error } = await supabase
+    .from('inspection_ai_drawings')
+    .update({
+      image_category: newCategory,
+      image_category_source: 'manual' as ImageCategorySource,
+      image_category_confidence: 1.0,
+      image_category_reason: 'Manually overridden by user',
+      image_category_pending_ai: false,
+    })
+    .eq('id', drawingId);
+  if (error) throw new Error(error.message);
+
+  if (originalCategory) {
+    await supabase.from('image_classification_corrections').insert({
+      drawing_id: drawingId,
+      original_category: originalCategory,
+      original_source: originalSource ?? 'heuristic',
+      original_confidence: originalConfidence,
+      corrected_category: newCategory,
+    });
+  }
 }
 
 // ─── Pins ─────────────────────────────────────

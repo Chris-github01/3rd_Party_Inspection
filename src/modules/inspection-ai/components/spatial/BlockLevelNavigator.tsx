@@ -12,6 +12,8 @@ import {
   X,
   Check,
   AlertCircle,
+  Sparkles,
+  Pencil,
 } from 'lucide-react';
 import { ACCEPTED_MIME_TYPES, ACCEPTED_EXTENSIONS, getFileKind } from '../../utils/fileRenderer';
 import type { ImageCategory } from '../../types';
@@ -40,6 +42,8 @@ const CATEGORY_BADGE_STYLE: Record<ImageCategory, string> = {
   defect_closeup: 'bg-red-700/80 text-white',
   document_scan:  'bg-sky-600/80 text-white',
   screenshot:     'bg-slate-700/80 text-white',
+  mixed_content:  'bg-amber-700/80 text-white',
+  unknown:        'bg-slate-600/80 text-white',
 };
 
 const CATEGORY_SHORT: Record<ImageCategory, string> = {
@@ -48,6 +52,8 @@ const CATEGORY_SHORT: Record<ImageCategory, string> = {
   defect_closeup: 'Defect',
   document_scan:  'Doc',
   screenshot:     'Screen',
+  mixed_content:  'Mixed',
+  unknown:        '?',
 };
 
 // ─── Inline add field ────────────────────────
@@ -378,11 +384,20 @@ function DrawingsPanel({
                         decoding="async"
                         className="w-full h-full object-cover"
                       />
-                      {drawing.image_category && (
-                        <span className={`absolute bottom-0 left-0 right-0 text-center text-[7px] font-bold uppercase leading-tight py-0.5 ${CATEGORY_BADGE_STYLE[drawing.image_category] ?? 'bg-slate-700/70 text-white'}`}>
+                      {drawing.image_category_pending_ai ? (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <Loader2 className="w-4 h-4 text-white animate-spin" />
+                        </div>
+                      ) : drawing.image_category ? (
+                        <span className={`absolute bottom-0 left-0 right-0 text-center text-[7px] font-bold uppercase leading-tight py-0.5 flex items-center justify-center gap-0.5 ${CATEGORY_BADGE_STYLE[drawing.image_category] ?? 'bg-slate-700/70 text-white'}`}>
+                          {drawing.image_category_source === 'gemini' || drawing.image_category_source === 'openai' ? (
+                            <Sparkles className="w-2 h-2 flex-shrink-0" />
+                          ) : drawing.image_category_source === 'manual' ? (
+                            <Pencil className="w-2 h-2 flex-shrink-0" />
+                          ) : null}
                           {CATEGORY_SHORT[drawing.image_category] ?? drawing.image_category}
                         </span>
-                      )}
+                      ) : null}
                     </>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 bg-slate-100">
@@ -398,6 +413,21 @@ function DrawingsPanel({
                     {drawing.page_count > 1 && (
                       <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
                         {drawing.page_count}p
+                      </span>
+                    )}
+                    {drawing.image_category_pending_ai && (
+                      <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" />AI classifying
+                      </span>
+                    )}
+                    {!drawing.image_category_pending_ai && (drawing.image_category_source === 'gemini' || drawing.image_category_source === 'openai') && (
+                      <span className="text-[9px] text-sky-500 flex items-center gap-0.5 font-medium">
+                        <Sparkles className="w-2.5 h-2.5" />AI verified
+                      </span>
+                    )}
+                    {!drawing.image_category_pending_ai && drawing.image_category_source === 'manual' && (
+                      <span className="text-[9px] text-slate-500 flex items-center gap-0.5">
+                        <Pencil className="w-2.5 h-2.5" />Manual
                       </span>
                     )}
                   </div>

@@ -165,7 +165,11 @@ export type ImageCategory =
   | 'site_photo'
   | 'defect_closeup'
   | 'document_scan'
-  | 'screenshot';
+  | 'screenshot'
+  | 'mixed_content'
+  | 'unknown';
+
+export type ImageCategorySource = 'heuristic' | 'gemini' | 'openai' | 'manual';
 
 export interface InspectionAIDrawing {
   id: string;
@@ -176,6 +180,10 @@ export interface InspectionAIDrawing {
   mime_type: string | null;
   page_count: number;
   image_category: ImageCategory | null;
+  image_category_confidence: number | null;
+  image_category_source: ImageCategorySource | null;
+  image_category_reason: string | null;
+  image_category_pending_ai: boolean;
   created_at: string;
 }
 

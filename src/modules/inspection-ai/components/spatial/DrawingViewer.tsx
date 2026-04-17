@@ -28,8 +28,13 @@ import {
   Square,
   Type,
   BarChart2,
+  Sparkles,
+  Pencil,
+  ChevronDown,
+  RotateCcw,
 } from 'lucide-react';
-import { fetchPins, createPin, deletePin } from '../../services/spatialService';
+import { fetchPins, createPin, deletePin, overrideDrawingCategory } from '../../services/spatialService';
+import { supabase } from '../../../../lib/supabase';
 import type { InspectionAIDrawing, InspectionAIPin, ImageCategory } from '../../types';
 import { clusterPins } from '../../utils/clusterEngine';
 import { HeatmapCanvas, ClusterOverlay, HeatmapLegend } from './HeatmapOverlay';
@@ -442,11 +447,16 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const containerRef   = useRef<HTMLDivElement>(null);
   const canvasContRef  = useRef<HTMLDivElement>(null);
 
-  const fileKind = getDrawingKind(drawing);
-  const categoryMeta = getCategoryMeta(drawing.image_category, fileKind);
+  const [localDrawing, setLocalDrawing] = useState<InspectionAIDrawing>(drawing);
+  const [showOverrideMenu, setShowOverrideMenu] = useState(false);
+  const [overriding, setOverriding] = useState(false);
+  const overrideMenuRef = useRef<HTMLDivElement>(null);
+
+  const fileKind = getDrawingKind(localDrawing);
+  const categoryMeta = getCategoryMeta(localDrawing.image_category, fileKind);
 
   const { rendered, loading: fileLoading, error: fileError, totalPages, currentPage, prevPage, nextPage, metrics } =
-    useFileRenderer(drawing.file_url, fileKind, drawing.page_count ?? 1);
+    useFileRenderer(localDrawing.file_url, fileKind, localDrawing.page_count ?? 1);
 
   const [pinsPerPage, setPinsPerPage]   = useState<Map<number, InspectionAIPin[]>>(new Map());
   const [loadingPins, setLoadingPins]   = useState(true);
@@ -484,7 +494,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const selectedIdx  = selectedPin ? pins.indexOf(selectedPin) : -1;
 
   useEffect(() => {
-    fetchPins(drawing.id)
+    fetchPins(localDrawing.id)
       .then((fetched) => {
         const map = new Map<number, InspectionAIPin[]>();
         for (const pin of fetched) {
@@ -495,11 +505,61 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
         setPinsPerPage(map);
       })
       .finally(() => setLoadingPins(false));
-  }, [drawing.id]);
+  }, [localDrawing.id]);
 
   useEffect(() => {
     if (rendered) setRenderedSize({ width: rendered.width, height: rendered.height });
   }, [rendered]);
+
+  // Poll for AI classification result while pending
+  useEffect(() => {
+    if (!localDrawing.image_category_pending_ai) return;
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 12;
+    const INTERVAL = 5000;
+
+    const poll = async () => {
+      if (cancelled || attempts >= MAX_ATTEMPTS) return;
+      attempts++;
+      try {
+        const { data } = await supabase
+          .from('inspection_ai_drawings')
+          .select('image_category,image_category_confidence,image_category_source,image_category_reason,image_category_pending_ai')
+          .eq('id', localDrawing.id)
+          .maybeSingle();
+        if (cancelled || !data) return;
+        if (!data.image_category_pending_ai) {
+          setLocalDrawing(prev => ({
+            ...prev,
+            image_category: data.image_category,
+            image_category_confidence: data.image_category_confidence,
+            image_category_source: data.image_category_source,
+            image_category_reason: data.image_category_reason,
+            image_category_pending_ai: false,
+          }));
+        } else {
+          setTimeout(poll, INTERVAL);
+        }
+      } catch {
+        if (!cancelled) setTimeout(poll, INTERVAL);
+      }
+    };
+
+    setTimeout(poll, INTERVAL);
+    return () => { cancelled = true; };
+  }, [localDrawing.id, localDrawing.image_category_pending_ai]);
+
+  useEffect(() => {
+    if (!showOverrideMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (overrideMenuRef.current && !overrideMenuRef.current.contains(e.target as Node)) {
+        setShowOverrideMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showOverrideMenu]);
 
   useEffect(() => {
     setSelectedPinId(null);
@@ -604,11 +664,35 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
     if (!pendingPin) return null;
     setSavingPin(true);
     try {
-      const pin = await createPin(drawing.id, pendingPin.x, pendingPin.y);
+      const pin = await createPin(localDrawing.id, pendingPin.x, pendingPin.y);
       const pg = currentPage;
       setPinsPerPage((prev) => { const next = new Map(prev); next.set(pg, [...(next.get(pg) ?? []), pin]); return next; });
       return pin.id;
     } finally { setSavingPin(false); setPendingPin(null); }
+  };
+
+  const handleCategoryOverride = async (newCategory: ImageCategory) => {
+    setShowOverrideMenu(false);
+    setOverriding(true);
+    try {
+      await overrideDrawingCategory(
+        localDrawing.id,
+        newCategory,
+        localDrawing.image_category,
+        localDrawing.image_category_source,
+        localDrawing.image_category_confidence
+      );
+      setLocalDrawing(prev => ({
+        ...prev,
+        image_category: newCategory,
+        image_category_source: 'manual',
+        image_category_confidence: 1.0,
+        image_category_reason: 'Manually overridden by user',
+        image_category_pending_ai: false,
+      }));
+    } finally {
+      setOverriding(false);
+    }
   };
 
   const handleCapture = async (useCamera: boolean) => {
@@ -635,9 +719,9 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
         if (annotations.length > 0) {
           renderAnnotations(ctx, annotations, exportCanvas.width, exportCanvas.height, currentPage);
         }
-        await exportDrawingSnapshot(drawing, pins, clusters, 'both', exportCanvas);
+        await exportDrawingSnapshot(localDrawing, pins, clusters, 'both', exportCanvas);
       } else {
-        await exportDrawingSnapshot(drawing, pins, clusters, 'both', null);
+        await exportDrawingSnapshot(localDrawing, pins, clusters, 'both', null);
       }
     } finally { setExporting(false); }
   };
@@ -674,14 +758,73 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
 
         <div className="flex-1 min-w-0 mx-1">
           <div className="flex items-center gap-2">
-            <p className="font-bold text-white text-sm truncate leading-tight">{drawing.name}</p>
-            <span
-              className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0"
-              style={{ backgroundColor: `${categoryMeta.color}22`, color: categoryMeta.color }}
-            >
-              {fileKind === 'pdf' ? <FileText className="w-2.5 h-2.5" /> : <Info className="w-2.5 h-2.5" />}
-              {categoryMeta.label}
-            </span>
+            <p className="font-bold text-white text-sm truncate leading-tight">{localDrawing.name}</p>
+
+            {fileKind !== 'pdf' && (
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={() => setShowOverrideMenu(v => !v)}
+                  disabled={overriding}
+                  className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md transition-all hover:opacity-80 active:scale-95"
+                  style={{ backgroundColor: `${categoryMeta.color}22`, color: categoryMeta.color }}
+                  title={localDrawing.image_category_reason ?? undefined}
+                >
+                  {overriding ? (
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                  ) : localDrawing.image_category_pending_ai ? (
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                  ) : localDrawing.image_category_source === 'gemini' || localDrawing.image_category_source === 'openai' ? (
+                    <Sparkles className="w-2.5 h-2.5" />
+                  ) : localDrawing.image_category_source === 'manual' ? (
+                    <Pencil className="w-2.5 h-2.5" />
+                  ) : (
+                    <Info className="w-2.5 h-2.5" />
+                  )}
+                  {localDrawing.image_category_pending_ai ? 'Classifying…' : categoryMeta.label}
+                  {!localDrawing.image_category_pending_ai && <ChevronDown className="w-2 h-2 opacity-60" />}
+                </button>
+
+                {showOverrideMenu && !localDrawing.image_category_pending_ai && (
+                  <div ref={overrideMenuRef} className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 min-w-[160px] overflow-hidden">
+                    <div className="px-3 py-2 border-b border-slate-700/60">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Override Category</p>
+                      {localDrawing.image_category_source && (
+                        <p className="text-[9px] text-slate-500 mt-0.5">
+                          {localDrawing.image_category_source === 'gemini' ? 'AI verified (Gemini)' :
+                           localDrawing.image_category_source === 'openai' ? 'AI verified (OpenAI)' :
+                           localDrawing.image_category_source === 'manual' ? 'Manually set' :
+                           'Auto-classified'}
+                          {localDrawing.image_category_confidence != null && (
+                            <span className="ml-1 opacity-60">{Math.round(localDrawing.image_category_confidence * 100)}% conf</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    {(['drawing', 'site_photo', 'defect_closeup', 'document_scan', 'screenshot', 'mixed_content', 'unknown'] as ImageCategory[]).map(cat => {
+                      const meta = getCategoryMeta(cat, 'image');
+                      const isCurrent = localDrawing.image_category === cat;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => handleCategoryOverride(cat)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-left transition-colors ${isCurrent ? 'bg-slate-700/60' : 'hover:bg-slate-800'}`}
+                        >
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: meta.color }} />
+                          <span style={{ color: isCurrent ? meta.color : '#cbd5e1' }}>{meta.label}</span>
+                          {isCurrent && <RotateCcw className="w-3 h-3 ml-auto text-slate-500" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {fileKind === 'pdf' && (
+              <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0 bg-slate-800 text-slate-400">
+                <FileText className="w-2.5 h-2.5" />PDF
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             {highCount > 0 && <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-400"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />{highCount}H</span>}
@@ -737,7 +880,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
                 >
                   <img
                     src={rendered.canvas.toDataURL('image/png')}
-                    alt={drawing.name}
+                    alt={localDrawing.name}
                     draggable={false}
                     onLoad={(e) => { const el = e.currentTarget; setRenderedSize({ width: el.offsetWidth, height: el.offsetHeight }); }}
                     className="block rounded-lg shadow-2xl"
