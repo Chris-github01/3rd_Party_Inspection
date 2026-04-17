@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Building2, MapPin, User, ChevronRight, FolderOpen, Loader2, Search } from 'lucide-react';
+import { X, Plus, Building2, MapPin, User, ChevronRight, FolderOpen, Loader2, Search, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import type { InspectionAIProject } from '../types';
 import { fetchOrgProjects, createInspectionProject } from '../services/workflowService';
@@ -18,6 +18,7 @@ type Step = 'select_project' | 'new_project' | 'inspector' | 'drawing_choice';
 export function NewInspectionModal({ onClose, onStart }: Props) {
   const [step, setStep] = useState<Step>('select_project');
   const [loading, setLoading] = useState(false);
+  const [initLoading, setInitLoading] = useState(true);
   const [projects, setProjects] = useState<InspectionAIProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<InspectionAIProject | null>(null);
   const [query, setQuery] = useState('');
@@ -28,22 +29,47 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
   const [newProjectName, setNewProjectName] = useState('');
   const [newClientName, setNewClientName] = useState('');
   const [newSiteLocation, setNewSiteLocation] = useState('');
+  const [projectNameError, setProjectNameError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [inspectorError, setInspectorError] = useState('');
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
-      const { data: ou } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
-      if (ou?.organization_id) {
-        setOrgId(ou.organization_id);
-        const list = await fetchOrgProjects(ou.organization_id);
-        setProjects(list);
+      setInitLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setSubmitError('You must be logged in to create a project.');
+          setInitLoading(false);
+          return;
+        }
+        setUserId(user.id);
+        const { data: ou, error: ouErr } = await supabase
+          .from('organization_users')
+          .select('organization_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+        if (ouErr) {
+          console.error('org lookup error:', ouErr);
+        }
+        if (ou?.organization_id) {
+          setOrgId(ou.organization_id);
+          try {
+            const list = await fetchOrgProjects(ou.organization_id);
+            setProjects(list);
+          } catch (e) {
+            console.error('fetchOrgProjects error:', e);
+          }
+        } else {
+          setSubmitError('No organisation found for your account. Contact your administrator.');
+        }
+      } catch (e) {
+        console.error('init error:', e);
+        setSubmitError('Failed to load account information. Please refresh and try again.');
+      } finally {
+        setInitLoading(false);
       }
     }
     init();
@@ -54,7 +80,24 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
   );
 
   async function handleCreateProject() {
-    if (!newProjectName.trim() || !orgId || !userId) return;
+    setProjectNameError('');
+    setSubmitError('');
+
+    if (!newProjectName.trim()) {
+      setProjectNameError('Project name is required.');
+      return;
+    }
+
+    if (!userId) {
+      setSubmitError('Authentication error — please close and reopen this modal.');
+      return;
+    }
+
+    if (!orgId) {
+      setSubmitError('No organisation found. Contact your administrator.');
+      return;
+    }
+
     setLoading(true);
     try {
       const p = await createInspectionProject({
@@ -66,9 +109,23 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
       });
       setSelectedProject(p);
       setProjects(prev => [p, ...prev]);
-      setStep('inspector');
-    } catch (e) {
-      console.error(e);
+      setSuccessMessage(`"${p.project_name}" created successfully.`);
+      setTimeout(() => {
+        setSuccessMessage('');
+        setStep('inspector');
+      }, 800);
+    } catch (e: unknown) {
+      console.error('createInspectionProject error:', e);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('duplicate') || msg.includes('unique')) {
+        setSubmitError('A project with this name already exists.');
+      } else if (msg.includes('violates row-level security') || msg.includes('policy')) {
+        setSubmitError('Permission denied. You may not have access to create projects in this organisation.');
+      } else if (msg.includes('null value') || msg.includes('not-null')) {
+        setSubmitError('Missing required data. Please fill in all required fields.');
+      } else {
+        setSubmitError(`Failed to create project: ${msg}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -80,7 +137,11 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
   }
 
   function handleInspectorNext() {
-    if (!inspectorName.trim()) return;
+    setInspectorError('');
+    if (!inspectorName.trim()) {
+      setInspectorError('Inspector name is required.');
+      return;
+    }
     localStorage.setItem('inspection_ai_inspector_name', inspectorName.trim());
     setStep('drawing_choice');
   }
@@ -113,65 +174,108 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
 
           {step === 'select_project' && (
             <div className="px-5 py-4 space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search projects…"
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800"
-                />
-              </div>
-
-              <button
-                onClick={() => setStep('new_project')}
-                className="w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-700 transition-colors text-sm font-semibold"
-              >
-                <Plus className="w-5 h-5" />
-                Create New Project
-              </button>
-
-              {filteredProjects.length === 0 && (
-                <div className="py-8 text-center">
-                  <FolderOpen className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                  <p className="text-sm text-slate-400">No projects found</p>
+              {initLoading ? (
+                <div className="py-8 flex items-center justify-center gap-2 text-slate-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Loading…</span>
                 </div>
-              )}
+              ) : (
+                <>
+                  {submitError && (
+                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+                      <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-700">{submitError}</p>
+                    </div>
+                  )}
 
-              <div className="space-y-2">
-                {filteredProjects.map(p => (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search projects…"
+                      value={query}
+                      onChange={e => setQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    />
+                  </div>
+
                   <button
-                    key={p.id}
-                    onClick={() => handleSelectProject(p)}
-                    className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-slate-400 bg-white text-left transition-colors group"
+                    onClick={() => { setSubmitError(''); setProjectNameError(''); setStep('new_project'); }}
+                    disabled={!orgId}
+                    className="w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-700 transition-colors text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-slate-200 transition-colors">
-                      <Building2 className="w-5 h-5 text-slate-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">{p.project_name}</p>
-                      <p className="text-xs text-slate-400 truncate">{p.client_name} · {p.site_location}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+                    <Plus className="w-5 h-5" />
+                    Create New Project
                   </button>
-                ))}
-              </div>
+
+                  {filteredProjects.length === 0 && !submitError && (
+                    <div className="py-8 text-center">
+                      <FolderOpen className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                      <p className="text-sm text-slate-400">No projects found</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    {filteredProjects.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleSelectProject(p)}
+                        className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-slate-400 bg-white text-left transition-colors group"
+                      >
+                        <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-slate-200 transition-colors">
+                          <Building2 className="w-5 h-5 text-slate-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-900 truncate">{p.project_name}</p>
+                          <p className="text-xs text-slate-400 truncate">{p.client_name} · {p.site_location}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {step === 'new_project' && (
             <div className="px-5 py-4 space-y-4">
+              {successMessage && (
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <p className="text-xs text-emerald-700 font-semibold">{successMessage}</p>
+                </div>
+              )}
+
+              {submitError && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-700">{submitError}</p>
+                </div>
+              )}
+
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Project Name *</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  Project Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={newProjectName}
-                  onChange={e => setNewProjectName(e.target.value)}
+                  onChange={e => { setNewProjectName(e.target.value); if (projectNameError) setProjectNameError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handleCreateProject()}
                   placeholder="e.g. Tower A Passive Fire Inspection"
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm text-slate-900 focus:outline-none focus:ring-2 ${
+                    projectNameError ? 'border-red-400 focus:ring-red-400' : 'border-slate-200 focus:ring-slate-800'
+                  }`}
                 />
+                {projectNameError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {projectNameError}
+                  </p>
+                )}
               </div>
+
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Client / Developer</label>
                 <input
@@ -182,6 +286,7 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800"
                 />
               </div>
+
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Site Address</label>
                 <div className="relative">
@@ -195,6 +300,13 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
                   />
                 </div>
               </div>
+
+              {!orgId && !initLoading && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700">No organisation found for your account. Contact your administrator.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -208,18 +320,28 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Inspector Name *</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  Inspector Name <span className="text-red-500">*</span>
+                </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     value={inspectorName}
-                    onChange={e => setInspectorName(e.target.value)}
+                    onChange={e => { setInspectorName(e.target.value); if (inspectorError) setInspectorError(''); }}
                     onKeyDown={e => e.key === 'Enter' && handleInspectorNext()}
                     placeholder="Your full name"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm text-slate-900 focus:outline-none focus:ring-2 ${
+                      inspectorError ? 'border-red-400 focus:ring-red-400' : 'border-slate-200 focus:ring-slate-800'
+                    }`}
                   />
                 </div>
+                {inspectorError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {inspectorError}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -269,29 +391,41 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
         >
           {step === 'new_project' && (
             <div className="flex gap-3">
-              <button onClick={() => setStep('select_project')} className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 font-semibold text-sm hover:bg-slate-50 transition-colors">
+              <button
+                onClick={() => { setSubmitError(''); setProjectNameError(''); setStep('select_project'); }}
+                disabled={loading}
+                className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-40"
+              >
                 Back
               </button>
               <button
                 onClick={handleCreateProject}
-                disabled={loading || !newProjectName.trim()}
+                disabled={loading || !newProjectName.trim() || !orgId || initLoading}
                 className="flex-1 py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
               >
-                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Create Project
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating…
+                  </>
+                ) : (
+                  'Create Project'
+                )}
               </button>
             </div>
           )}
 
           {step === 'inspector' && (
             <div className="flex gap-3">
-              <button onClick={() => setStep('select_project')} className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 font-semibold text-sm hover:bg-slate-50 transition-colors">
+              <button
+                onClick={() => setStep('select_project')}
+                className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 font-semibold text-sm hover:bg-slate-50 transition-colors"
+              >
                 Back
               </button>
               <button
                 onClick={handleInspectorNext}
-                disabled={!inspectorName.trim()}
-                className="flex-1 py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition-colors disabled:opacity-40"
+                className="flex-1 py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition-colors"
               >
                 Continue
               </button>
