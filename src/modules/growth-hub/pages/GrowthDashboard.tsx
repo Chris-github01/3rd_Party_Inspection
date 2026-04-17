@@ -7,6 +7,9 @@ import {
 import { fetchDashboardStats } from '../services/growthHubService';
 import type { GrowthDashboardStats, LeadStage } from '../types';
 import { STAGE_LABELS, STAGE_COLORS } from '../types';
+import OfficeComparisonPanel from '../components/OfficeComparisonPanel';
+import OfficeProfitabilityDashboard from '../components/OfficeProfitabilityDashboard';
+import RouteBundleWidget from '../components/RouteBundleWidget';
 
 function StatCard({
   icon: Icon, label, value, sub, color = 'text-white'
@@ -179,6 +182,16 @@ export default function GrowthDashboard() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Office Intelligence */}
+        <div className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <OfficeProfitabilityDashboard />
+          <RouteBundleWidget />
+        </div>
+
+        <div className="mt-6">
+          <OfficeComparisonPanel />
         </div>
 
         {/* Recent Activity */}
