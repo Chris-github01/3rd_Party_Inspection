@@ -143,8 +143,60 @@ function applyExifRotation(
   ctx.drawImage(img, 0, 0);
 }
 
-async function decodeHeic(_blob: Blob): Promise<Blob> {
-  throw new Error('HEIC files are not supported for direct upload. Please convert the image to JPEG or PNG before uploading.');
+async function decodeHeicClientSide(blob: Blob): Promise<Blob> {
+  const mod = await import('heic2any');
+  const convert = ((mod as { default?: unknown }).default ?? mod) as (opts: {
+    blob: Blob;
+    toType: string;
+    quality: number;
+  }) => Promise<Blob | Blob[]>;
+  const result = await convert({ blob, toType: 'image/jpeg', quality: 0.88 });
+  return Array.isArray(result) ? result[0] : result;
+}
+
+async function decodeHeicServerSide(
+  originalFile: File,
+  onProgress?: (phase: string) => void
+): Promise<Blob> {
+  onProgress?.('Converting HEIC on server…');
+  const supabaseUrl = (import.meta as { env?: Record<string, string> }).env?.VITE_SUPABASE_URL ?? '';
+  const supabaseKey = (import.meta as { env?: Record<string, string> }).env?.VITE_SUPABASE_ANON_KEY ?? '';
+  const url = `${supabaseUrl}/functions/v1/heic-convert`;
+  const form = new FormData();
+  form.append('file', originalFile, originalFile.name);
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${supabaseKey}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(`Server HEIC conversion failed: ${body.error ?? res.statusText}`);
+  }
+  onProgress?.('Server conversion complete');
+  return res.blob();
+}
+
+async function decodeHeic(
+  blob: Blob,
+  originalFile: File,
+  onProgress?: (phase: string) => void
+): Promise<Blob> {
+  onProgress?.('Converting HEIC…');
+  try {
+    const result = await decodeHeicClientSide(blob);
+    onProgress?.('HEIC conversion complete');
+    return result;
+  } catch (clientErr) {
+    console.warn('Client-side HEIC conversion failed, trying server fallback:', clientErr);
+    try {
+      return await decodeHeicServerSide(originalFile, onProgress);
+    } catch (serverErr) {
+      throw new Error(
+        `HEIC conversion failed on both client and server. Please convert your photo to JPEG or PNG before uploading. (${serverErr instanceof Error ? serverErr.message : 'unknown'})`
+      );
+    }
+  }
 }
 
 function isHeic(file: File): boolean {
@@ -178,33 +230,40 @@ async function compressImage(blob: Blob, maxDim: number, quality: number): Promi
   });
 }
 
+export type PrepareProgressCallback = (phase: string) => void;
+
 export async function prepareFileForUpload(
-  file: File
-): Promise<{ blob: Blob; mime: string; ext: string; compressedBytes: number | null }> {
+  file: File,
+  onProgress?: PrepareProgressCallback
+): Promise<{ blob: Blob; mime: string; ext: string; originalName: string; compressedBytes: number | null }> {
   const sizeErr = validateFileSize(file);
   if (sizeErr) throw new Error(`File too large (${sizeErr.sizeMB} MB). Limit is ${sizeErr.limitMB} MB.`);
 
   let blob: Blob = file;
-  let mime = file.type;
+  let mime = file.type || 'application/octet-stream';
   let ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
   let compressedBytes: number | null = null;
 
+  const originalName = file.name.replace(/\.[^.]+$/, '');
+
   if (isHeic(file)) {
-    blob = await decodeHeic(file);
+    blob = await decodeHeic(file, file, onProgress);
     mime = 'image/jpeg';
     ext = 'jpg';
     compressedBytes = blob.size;
   }
 
   if (mime !== 'application/pdf' && blob.size > COMPRESS_THRESHOLD_BYTES) {
+    onProgress?.('Compressing image…');
     const compressed = await compressImage(blob, MAX_CANVAS_DIMENSION, 0.85);
     compressedBytes = compressed.size;
     blob = compressed;
     mime = 'image/jpeg';
     ext = 'jpg';
+    onProgress?.('Compression complete');
   }
 
-  return { blob, mime, ext, compressedBytes };
+  return { blob, mime, ext, originalName, compressedBytes };
 }
 
 async function renderPdfPage(

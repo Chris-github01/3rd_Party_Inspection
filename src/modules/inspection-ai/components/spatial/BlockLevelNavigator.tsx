@@ -88,7 +88,8 @@ function AddField({
 interface UploadJob {
   id: string;
   name: string;
-  status: 'pending' | 'uploading' | 'done' | 'error';
+  status: 'pending' | 'converting' | 'uploading' | 'done' | 'error';
+  phase?: string;
   error?: string;
 }
 
@@ -111,18 +112,23 @@ function UploadProgressBar({ jobs }: { jobs: UploadJob[] }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="space-y-1 max-h-28 overflow-y-auto">
+      <div className="space-y-1.5 max-h-28 overflow-y-auto">
         {jobs.map((j) => (
           <div key={j.id} className="flex items-center gap-2">
             {j.status === 'done' && <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" />}
             {j.status === 'error' && <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />}
-            {(j.status === 'pending' || j.status === 'uploading') && (
+            {(j.status === 'pending' || j.status === 'uploading' || j.status === 'converting') && (
               <Loader2 className="w-3 h-3 text-slate-400 animate-spin flex-shrink-0" />
             )}
-            <span className={`text-[11px] truncate flex-1 ${j.status === 'error' ? 'text-red-500' : 'text-slate-600'}`}>
-              {j.name}
-            </span>
-            {j.error && <span className="text-[10px] text-red-400 truncate max-w-[100px]">{j.error}</span>}
+            <div className="flex-1 min-w-0">
+              <span className={`text-[11px] truncate block ${j.status === 'error' ? 'text-red-500' : 'text-slate-600'}`}>
+                {j.name}
+              </span>
+              {j.phase && j.status !== 'done' && j.status !== 'error' && (
+                <span className="text-[10px] text-amber-600 font-medium block">{j.phase}</span>
+              )}
+              {j.error && <span className="text-[10px] text-red-400 block truncate">{j.error}</span>}
+            </div>
           </div>
         ))}
       </div>
@@ -192,19 +198,46 @@ function DrawingsPanel({
 
     for (let i = 0; i < valid.length; i++) {
       const file = valid[i];
+      const isHeicFile =
+        file.type === 'image/heic' ||
+        file.type === 'image/heif' ||
+        file.name.toLowerCase().endsWith('.heic') ||
+        file.name.toLowerCase().endsWith('.heif');
+
       setUploadJobs((prev) =>
-        prev.map((j, idx) => (idx === i ? { ...j, status: 'uploading' } : j))
+        prev.map((j, idx) =>
+          idx === i
+            ? { ...j, status: isHeicFile ? 'converting' : 'uploading', phase: isHeicFile ? 'Converting HEIC…' : 'Uploading…' }
+            : j
+        )
       );
+
       try {
-        const drawing = await uploadDrawing(file, level.id, file.name.replace(/\.[^.]+$/, ''));
+        const drawing = await uploadDrawing(
+          file,
+          level.id,
+          file.name.replace(/\.[^.]+$/, ''),
+          1,
+          (phase) => {
+            const isConvertPhase =
+              phase.toLowerCase().includes('convert') || phase.toLowerCase().includes('heic');
+            setUploadJobs((prev) =>
+              prev.map((j, idx) =>
+                idx === i
+                  ? { ...j, status: isConvertPhase ? 'converting' : 'uploading', phase }
+                  : j
+              )
+            );
+          }
+        );
         setDrawings((prev) => [...prev, drawing]);
         setUploadJobs((prev) =>
-          prev.map((j, idx) => (idx === i ? { ...j, status: 'done' } : j))
+          prev.map((j, idx) => (idx === i ? { ...j, status: 'done', phase: undefined } : j))
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Upload failed';
         setUploadJobs((prev) =>
-          prev.map((j, idx) => (idx === i ? { ...j, status: 'error', error: msg } : j))
+          prev.map((j, idx) => (idx === i ? { ...j, status: 'error', error: msg, phase: undefined } : j))
         );
       }
     }

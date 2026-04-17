@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import { prepareFileForUpload } from '../utils/fileRenderer';
+import { prepareFileForUpload, type PrepareProgressCallback } from '../utils/fileRenderer';
 import type {
   InspectionAIBlock,
   InspectionAILevel,
@@ -82,9 +82,10 @@ export async function uploadDrawing(
   file: File,
   levelId: string,
   name: string,
-  pageCount = 1
+  pageCount = 1,
+  onProgress?: PrepareProgressCallback
 ): Promise<InspectionAIDrawing> {
-  const { blob, mime, ext } = await prepareFileForUpload(file);
+  const { blob, mime, ext, originalName } = await prepareFileForUpload(file, onProgress);
 
   const filename = `${levelId}/${Date.now()}.${ext}`;
   const isPdf = mime === 'application/pdf';
@@ -100,11 +101,12 @@ export async function uploadDrawing(
     .from(DRAWING_BUCKET)
     .getPublicUrl(filename);
 
+  onProgress?.('Saving drawing…');
   const { data, error } = await supabase
     .from('inspection_ai_drawings')
     .insert({
       level_id: levelId,
-      name: name || file.name,
+      name: name || originalName || file.name,
       file_url: urlData.publicUrl,
       file_type: fileType,
       mime_type: mime,
