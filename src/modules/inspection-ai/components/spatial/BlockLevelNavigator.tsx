@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ACCEPTED_MIME_TYPES, ACCEPTED_EXTENSIONS, getFileKind } from '../../utils/fileRenderer';
+import type { ImageCategory } from '../../types';
 import {
   fetchBlocks,
   createBlock,
@@ -32,6 +33,22 @@ import type {
   InspectionAIDrawing,
 } from '../../types';
 import { format } from 'date-fns';
+
+const CATEGORY_BADGE_STYLE: Record<ImageCategory, string> = {
+  drawing:        'bg-sky-700/80 text-white',
+  site_photo:     'bg-emerald-700/80 text-white',
+  defect_closeup: 'bg-red-700/80 text-white',
+  document_scan:  'bg-sky-600/80 text-white',
+  screenshot:     'bg-slate-700/80 text-white',
+};
+
+const CATEGORY_SHORT: Record<ImageCategory, string> = {
+  drawing:        'Plan',
+  site_photo:     'Site',
+  defect_closeup: 'Defect',
+  document_scan:  'Doc',
+  screenshot:     'Screen',
+};
 
 // ─── Inline add field ────────────────────────
 function AddField({
@@ -353,13 +370,20 @@ function DrawingsPanel({
               >
                 <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 relative">
                   {drawing.file_type === 'image' ? (
-                    <img
-                      src={drawing.file_url}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover"
-                    />
+                    <>
+                      <img
+                        src={drawing.file_url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover"
+                      />
+                      {drawing.image_category && (
+                        <span className={`absolute bottom-0 left-0 right-0 text-center text-[7px] font-bold uppercase leading-tight py-0.5 ${CATEGORY_BADGE_STYLE[drawing.image_category] ?? 'bg-slate-700/70 text-white'}`}>
+                          {CATEGORY_SHORT[drawing.image_category] ?? drawing.image_category}
+                        </span>
+                      )}
+                    </>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 bg-slate-100">
                       <FileText className="w-5 h-5 text-slate-400" />

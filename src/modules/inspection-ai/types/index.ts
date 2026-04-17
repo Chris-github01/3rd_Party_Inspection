@@ -160,6 +160,13 @@ export interface InspectionAILevel {
   created_at: string;
 }
 
+export type ImageCategory =
+  | 'drawing'
+  | 'site_photo'
+  | 'defect_closeup'
+  | 'document_scan'
+  | 'screenshot';
+
 export interface InspectionAIDrawing {
   id: string;
   level_id: string;
@@ -168,6 +175,7 @@ export interface InspectionAIDrawing {
   file_type: 'image' | 'pdf';
   mime_type: string | null;
   page_count: number;
+  image_category: ImageCategory | null;
   created_at: string;
 }
 

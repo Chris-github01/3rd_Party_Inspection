@@ -232,10 +232,24 @@ async function compressImage(blob: Blob, maxDim: number, quality: number): Promi
 
 export type PrepareProgressCallback = (phase: string) => void;
 
+export type ImageCategory =
+  | 'drawing'
+  | 'site_photo'
+  | 'defect_closeup'
+  | 'document_scan'
+  | 'screenshot';
+
 export async function prepareFileForUpload(
   file: File,
   onProgress?: PrepareProgressCallback
-): Promise<{ blob: Blob; mime: string; ext: string; originalName: string; compressedBytes: number | null }> {
+): Promise<{
+  blob: Blob;
+  mime: string;
+  ext: string;
+  originalName: string;
+  compressedBytes: number | null;
+  imageCategory: ImageCategory | null;
+}> {
   const sizeErr = validateFileSize(file);
   if (sizeErr) throw new Error(`File too large (${sizeErr.sizeMB} MB). Limit is ${sizeErr.limitMB} MB.`);
 
@@ -263,7 +277,17 @@ export async function prepareFileForUpload(
     onProgress?.('Compression complete');
   }
 
-  return { blob, mime, ext, originalName, compressedBytes };
+  let imageCategory: ImageCategory | null = null;
+  if (mime !== 'application/pdf') {
+    onProgress?.('Classifying image…');
+    try {
+      imageCategory = await classifyImage(blob, file.name);
+    } catch {
+      imageCategory = null;
+    }
+  }
+
+  return { blob, mime, ext, originalName, compressedBytes, imageCategory };
 }
 
 async function renderPdfPage(
@@ -500,4 +524,148 @@ export function useFileRenderer(
     prevPage,
     nextPage,
   };
+}
+
+// ─── Image Classification ─────────────────────────────────────────────────────
+
+interface ImageDimensions {
+  width: number;
+  height: number;
+}
+
+function getImageDimensions(blob: Blob): Promise<ImageDimensions> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not load image for classification'));
+    };
+    img.src = url;
+  });
+}
+
+function sampleEdgeUniformity(ctx: CanvasRenderingContext2D, w: number, h: number): number {
+  const edgePixels: number[] = [];
+  const step = Math.max(1, Math.floor(Math.min(w, h) / 20));
+
+  for (let x = 0; x < w; x += step) {
+    const top = ctx.getImageData(x, 0, 1, 1).data;
+    const bot = ctx.getImageData(x, h - 1, 1, 1).data;
+    edgePixels.push(top[0], top[1], top[2], bot[0], bot[1], bot[2]);
+  }
+  for (let y = 0; y < h; y += step) {
+    const left = ctx.getImageData(0, y, 1, 1).data;
+    const right = ctx.getImageData(w - 1, y, 1, 1).data;
+    edgePixels.push(left[0], left[1], left[2], right[0], right[1], right[2]);
+  }
+
+  if (edgePixels.length === 0) return 0;
+  const mean = edgePixels.reduce((a, b) => a + b, 0) / edgePixels.length;
+  const variance = edgePixels.reduce((a, b) => a + (b - mean) ** 2, 0) / edgePixels.length;
+  return Math.sqrt(variance);
+}
+
+function sampleColorSpread(ctx: CanvasRenderingContext2D, w: number, h: number): number {
+  const step = Math.max(4, Math.floor(Math.min(w, h) / 30));
+  const rVals: number[] = [];
+  const gVals: number[] = [];
+  const bVals: number[] = [];
+
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const px = ctx.getImageData(x, y, 1, 1).data;
+      rVals.push(px[0]);
+      gVals.push(px[1]);
+      bVals.push(px[2]);
+    }
+  }
+
+  const spread = (vals: number[]) => {
+    const mn = Math.min(...vals);
+    const mx = Math.max(...vals);
+    return mx - mn;
+  };
+
+  return (spread(rVals) + spread(gVals) + spread(bVals)) / 3;
+}
+
+export async function classifyImage(
+  blob: Blob,
+  filename = ''
+): Promise<ImageCategory> {
+  const { width: nw, height: nh } = await getImageDimensions(blob);
+  const aspect = nw / nh;
+
+  const THUMB = 128;
+  const scale = THUMB / Math.max(nw, nh);
+  const tw = Math.round(nw * scale);
+  const th = Math.round(nh * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = tw;
+  canvas.height = th;
+  const ctx = canvas.getContext('2d')!;
+
+  const url = URL.createObjectURL(blob);
+  await new Promise<void>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => { ctx.drawImage(img, 0, 0, tw, th); URL.revokeObjectURL(url); resolve(); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(); };
+    img.src = url;
+  });
+
+  const edgeStdDev = sampleEdgeUniformity(ctx, tw, th);
+  const colorSpread = sampleColorSpread(ctx, tw, th);
+
+  const lowerName = filename.toLowerCase();
+  const hasScreenshotHint = /screen|screenshot|capture|scr_/.test(lowerName);
+  const hasDefectHint = /defect|crack|corrosion|rust|damage|close|macro|detail/.test(lowerName);
+  const hasDrawingHint = /plan|drawing|dwg|floor|layout|schematic|blueprint|elevation/.test(lowerName);
+  const hasDocHint = /scan|doc|form|certificate|report|letter/.test(lowerName);
+
+  const isLandscape = aspect > 1.15;
+  const isPortrait = aspect < 0.87;
+  const isSquarish = !isLandscape && !isPortrait;
+
+  const isScreenAspect = (
+    (aspect >= 1.7 && aspect <= 1.8) ||
+    (aspect >= 1.3 && aspect <= 1.37) ||
+    (1 / aspect >= 1.7 && 1 / aspect <= 1.8)
+  );
+
+  const hasUniformEdges = edgeStdDev < 18;
+  const hasLowColorSpread = colorSpread < 60;
+  const hasHighColorSpread = colorSpread > 140;
+  const isHighRes = nw >= 2000 && nh >= 2000;
+
+  if (hasScreenshotHint || (isScreenAspect && hasUniformEdges && hasLowColorSpread)) {
+    return 'screenshot';
+  }
+
+  if (hasDocHint || (isPortrait && hasUniformEdges && hasLowColorSpread && !hasHighColorSpread)) {
+    return 'document_scan';
+  }
+
+  if (hasDrawingHint || (hasLowColorSpread && isLandscape && hasUniformEdges)) {
+    return 'drawing';
+  }
+
+  if (hasDefectHint || (isSquarish && hasHighColorSpread && !isHighRes)) {
+    return 'defect_closeup';
+  }
+
+  if (isHighRes && isLandscape && !hasLowColorSpread) {
+    return 'site_photo';
+  }
+
+  if (isHighRes && isPortrait) {
+    return 'defect_closeup';
+  }
+
+  return 'site_photo';
 }

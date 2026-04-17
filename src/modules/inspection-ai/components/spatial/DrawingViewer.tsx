@@ -30,13 +30,35 @@ import {
   BarChart2,
 } from 'lucide-react';
 import { fetchPins, createPin, deletePin } from '../../services/spatialService';
-import type { InspectionAIDrawing, InspectionAIPin } from '../../types';
+import type { InspectionAIDrawing, InspectionAIPin, ImageCategory } from '../../types';
 import { clusterPins } from '../../utils/clusterEngine';
 import { HeatmapCanvas, ClusterOverlay, HeatmapLegend } from './HeatmapOverlay';
 import { exportDrawingSnapshot } from '../../utils/drawingExporter';
 import { useFileRenderer, getDrawingKind, type RenderMetrics } from '../../utils/fileRenderer';
 import { AnnotationLayer, renderAnnotations, COLORS } from './AnnotationLayer';
 import type { Annotation, AnnotationKind } from '../../utils/annotationTypes';
+
+interface CategoryMeta {
+  label: string;
+  color: string;
+  defaultViewMode: 'pins' | 'heatmap' | 'clusters';
+  preferAnnotations: boolean;
+}
+
+function getCategoryMeta(
+  cat: ImageCategory | null | undefined,
+  fileKind: 'pdf' | 'image'
+): CategoryMeta {
+  if (fileKind === 'pdf') return { label: 'PDF',        color: '#64748b', defaultViewMode: 'pins', preferAnnotations: true };
+  switch (cat) {
+    case 'drawing':        return { label: 'Drawing',    color: '#0284c7', defaultViewMode: 'pins', preferAnnotations: true };
+    case 'site_photo':     return { label: 'Site Photo', color: '#16a34a', defaultViewMode: 'pins', preferAnnotations: false };
+    case 'defect_closeup': return { label: 'Defect',     color: '#dc2626', defaultViewMode: 'pins', preferAnnotations: false };
+    case 'document_scan':  return { label: 'Document',   color: '#0ea5e9', defaultViewMode: 'pins', preferAnnotations: true };
+    case 'screenshot':     return { label: 'Screenshot', color: '#64748b', defaultViewMode: 'pins', preferAnnotations: true };
+    default:               return { label: 'Image',      color: '#64748b', defaultViewMode: 'pins', preferAnnotations: false };
+  }
+}
 
 const SEVERITY_COLOUR: Record<string, string> = {
   High:   '#dc2626',
@@ -421,6 +443,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const canvasContRef  = useRef<HTMLDivElement>(null);
 
   const fileKind = getDrawingKind(drawing);
+  const categoryMeta = getCategoryMeta(drawing.image_category, fileKind);
 
   const { rendered, loading: fileLoading, error: fileError, totalPages, currentPage, prevPage, nextPage, metrics } =
     useFileRenderer(drawing.file_url, fileKind, drawing.page_count ?? 1);
@@ -428,7 +451,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const [pinsPerPage, setPinsPerPage]   = useState<Map<number, InspectionAIPin[]>>(new Map());
   const [loadingPins, setLoadingPins]   = useState(true);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
-  const [viewMode, setViewMode]         = useState<ViewMode>('pins');
+  const [viewMode, setViewMode]         = useState<ViewMode>(categoryMeta.defaultViewMode);
   const [renderedSize, setRenderedSize] = useState({ width: 0, height: 0 });
   const [showZoneDrawer, setShowZoneDrawer] = useState(false);
   const [showMetrics, setShowMetrics]   = useState(false);
@@ -652,8 +675,12 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
         <div className="flex-1 min-w-0 mx-1">
           <div className="flex items-center gap-2">
             <p className="font-bold text-white text-sm truncate leading-tight">{drawing.name}</p>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md flex-shrink-0">
-              {fileKind === 'pdf' ? <><FileText className="w-2.5 h-2.5" />PDF</> : <><Info className="w-2.5 h-2.5" />IMG</>}
+            <span
+              className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0"
+              style={{ backgroundColor: `${categoryMeta.color}22`, color: categoryMeta.color }}
+            >
+              {fileKind === 'pdf' ? <FileText className="w-2.5 h-2.5" /> : <Info className="w-2.5 h-2.5" />}
+              {categoryMeta.label}
             </span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">

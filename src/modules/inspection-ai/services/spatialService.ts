@@ -85,7 +85,7 @@ export async function uploadDrawing(
   pageCount = 1,
   onProgress?: PrepareProgressCallback
 ): Promise<InspectionAIDrawing> {
-  const { blob, mime, ext, originalName } = await prepareFileForUpload(file, onProgress);
+  const { blob, mime, ext, originalName, imageCategory } = await prepareFileForUpload(file, onProgress);
 
   const filename = `${levelId}/${Date.now()}.${ext}`;
   const isPdf = mime === 'application/pdf';
@@ -111,6 +111,7 @@ export async function uploadDrawing(
       file_type: fileType,
       mime_type: mime,
       page_count: isPdf ? pageCount : 1,
+      image_category: imageCategory ?? null,
     })
     .select()
     .single();
