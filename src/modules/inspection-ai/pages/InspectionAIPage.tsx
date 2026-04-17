@@ -51,6 +51,11 @@ import { OverrideAnalyticsPanel } from '../components/OverrideAnalyticsPanel';
 import { generatePinSnapshot } from '../utils/drawingExporter';
 import { CaptureIntakeWizard } from '../components/CaptureIntakeWizard';
 import { SeniorInspectorCard, AnalysingState } from '../components/SeniorInspectorCard';
+import { NewInspectionModal } from '../components/NewInspectionModal';
+import { InspectionProjectsHome } from '../components/InspectionProjectsHome';
+import { ProjectWorkflowDashboard } from '../components/ProjectWorkflowDashboard';
+import { InspectionReportBuilder } from '../components/InspectionReportBuilder';
+import type { WorkflowItem, ProjectSummary } from '../services/workflowService';
 import type { PortfolioProjectStat } from '../services/storageService';
 import type {
   AIAnalysisResult,
@@ -719,10 +724,11 @@ function SetupScreen({
 // Main page
 // ─────────────────────────────────────────────
 
-type Screen = 'home' | 'project-overview' | 'setup' | 'capture' | 'spatial-nav' | 'drawing-viewer';
+type Screen = 'home' | 'project-overview' | 'setup' | 'capture' | 'spatial-nav' | 'drawing-viewer'
+  | 'wf-home' | 'wf-project' | 'wf-report';
 
 export default function InspectionAIPage() {
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen] = useState<Screen>('wf-home');
   const [projects, setProjects] = useState<InspectionAIProject[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
@@ -754,6 +760,11 @@ export default function InspectionAIPage() {
   const [pendingIntakeCtx, setPendingIntakeCtx] = useState<CaptureIntakeContext | null>(null);
   const [evidencePhotos, setEvidencePhotos] = useState<Record<string, InspectionAIItemImage[]>>({});
   const [retryCountdowns, setRetryCountdowns] = useState<Record<number, number>>({});
+
+  const [showNewInspectionModal, setShowNewInspectionModal] = useState(false);
+  const [wfSelectedProject, setWfSelectedProject] = useState<InspectionAIProject | null>(null);
+  const [wfProjectSummary, setWfProjectSummary] = useState<ProjectSummary | null>(null);
+  const [wfReportItems, setWfReportItems] = useState<WorkflowItem[]>([]);
 
   const liveQueueDepth = useSyncExternalStore(
     addQueueListener,
@@ -1134,6 +1145,89 @@ export default function InspectionAIPage() {
     });
   };
 
+  // ── NEW WORKFLOW: Projects home
+  if (screen === 'wf-home') {
+    return (
+      <div className="h-screen flex flex-col">
+        {showNewInspectionModal && (
+          <NewInspectionModal
+            onClose={() => setShowNewInspectionModal(false)}
+            onStart={({ project, inspectorName: name, useDrawings }) => {
+              setShowNewInspectionModal(false);
+              setWfSelectedProject(project);
+              setWfProjectSummary(null);
+              setInspectorName(name);
+              if (useDrawings) {
+                setSelectedProject(project);
+                setScreen('spatial-nav');
+              } else {
+                setSelectedProject(project);
+                setScreen('setup');
+              }
+            }}
+          />
+        )}
+        <InspectionProjectsHome
+          onSelectProject={(project, summary) => {
+            setWfSelectedProject(project);
+            setWfProjectSummary(summary);
+            setScreen('wf-project');
+          }}
+          onNewInspection={() => setShowNewInspectionModal(true)}
+        />
+      </div>
+    );
+  }
+
+  // ── NEW WORKFLOW: Project dashboard
+  if (screen === 'wf-project' && wfSelectedProject) {
+    return (
+      <div className="h-screen flex flex-col">
+        {showNewInspectionModal && (
+          <NewInspectionModal
+            onClose={() => setShowNewInspectionModal(false)}
+            onStart={({ project, inspectorName: name, useDrawings }) => {
+              setShowNewInspectionModal(false);
+              setInspectorName(name);
+              if (useDrawings) {
+                setSelectedProject(project);
+                setScreen('spatial-nav');
+              } else {
+                setSelectedProject(project);
+                setScreen('setup');
+              }
+            }}
+          />
+        )}
+        <ProjectWorkflowDashboard
+          project={wfSelectedProject}
+          summary={wfProjectSummary}
+          onAddInspection={() => setShowNewInspectionModal(true)}
+          onViewReport={(items) => {
+            setWfReportItems(items);
+            setScreen('wf-report');
+          }}
+          onOpenDrawings={() => {
+            setSelectedProject(wfSelectedProject);
+            setScreen('spatial-nav');
+          }}
+          onBack={() => setScreen('wf-home')}
+        />
+      </div>
+    );
+  }
+
+  // ── NEW WORKFLOW: Report builder
+  if (screen === 'wf-report' && wfSelectedProject) {
+    return (
+      <InspectionReportBuilder
+        project={wfSelectedProject}
+        items={wfReportItems}
+        onClose={() => setScreen('wf-project')}
+      />
+    );
+  }
+
   // ── View report from history (read-only, no capture state)
   if (viewingReportId) {
     return (
@@ -1205,7 +1299,7 @@ export default function InspectionAIPage() {
         <BlockLevelNavigator
           project={selectedProject}
           onSelectDrawing={handleSelectDrawing}
-          onBack={() => setScreen('setup')}
+          onBack={() => wfSelectedProject ? setScreen('wf-project') : setScreen('setup')}
         />
       </div>
     );
