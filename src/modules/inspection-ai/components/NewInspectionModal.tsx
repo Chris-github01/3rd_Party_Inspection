@@ -7,6 +7,23 @@ import { supabase } from '../../../lib/supabase';
 import type { InspectionAIProject } from '../types';
 import { fetchOrgProjects, createInspectionProject } from '../services/workflowService';
 
+function formatSupabaseError(error: unknown): string {
+  if (!error) return 'Unknown error';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+    const parts: string[] = [];
+    if (e.message && typeof e.message === 'string') parts.push(e.message);
+    if (e.details && typeof e.details === 'string') parts.push(`Details: ${e.details}`);
+    if (e.hint && typeof e.hint === 'string') parts.push(`Hint: ${e.hint}`);
+    if (e.code && typeof e.code === 'string') parts.push(`Code: ${e.code}`);
+    if (parts.length > 0) return parts.join(' — ');
+    try { return JSON.stringify(error, null, 2); } catch { return 'Unserializable error object'; }
+  }
+  return String(error);
+}
+
 interface OrgMembership {
   organization_id: string;
   role: string;
@@ -61,12 +78,14 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
         return;
       }
       setUserId(user.id);
+      console.debug('[NewInspectionModal] auth user id:', user.id);
 
       const { data: orgs, error: rpcErr } = await supabase.rpc('get_my_org_memberships');
+      console.debug('[NewInspectionModal] get_my_org_memberships response:', { orgs, rpcErr });
 
       if (rpcErr) {
         setInitState('error');
-        setInitError(`Failed to load organisations: ${rpcErr.message}`);
+        setInitError(`Failed to load organisations: ${formatSupabaseError(rpcErr)}`);
         return;
       }
 
@@ -85,9 +104,9 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
         setInitState('select_org');
       }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[NewInspectionModal] loadMemberships threw:', e);
       setInitState('error');
-      setInitError(`Unexpected error: ${msg}`);
+      setInitError(`Unexpected error: ${formatSupabaseError(e)}`);
     }
   }
 
@@ -96,14 +115,16 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
     setOrgId(membership.organization_id);
     setOrgName(membership.org_name);
     setInitState('loading');
+    console.debug('[NewInspectionModal] selectOrg org_id:', membership.organization_id);
     try {
       const list = await fetchOrgProjects(membership.organization_id);
+      console.debug('[NewInspectionModal] fetchOrgProjects returned', list.length, 'projects');
       setProjects(list);
       setInitState('ready');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[NewInspectionModal] fetchOrgProjects threw:', e);
       setInitState('error');
-      setInitError(`Failed to load projects: ${msg}`);
+      setInitError(`Failed to load projects: ${formatSupabaseError(e)}`);
     }
     if (resolvedUid) setUserId(resolvedUid);
   }
@@ -145,7 +166,8 @@ export function NewInspectionModal({ onClose, onStart }: Props) {
       setSuccessMessage(`"${p.project_name}" created.`);
       setTimeout(() => { setSuccessMessage(''); setStep('inspector'); }, 900);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[NewInspectionModal] createInspectionProject threw:', e);
+      const msg = formatSupabaseError(e);
       if (msg.includes('duplicate') || msg.includes('unique')) {
         setSubmitError('A project with this name already exists.');
       } else if (msg.includes('row-level security') || msg.includes('policy')) {
