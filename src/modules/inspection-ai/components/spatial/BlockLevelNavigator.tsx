@@ -85,6 +85,54 @@ function AddField({
   );
 }
 
+interface UploadJob {
+  id: string;
+  name: string;
+  status: 'pending' | 'uploading' | 'done' | 'error';
+  error?: string;
+}
+
+function UploadProgressBar({ jobs }: { jobs: UploadJob[] }) {
+  if (jobs.length === 0) return null;
+  const done = jobs.filter((j) => j.status === 'done').length;
+  const errored = jobs.filter((j) => j.status === 'error').length;
+  const pct = Math.round((done / jobs.length) * 100);
+  return (
+    <div className="mx-4 mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-slate-700">
+          Uploading {jobs.length} file{jobs.length !== 1 ? 's' : ''}…
+        </span>
+        <span className="text-xs text-slate-500">{done}/{jobs.length}</span>
+      </div>
+      <div className="w-full bg-slate-200 rounded-full h-1.5 mb-2">
+        <div
+          className="bg-slate-900 rounded-full h-1.5 transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="space-y-1 max-h-28 overflow-y-auto">
+        {jobs.map((j) => (
+          <div key={j.id} className="flex items-center gap-2">
+            {j.status === 'done' && <Check className="w-3 h-3 text-emerald-500 flex-shrink-0" />}
+            {j.status === 'error' && <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />}
+            {(j.status === 'pending' || j.status === 'uploading') && (
+              <Loader2 className="w-3 h-3 text-slate-400 animate-spin flex-shrink-0" />
+            )}
+            <span className={`text-[11px] truncate flex-1 ${j.status === 'error' ? 'text-red-500' : 'text-slate-600'}`}>
+              {j.name}
+            </span>
+            {j.error && <span className="text-[10px] text-red-400 truncate max-w-[100px]">{j.error}</span>}
+          </div>
+        ))}
+      </div>
+      {errored > 0 && (
+        <p className="text-[10px] text-red-500 mt-1.5 font-medium">{errored} file{errored > 1 ? 's' : ''} failed</p>
+      )}
+    </div>
+  );
+}
+
 // ─── Drawings panel (per level) ──────────────
 function DrawingsPanel({
   level,
@@ -97,8 +145,11 @@ function DrawingsPanel({
 }) {
   const [drawings, setDrawings] = useState<InspectionAIDrawing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const [uploadJobs, setUploadJobs] = useState<UploadJob[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const isUploading = uploadJobs.some((j) => j.status === 'pending' || j.status === 'uploading');
 
   useEffect(() => {
     fetchDrawings(level.id)
@@ -106,28 +157,70 @@ function DrawingsPanel({
       .finally(() => setLoading(false));
   }, [level.id]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    if (uploadJobs.length > 0 && uploadJobs.every((j) => j.status === 'done' || j.status === 'error')) {
+      const timer = setTimeout(() => setUploadJobs([]), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [uploadJobs]);
 
-    const kind = getFileKind(file);
-    if (!kind) {
-      setUploadError(`Unsupported file type. Accepted: PDF, PNG, JPG, JPEG, WEBP`);
-      e.target.value = '';
-      return;
+  const processFiles = async (files: File[]) => {
+    const valid: File[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      const kind = getFileKind(file);
+      if (!kind) {
+        errors.push(`${file.name}: unsupported type`);
+      } else {
+        valid.push(file);
+      }
     }
 
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const drawing = await uploadDrawing(file, level.id, file.name.replace(/\.[^.]+$/, ''));
-      setDrawings((prev) => [...prev, drawing]);
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-      e.target.value = '';
+    if (errors.length > 0) {
+      setUploadError(errors.join(', '));
     }
+
+    if (valid.length === 0) return;
+
+    const jobs: UploadJob[] = valid.map((f) => ({
+      id: `${Date.now()}-${f.name}`,
+      name: f.name,
+      status: 'pending',
+    }));
+    setUploadJobs(jobs);
+
+    for (let i = 0; i < valid.length; i++) {
+      const file = valid[i];
+      setUploadJobs((prev) =>
+        prev.map((j, idx) => (idx === i ? { ...j, status: 'uploading' } : j))
+      );
+      try {
+        const drawing = await uploadDrawing(file, level.id, file.name.replace(/\.[^.]+$/, ''));
+        setDrawings((prev) => [...prev, drawing]);
+        setUploadJobs((prev) =>
+          prev.map((j, idx) => (idx === i ? { ...j, status: 'done' } : j))
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Upload failed';
+        setUploadJobs((prev) =>
+          prev.map((j, idx) => (idx === i ? { ...j, status: 'error', error: msg } : j))
+        );
+      }
+    }
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (files.length) processFiles(files);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length) processFiles(files);
   };
 
   const handleDelete = async (id: string) => {
@@ -135,8 +228,15 @@ function DrawingsPanel({
     setDrawings((prev) => prev.filter((d) => d.id !== id));
   };
 
+  const ACCEPT = ACCEPTED_MIME_TYPES.join(',') + ',' + ACCEPTED_EXTENSIONS.join(',');
+
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full"
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+    >
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-white">
         <button onClick={onBack} className="text-slate-500 hover:text-slate-900 transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -145,15 +245,16 @@ function DrawingsPanel({
           <p className="font-bold text-slate-900 text-sm">{level.name}</p>
           <p className="text-xs text-slate-400">Drawings</p>
         </div>
-        <label className={`flex items-center gap-1.5 bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-800 transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
-          {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+        <label className={`flex items-center gap-1.5 bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-800 transition-colors ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+          {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
           Upload
           <input
             type="file"
-            accept={ACCEPTED_MIME_TYPES.join(',') + ',' + ACCEPTED_EXTENSIONS.join(',')}
+            accept={ACCEPT}
+            multiple
             className="hidden"
-            onChange={handleUpload}
-            disabled={uploading}
+            onChange={handleFileInput}
+            disabled={isUploading}
           />
         </label>
       </div>
@@ -168,19 +269,45 @@ function DrawingsPanel({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <UploadProgressBar jobs={uploadJobs} />
+
+      <div className="flex-1 overflow-y-auto relative">
+        {dragOver && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/10 backdrop-blur-sm border-2 border-dashed border-slate-400 rounded-lg m-3">
+            <div className="text-center">
+              <FileImage className="w-10 h-10 text-slate-500 mx-auto mb-2" />
+              <p className="font-semibold text-slate-700 text-sm">Drop files to upload</p>
+              <p className="text-xs text-slate-400 mt-0.5">PDF, PNG, JPG, JPEG, WEBP, HEIC</p>
+            </div>
+          </div>
+        )}
+
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+          <div className="space-y-0">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 animate-pulse">
+                <div className="w-12 h-12 bg-slate-100 rounded-lg flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 bg-slate-100 rounded w-3/4" />
+                  <div className="h-2.5 bg-slate-100 rounded w-1/3" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : drawings.length === 0 ? (
-          <div className="text-center py-12 px-6">
-            <FileImage className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-            <p className="font-semibold text-slate-600 text-sm">No drawings yet</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Upload a floor plan or photo — PDF, PNG, JPG, JPEG or WEBP
-            </p>
-          </div>
+          <label className="block cursor-pointer">
+            <div className="text-center py-12 px-6">
+              <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center">
+                <FileImage className="w-7 h-7 text-slate-300" />
+              </div>
+              <p className="font-semibold text-slate-600 text-sm">No drawings yet</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Drop files here or tap to upload
+              </p>
+              <p className="text-[10px] text-slate-300 mt-1">PDF · PNG · JPG · WEBP · HEIC</p>
+            </div>
+            <input type="file" accept={ACCEPT} multiple className="hidden" onChange={handleFileInput} />
+          </label>
         ) : (
           drawings.map((drawing) => (
             <div
@@ -193,7 +320,13 @@ function DrawingsPanel({
               >
                 <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 relative">
                   {drawing.file_type === 'image' ? (
-                    <img src={drawing.file_url} alt="" className="w-full h-full object-cover" />
+                    <img
+                      src={drawing.file_url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 bg-slate-100">
                       <FileText className="w-5 h-5 text-slate-400" />

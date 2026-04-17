@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { prepareFileForUpload } from '../utils/fileRenderer';
 import type {
   InspectionAIBlock,
   InspectionAILevel,
@@ -83,14 +84,15 @@ export async function uploadDrawing(
   name: string,
   pageCount = 1
 ): Promise<InspectionAIDrawing> {
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const { blob, mime, ext } = await prepareFileForUpload(file);
+
   const filename = `${levelId}/${Date.now()}.${ext}`;
-  const isPdf = file.type === 'application/pdf' || ext === 'pdf';
+  const isPdf = mime === 'application/pdf';
   const fileType = isPdf ? 'pdf' : 'image';
 
   const { error: uploadError } = await supabase.storage
     .from(DRAWING_BUCKET)
-    .upload(filename, file, { upsert: false, contentType: file.type });
+    .upload(filename, blob, { upsert: false, contentType: mime });
 
   if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
@@ -105,7 +107,7 @@ export async function uploadDrawing(
       name: name || file.name,
       file_url: urlData.publicUrl,
       file_type: fileType,
-      mime_type: file.type || null,
+      mime_type: mime,
       page_count: isPdf ? pageCount : 1,
     })
     .select()
