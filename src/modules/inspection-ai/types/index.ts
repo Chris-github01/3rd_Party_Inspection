@@ -166,6 +166,8 @@ export interface InspectionAIDrawing {
   name: string;
   file_url: string;
   file_type: 'image' | 'pdf';
+  mime_type: string | null;
+  page_count: number;
   created_at: string;
 }
 

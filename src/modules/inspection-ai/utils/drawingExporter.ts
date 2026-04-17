@@ -151,28 +151,39 @@ export async function exportDrawingSnapshot(
   drawing: InspectionAIDrawing,
   pins: InspectionAIPin[],
   clusters: PinCluster[],
-  mode: 'heatmap' | 'zones' | 'both' = 'both'
+  mode: 'heatmap' | 'zones' | 'both' = 'both',
+  preRenderedCanvas: HTMLCanvasElement | null = null
 ): Promise<void> {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
+  let srcCanvas: HTMLCanvasElement;
 
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = drawing.file_url;
-  });
+  if (preRenderedCanvas) {
+    srcCanvas = preRenderedCanvas;
+  } else {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+      img.src = drawing.file_url;
+    });
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = img.naturalWidth;
+    tmpCanvas.height = img.naturalHeight;
+    tmpCanvas.getContext('2d')!.drawImage(img, 0, 0);
+    srcCanvas = tmpCanvas;
+  }
 
   const MAX = 1400;
-  const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
-  const w = Math.round(img.naturalWidth * scale);
-  const h = Math.round(img.naturalHeight * scale);
+  const scale = Math.min(1, MAX / Math.max(srcCanvas.width, srcCanvas.height));
+  const w = Math.round(srcCanvas.width * scale);
+  const h = Math.round(srcCanvas.height * scale);
 
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
-  ctx.drawImage(img, 0, 0, w, h);
+  ctx.drawImage(srcCanvas, 0, 0, w, h);
 
   if (mode === 'heatmap' || mode === 'both') {
     ctx.save();

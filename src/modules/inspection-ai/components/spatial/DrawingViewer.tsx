@@ -20,12 +20,16 @@ import {
   Plus,
   ScanLine,
   Layers,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
 } from 'lucide-react';
 import { fetchPins, createPin, deletePin } from '../../services/spatialService';
 import type { InspectionAIDrawing, InspectionAIPin } from '../../types';
 import { clusterPins } from '../../utils/clusterEngine';
 import { HeatmapCanvas, ClusterOverlay, HeatmapLegend } from './HeatmapOverlay';
 import { exportDrawingSnapshot } from '../../utils/drawingExporter';
+import { useFileRenderer, getDrawingKind } from '../../utils/fileRenderer';
 
 const SEVERITY_COLOUR: Record<string, string> = {
   High:   '#dc2626',
@@ -362,13 +366,13 @@ function FloatingZoomControls({
         onClick={onZoomIn}
         className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg active:scale-95"
       >
-        <ZoomIn className="w-4.5 h-4.5" />
+        <ZoomIn className="w-4 h-4" />
       </button>
       <button
         onClick={onZoomOut}
         className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg active:scale-95"
       >
-        <ZoomOut className="w-4.5 h-4.5" />
+        <ZoomOut className="w-4 h-4" />
       </button>
       <div className="w-10 border-t border-white/10 my-0.5" />
       <button
@@ -376,6 +380,41 @@ function FloatingZoomControls({
         className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg active:scale-95"
       >
         <Maximize2 className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+function PageNavigator({
+  currentPage,
+  totalPages,
+  onPrev,
+  onNext,
+}: {
+  currentPage: number;
+  totalPages: number;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center gap-1 bg-slate-800/80 backdrop-blur-sm rounded-xl px-1 py-1 border border-white/10">
+      <button
+        onClick={onPrev}
+        disabled={currentPage <= 1}
+        className="w-7 h-7 flex items-center justify-center rounded-lg text-white disabled:opacity-30 hover:bg-white/10 transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      <span className="text-xs font-bold text-white px-1 tabular-nums">
+        {currentPage}/{totalPages}
+      </span>
+      <button
+        onClick={onNext}
+        disabled={currentPage >= totalPages}
+        className="w-7 h-7 flex items-center justify-center rounded-lg text-white disabled:opacity-30 hover:bg-white/10 transition-colors"
+      >
+        <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   );
@@ -592,6 +631,23 @@ function BottomActionBar({
   );
 }
 
+function FileTypeBadge({ kind }: { kind: 'pdf' | 'image' }) {
+  if (kind === 'pdf') {
+    return (
+      <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
+        <FileText className="w-2.5 h-2.5" />
+        PDF
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
+      <Info className="w-2.5 h-2.5" />
+      IMG
+    </span>
+  );
+}
+
 interface DrawingViewerProps {
   drawing: InspectionAIDrawing;
   reportId: string | null;
@@ -599,47 +655,28 @@ interface DrawingViewerProps {
   onStartCapture: (pinId: string, useCamera: boolean) => void;
 }
 
-function useBlobUrl(remoteUrl: string): string {
-  const [blobUrl, setBlobUrl] = useState(remoteUrl);
-
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl = '';
-
-    fetch(remoteUrl)
-      .then((r) => {
-        if (!r.ok) throw new Error('fetch failed');
-        return r.blob();
-      })
-      .then((blob) => {
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setBlobUrl(objectUrl);
-      })
-      .catch(() => {
-        if (!cancelled) setBlobUrl(remoteUrl);
-      });
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [remoteUrl]);
-
-  return blobUrl;
-}
-
 export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: DrawingViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
-  const drawingSrc = useBlobUrl(drawing.file_url);
+  const fileKind = getDrawingKind(drawing);
 
-  const [pins, setPins] = useState<InspectionAIPin[]>([]);
+  const {
+    rendered,
+    loading: fileLoading,
+    error: fileError,
+    totalPages,
+    currentPage,
+    prevPage,
+    nextPage,
+  } = useFileRenderer(drawing.file_url, fileKind, drawing.page_count ?? 1);
+
+  const [pinsPerPage, setPinsPerPage] = useState<Map<number, InspectionAIPin[]>>(new Map());
+  const [allPins, setAllPins] = useState<InspectionAIPin[]>([]);
   const [loadingPins, setLoadingPins] = useState(true);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('pins');
-  const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
+  const [renderedSize, setRenderedSize] = useState({ width: 0, height: 0 });
   const [showZoneDrawer, setShowZoneDrawer] = useState(false);
 
   const [scale, setScale] = useState(1);
@@ -653,6 +690,8 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const [savingPin, setSavingPin] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  const pins = pinsPerPage.get(currentPage) ?? [];
+
   const clusters = clusterPins(pins);
   const highClusters = clusters.filter((c) => c.dominantSeverity === 'High' && c.pins.length >= 2);
 
@@ -665,20 +704,42 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
 
   useEffect(() => {
     fetchPins(drawing.id)
-      .then(setPins)
+      .then((fetched) => {
+        setAllPins(fetched);
+        const map = new Map<number, InspectionAIPin[]>();
+        for (const pin of fetched) {
+          const pg = (pin as InspectionAIPin & { page_number?: number }).page_number ?? 1;
+          if (!map.has(pg)) map.set(pg, []);
+          map.get(pg)!.push(pin);
+        }
+        setPinsPerPage(map);
+      })
       .finally(() => setLoadingPins(false));
   }, [drawing.id]);
+
+  useEffect(() => {
+    if (rendered) {
+      setRenderedSize({ width: rendered.width, height: rendered.height });
+    }
+  }, [rendered]);
+
+  useEffect(() => {
+    setSelectedPinId(null);
+    setPendingPin(null);
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+  }, [currentPage]);
 
   const handleZoom = (direction: 'in' | 'out') =>
     setScale((s) => Math.max(0.5, Math.min(4, s + (direction === 'in' ? 0.3 : -0.3))));
 
   const handleReset = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
 
-  const getImagePercent = useCallback(
+  const getCanvasPercent = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {
-      const img = imgRef.current;
-      if (!img) return null;
-      const rect = img.getBoundingClientRect();
+      const el = canvasContainerRef.current;
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
       const x = ((clientX - rect.left) / rect.width) * 100;
       const y = ((clientY - rect.top) / rect.height) * 100;
       if (x < 0 || x > 100 || y < 0 || y > 100) return null;
@@ -706,7 +767,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
   const handlePointerUp = (e: React.PointerEvent) => {
     setIsPanning(false);
     if (didPan.current) return;
-    const coords = getImagePercent(e.clientX, e.clientY);
+    const coords = getCanvasPercent(e.clientX, e.clientY);
     if (!coords) { setSelectedPinId(null); return; }
     setPendingPin(coords);
     setShowCaptureSheet(true);
@@ -723,7 +784,14 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
     setSavingPin(true);
     try {
       const pin = await createPin(drawing.id, pendingPin.x, pendingPin.y);
-      setPins((prev) => [...prev, pin]);
+      const pageNum = currentPage;
+      setAllPins((prev) => [...prev, pin]);
+      setPinsPerPage((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(pageNum) ?? [];
+        next.set(pageNum, [...existing, pin]);
+        return next;
+      });
       return pin.id;
     } finally {
       setSavingPin(false);
@@ -749,26 +817,27 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
 
   const handleDeletePin = async (pinId: string) => {
     await deletePin(pinId);
-    setPins((prev) => prev.filter((p) => p.id !== pinId));
+    setAllPins((prev) => prev.filter((p) => p.id !== pinId));
+    setPinsPerPage((prev) => {
+      const next = new Map(prev);
+      for (const [pg, pgPins] of next.entries()) {
+        next.set(pg, pgPins.filter((p) => p.id !== pinId));
+      }
+      return next;
+    });
     setSelectedPinId(null);
   };
 
   const handleAddPinButton = () => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
     setPendingPin({ x: 50, y: 50 });
     setShowCaptureSheet(true);
     setSelectedPinId(null);
   };
 
-  const handlePinCapture = (pinId: string) => {
-    onStartCapture(pinId, true);
-  };
-
   const handleExport = async () => {
     setExporting(true);
     try {
-      await exportDrawingSnapshot(drawing, pins, clusters, 'both');
+      await exportDrawingSnapshot(drawing, pins, clusters, 'both', rendered?.canvas ?? null);
     } finally {
       setExporting(false);
     }
@@ -803,7 +872,10 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
         </button>
 
         <div className="flex-1 min-w-0 mx-1">
-          <p className="font-bold text-white text-sm truncate leading-tight">{drawing.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-bold text-white text-sm truncate leading-tight">{drawing.name}</p>
+            <FileTypeBadge kind={fileKind} />
+          </div>
           <div className="flex items-center gap-2 mt-0.5">
             {highCount > 0 && (
               <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-400">
@@ -865,51 +937,78 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
             }}
           >
             <div className="relative inline-block" style={{ maxWidth: '100%', maxHeight: '100%' }}>
-              {drawing.file_type === 'image' ? (
-                <img
-                  ref={imgRef}
-                  src={drawingSrc}
-                  alt={drawing.name}
-                  draggable={false}
-                  onLoad={(e) => {
-                    const el = e.currentTarget;
-                    setImgSize({ width: el.offsetWidth, height: el.offsetHeight });
-                  }}
-                  className="block max-w-full object-contain rounded-lg"
-                  style={{ maxHeight: '65vh', userSelect: 'none', pointerEvents: 'none' }}
-                />
-              ) : (
+              {fileLoading && (
                 <div className="w-72 h-96 bg-slate-800 flex items-center justify-center rounded-2xl border border-slate-700">
                   <div className="text-center px-6">
-                    <Info className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                    <p className="text-slate-400 text-sm font-medium">PDF Preview</p>
-                    <p className="text-slate-600 text-xs mt-1">Pins can still be placed</p>
+                    <Loader2 className="w-8 h-8 text-slate-400 mx-auto mb-2 animate-spin" />
+                    <p className="text-slate-400 text-sm font-medium">Loading drawing preview…</p>
                   </div>
                 </div>
               )}
 
-              {viewMode === 'heatmap' && pins.length > 0 && imgSize.width > 0 && (
-                <HeatmapCanvas pins={pins} width={imgSize.width} height={imgSize.height} />
+              {fileError && !fileLoading && (
+                <div className="w-72 h-64 bg-slate-800 flex items-center justify-center rounded-2xl border border-slate-700">
+                  <div className="text-center px-6">
+                    <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                    <p className="text-slate-300 text-sm font-medium">Preview unavailable</p>
+                    <p className="text-slate-500 text-xs mt-1">Pins can still be placed</p>
+                  </div>
+                </div>
               )}
 
-              {viewMode === 'clusters' && imgSize.width > 0 && (
-                <ClusterOverlay clusters={clusters} imgWidth={imgSize.width} imgHeight={imgSize.height} />
+              {rendered && !fileLoading && (
+                <div
+                  ref={canvasContainerRef}
+                  className="relative"
+                  style={{
+                    display: 'inline-block',
+                    maxWidth: '100%',
+                    maxHeight: '65vh',
+                    lineHeight: 0,
+                  }}
+                >
+                  <img
+                    src={rendered.canvas.toDataURL('image/png')}
+                    alt={drawing.name}
+                    draggable={false}
+                    onLoad={(e) => {
+                      const el = e.currentTarget;
+                      setRenderedSize({ width: el.offsetWidth, height: el.offsetHeight });
+                    }}
+                    className="block rounded-lg shadow-2xl"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '65vh',
+                      objectFit: 'contain',
+                      userSelect: 'none',
+                      pointerEvents: 'none',
+                    }}
+                  />
+
+                  {viewMode === 'heatmap' && pins.length > 0 && renderedSize.width > 0 && (
+                    <HeatmapCanvas pins={pins} width={renderedSize.width} height={renderedSize.height} />
+                  )}
+
+                  {viewMode === 'clusters' && renderedSize.width > 0 && (
+                    <ClusterOverlay clusters={clusters} imgWidth={renderedSize.width} imgHeight={renderedSize.height} />
+                  )}
+
+                  {(viewMode === 'pins' || viewMode === 'clusters') && !loadingPins && pins.map((pin, i) => (
+                    <PinMarker
+                      key={pin.id}
+                      pin={pin}
+                      index={i}
+                      selected={selectedPinId === pin.id}
+                      onSelect={() => setSelectedPinId(selectedPinId === pin.id ? null : pin.id)}
+                      onDelete={() => handleDeletePin(pin.id)}
+                      onCapture={() => onStartCapture(pin.id, true)}
+                      onView={() => {}}
+                    />
+                  ))}
+
+                  {pendingPin && <DropMarker x={pendingPin.x} y={pendingPin.y} />}
+                </div>
               )}
-
-              {(viewMode === 'pins' || viewMode === 'clusters') && !loadingPins && pins.map((pin, i) => (
-                <PinMarker
-                  key={pin.id}
-                  pin={pin}
-                  index={i}
-                  selected={selectedPinId === pin.id}
-                  onSelect={() => setSelectedPinId(selectedPinId === pin.id ? null : pin.id)}
-                  onDelete={() => handleDeletePin(pin.id)}
-                  onCapture={() => handlePinCapture(pin.id)}
-                  onView={() => {}}
-                />
-              ))}
-
-              {pendingPin && <DropMarker x={pendingPin.x} y={pendingPin.y} />}
             </div>
           </div>
         </div>
@@ -922,8 +1021,19 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
           />
         </div>
 
-        {viewMode === 'heatmap' && pins.length > 0 && (
+        {totalPages > 1 && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+            <PageNavigator
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPrev={prevPage}
+              onNext={nextPage}
+            />
+          </div>
+        )}
+
+        {viewMode === 'heatmap' && pins.length > 0 && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10" style={{ marginTop: totalPages > 1 ? 40 : 0 }}>
             <HeatmapChip critCount={highClusters.length} onCycle={() => {}} />
           </div>
         )}
@@ -946,7 +1056,7 @@ export function DrawingViewer({ drawing, reportId, onBack, onStartCapture }: Dra
         reportId={reportId}
         exporting={exporting}
         onAddPin={handleAddPinButton}
-        onCapture={() => selectedPin && handlePinCapture(selectedPin.id)}
+        onCapture={() => selectedPin && onStartCapture(selectedPin.id, true)}
         onView={() => {}}
         onDeleteSelected={() => selectedPin && handleDeletePin(selectedPin.id)}
         onExport={handleExport}

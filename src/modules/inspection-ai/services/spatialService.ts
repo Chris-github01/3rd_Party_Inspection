@@ -80,11 +80,13 @@ export async function fetchDrawings(levelId: string): Promise<InspectionAIDrawin
 export async function uploadDrawing(
   file: File,
   levelId: string,
-  name: string
+  name: string,
+  pageCount = 1
 ): Promise<InspectionAIDrawing> {
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   const filename = `${levelId}/${Date.now()}.${ext}`;
-  const fileType = ext === 'pdf' ? 'pdf' : 'image';
+  const isPdf = file.type === 'application/pdf' || ext === 'pdf';
+  const fileType = isPdf ? 'pdf' : 'image';
 
   const { error: uploadError } = await supabase.storage
     .from(DRAWING_BUCKET)
@@ -103,6 +105,8 @@ export async function uploadDrawing(
       name: name || file.name,
       file_url: urlData.publicUrl,
       file_type: fileType,
+      mime_type: file.type || null,
+      page_count: isPdf ? pageCount : 1,
     })
     .select()
     .single();

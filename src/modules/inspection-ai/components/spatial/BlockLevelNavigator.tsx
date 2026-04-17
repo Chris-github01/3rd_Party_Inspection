@@ -6,11 +6,14 @@ import {
   Building2,
   Layers,
   FileImage,
+  FileText,
   Trash2,
   Loader2,
   X,
   Check,
+  AlertCircle,
 } from 'lucide-react';
+import { ACCEPTED_MIME_TYPES, ACCEPTED_EXTENSIONS, getFileKind } from '../../utils/fileRenderer';
 import {
   fetchBlocks,
   createBlock,
@@ -95,6 +98,7 @@ function DrawingsPanel({
   const [drawings, setDrawings] = useState<InspectionAIDrawing[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDrawings(level.id)
@@ -105,10 +109,21 @@ function DrawingsPanel({
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const kind = getFileKind(file);
+    if (!kind) {
+      setUploadError(`Unsupported file type. Accepted: PDF, PNG, JPG, JPEG, WEBP`);
+      e.target.value = '';
+      return;
+    }
+
+    setUploadError(null);
     setUploading(true);
     try {
       const drawing = await uploadDrawing(file, level.id, file.name.replace(/\.[^.]+$/, ''));
       setDrawings((prev) => [...prev, drawing]);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -133,9 +148,25 @@ function DrawingsPanel({
         <label className={`flex items-center gap-1.5 bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-800 transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
           {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
           Upload
-          <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
+          <input
+            type="file"
+            accept={ACCEPTED_MIME_TYPES.join(',') + ',' + ACCEPTED_EXTENSIONS.join(',')}
+            className="hidden"
+            onChange={handleUpload}
+            disabled={uploading}
+          />
         </label>
       </div>
+
+      {uploadError && (
+        <div className="flex items-center gap-2 mx-4 mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-xs text-red-600 font-medium flex-1">{uploadError}</p>
+          <button onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-600">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         {loading ? (
@@ -146,7 +177,9 @@ function DrawingsPanel({
           <div className="text-center py-12 px-6">
             <FileImage className="w-10 h-10 mx-auto text-slate-300 mb-3" />
             <p className="font-semibold text-slate-600 text-sm">No drawings yet</p>
-            <p className="text-xs text-slate-400 mt-1">Upload a floor plan or structural drawing to place pins</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Upload a floor plan or photo — PDF, PNG, JPG, JPEG or WEBP
+            </p>
           </div>
         ) : (
           drawings.map((drawing) => (
@@ -158,18 +191,26 @@ function DrawingsPanel({
                 onClick={() => onSelectDrawing(drawing)}
                 className="flex items-center gap-3 flex-1 min-w-0 text-left"
               >
-                <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
+                <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 relative">
                   {drawing.file_type === 'image' ? (
                     <img src={drawing.file_url} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <FileImage className="w-5 h-5 text-slate-400" />
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 bg-slate-100">
+                      <FileText className="w-5 h-5 text-slate-400" />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">PDF</span>
                     </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-slate-900 text-sm truncate">{drawing.name}</p>
-                  <p className="text-xs text-slate-400">{format(new Date(drawing.created_at), 'd MMM yyyy')}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-slate-400">{format(new Date(drawing.created_at), 'd MMM yyyy')}</p>
+                    {drawing.page_count > 1 && (
+                      <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
+                        {drawing.page_count}p
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
               <button
