@@ -21,6 +21,7 @@ import { Organizations } from './pages/settings/Organizations';
 import { Onboarding } from './pages/settings/Onboarding';
 import ClientLogos from './pages/settings/ClientLogos';
 import InspectionAITelemetry from './pages/settings/InspectionAITelemetry';
+import ImageClassificationDashboard from './pages/settings/ImageClassificationDashboard';
 import { SiteMode } from './pages/SiteMode';
 import { InspectionPackages } from './pages/site/InspectionPackages';
 import { DrawingsView } from './pages/site/DrawingsView';
@@ -288,6 +289,14 @@ function App() {
             element={
               <PrivateRoute>
                 <InspectionAITelemetry />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/settings/classification-analytics"
+            element={
+              <PrivateRoute>
+                <ImageClassificationDashboard />
               </PrivateRoute>
             }
           />

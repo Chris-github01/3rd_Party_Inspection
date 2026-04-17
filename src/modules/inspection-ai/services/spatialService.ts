@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { prepareFileForUpload, type PrepareProgressCallback } from '../utils/fileRenderer';
+import { logDisagreement } from './classificationAnalyticsService';
 import type {
   InspectionAIBlock,
   InspectionAILevel,
@@ -25,7 +26,7 @@ async function triggerAIClassification(
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token ?? SUPABASE_ANON_KEY;
 
-    await fetch(
+    const res = await fetch(
       `${SUPABASE_URL}/functions/v1/inspection-ai-classify-image`,
       {
         method: 'POST',
@@ -41,6 +42,25 @@ async function triggerAIClassification(
         }),
       }
     );
+
+    if (res.ok) {
+      const json = await res.json();
+      const aiCategory = json.category as ImageCategory;
+      const aiConfidence = json.confidence as number;
+      const aiSource = json.source as ImageCategorySource;
+
+      // Log disagreement (fire-and-forget)
+      logDisagreement(drawingId, heuristicCategory, aiCategory, aiConfidence, aiSource).catch(() => {});
+
+      // Store top-2 scores if returned (edge function may include them)
+      if (json.top2 && Array.isArray(json.top2)) {
+        supabase
+          .from('inspection_ai_drawings')
+          .update({ image_category_top2_json: json.top2 })
+          .eq('id', drawingId)
+          .then(() => {});
+      }
+    }
   } catch {
     // fire-and-forget — never block the upload
   }
@@ -206,13 +226,58 @@ export async function overrideDrawingCategory(
   if (error) throw new Error(error.message);
 
   if (originalCategory) {
+    const isAISource = originalSource === 'gemini' || originalSource === 'openai';
     await supabase.from('image_classification_corrections').insert({
       drawing_id: drawingId,
       original_category: originalCategory,
       original_source: originalSource ?? 'heuristic',
       original_confidence: originalConfidence,
       corrected_category: newCategory,
+      manual_category: newCategory,
+      heuristic_category: !isAISource ? originalCategory : null,
+      ai_category: isAISource ? originalCategory : null,
     });
+  }
+}
+
+export async function bulkOverrideCategory(
+  drawingIds: string[],
+  newCategory: ImageCategory,
+  drawingMap: Record<string, { category: ImageCategory | null; source: ImageCategorySource | null; confidence: number | null }>
+): Promise<void> {
+  if (drawingIds.length === 0) return;
+
+  const { error } = await supabase
+    .from('inspection_ai_drawings')
+    .update({
+      image_category: newCategory,
+      image_category_source: 'manual' as ImageCategorySource,
+      image_category_confidence: 1.0,
+      image_category_reason: 'Bulk override by user',
+      image_category_pending_ai: false,
+    })
+    .in('id', drawingIds);
+  if (error) throw new Error(error.message);
+
+  const corrections = drawingIds
+    .filter(id => drawingMap[id]?.category)
+    .map(id => {
+      const prev = drawingMap[id];
+      const isAI = prev.source === 'gemini' || prev.source === 'openai';
+      return {
+        drawing_id: id,
+        original_category: prev.category!,
+        original_source: prev.source ?? 'heuristic',
+        original_confidence: prev.confidence,
+        corrected_category: newCategory,
+        manual_category: newCategory,
+        heuristic_category: !isAI ? prev.category : null,
+        ai_category: isAI ? prev.category : null,
+      };
+    });
+
+  if (corrections.length > 0) {
+    await supabase.from('image_classification_corrections').insert(corrections);
   }
 }
 

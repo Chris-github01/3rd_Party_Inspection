@@ -14,6 +14,10 @@ import {
   AlertCircle,
   Sparkles,
   Pencil,
+  CheckSquare,
+  Square,
+  Tag,
+  ChevronDown,
 } from 'lucide-react';
 import { ACCEPTED_MIME_TYPES, ACCEPTED_EXTENSIONS, getFileKind } from '../../utils/fileRenderer';
 import type { ImageCategory } from '../../types';
@@ -27,6 +31,7 @@ import {
   fetchDrawings,
   uploadDrawing,
   deleteDrawing,
+  bulkOverrideCategory,
 } from '../../services/spatialService';
 import type {
   InspectionAIProject,
@@ -177,6 +182,10 @@ function DrawingsPanel({
   const [uploadJobs, setUploadJobs] = useState<UploadJob[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
+  const [bulkOverriding, setBulkOverriding] = useState(false);
+  const bulkMenuRef = { current: null as HTMLDivElement | null };
 
   const isUploading = uploadJobs.some((j) => j.status === 'pending' || j.status === 'uploading');
 
@@ -282,6 +291,47 @@ function DrawingsPanel({
   const handleDelete = async (id: string) => {
     await deleteDrawing(id);
     setDrawings((prev) => prev.filter((d) => d.id !== id));
+    setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const imageDrawings = drawings.filter(d => d.file_type === 'image');
+    if (selected.size === imageDrawings.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(imageDrawings.map(d => d.id)));
+    }
+  };
+
+  const handleBulkOverride = async (category: ImageCategory) => {
+    setBulkMenuOpen(false);
+    setBulkOverriding(true);
+    const ids = Array.from(selected);
+    const drawingMap = Object.fromEntries(
+      drawings.filter(d => ids.includes(d.id)).map(d => [
+        d.id,
+        { category: d.image_category, source: d.image_category_source, confidence: d.image_category_confidence },
+      ])
+    );
+    try {
+      await bulkOverrideCategory(ids, category, drawingMap);
+      setDrawings(prev => prev.map(d =>
+        ids.includes(d.id)
+          ? { ...d, image_category: category, image_category_source: 'manual', image_category_confidence: 1.0, image_category_reason: 'Bulk override by user', image_category_pending_ai: false }
+          : d
+      ));
+      setSelected(new Set());
+    } finally {
+      setBulkOverriding(false);
+    }
   };
 
   const ACCEPT = ACCEPTED_MIME_TYPES.join(',') + ',' + ACCEPTED_EXTENSIONS.join(',');
@@ -314,6 +364,56 @@ function DrawingsPanel({
           />
         </label>
       </div>
+
+      {/* Bulk override toolbar */}
+      {drawings.some(d => d.file_type === 'image') && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50">
+          <button
+            onClick={toggleSelectAll}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            {selected.size === drawings.filter(d => d.file_type === 'image').length && selected.size > 0
+              ? <CheckSquare className="w-3.5 h-3.5" />
+              : <Square className="w-3.5 h-3.5" />}
+            {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
+          </button>
+
+          {selected.size > 0 && (
+            <div className="relative ml-auto" ref={el => { bulkMenuRef.current = el; }}>
+              <button
+                onClick={() => setBulkMenuOpen(v => !v)}
+                disabled={bulkOverriding}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+              >
+                {bulkOverriding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Tag className="w-3 h-3" />}
+                Set category
+                <ChevronDown className="w-3 h-3 opacity-60" />
+              </button>
+
+              {bulkMenuOpen && (
+                <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[160px] overflow-hidden">
+                  {(['drawing', 'site_photo', 'defect_closeup', 'document_scan', 'screenshot', 'mixed_content', 'unknown'] as ImageCategory[]).map(cat => {
+                    const dotColors: Record<ImageCategory, string> = {
+                      drawing: '#0ea5e9', site_photo: '#10b981', defect_closeup: '#ef4444',
+                      document_scan: '#3b82f6', screenshot: '#6b7280', mixed_content: '#f59e0b', unknown: '#94a3b8',
+                    };
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => handleBulkOverride(cat)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 text-left transition-colors"
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColors[cat] }} />
+                        {CATEGORY_SHORT[cat]}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {uploadError && (
         <div className="flex items-center gap-2 mx-4 mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
@@ -368,8 +468,18 @@ function DrawingsPanel({
           drawings.map((drawing) => (
             <div
               key={drawing.id}
-              className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors group"
+              className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors group ${selected.has(drawing.id) ? 'bg-sky-50/60' : ''}`}
             >
+              {drawing.file_type === 'image' && (
+                <button
+                  onClick={() => toggleSelect(drawing.id)}
+                  className="flex-shrink-0 text-slate-400 hover:text-sky-600 transition-colors"
+                >
+                  {selected.has(drawing.id)
+                    ? <CheckSquare className="w-4 h-4 text-sky-600" />
+                    : <Square className="w-4 h-4" />}
+                </button>
+              )}
               <button
                 onClick={() => onSelectDrawing(drawing)}
                 className="flex items-center gap-3 flex-1 min-w-0 text-left"

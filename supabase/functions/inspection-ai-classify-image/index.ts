@@ -22,12 +22,18 @@ const VALID_CATEGORIES = [
 
 type ImageCategory = typeof VALID_CATEGORIES[number];
 
+interface Top2Score {
+  category: ImageCategory;
+  confidence: number;
+}
+
 interface ClassifyResult {
   category: ImageCategory;
   confidence: number;
   short_reason: string;
   source: "gemini" | "openai";
   latency_ms: number;
+  top2?: Top2Score[];
 }
 
 const CLASSIFICATION_PROMPT = `You are a specialist image classifier for construction and building inspection software.
@@ -45,7 +51,11 @@ Respond with ONLY valid JSON in this exact format:
 {
   "category": "<one of the seven categories above>",
   "confidence": <float 0.0 to 1.0>,
-  "short_reason": "<one concise sentence explaining the classification, max 15 words>"
+  "short_reason": "<one concise sentence explaining the classification, max 15 words>",
+  "top2": [
+    {"category": "<best match>", "confidence": <float>},
+    {"category": "<second best match>", "confidence": <float>}
+  ]
 }`;
 
 async function classifyWithGemini(
@@ -95,12 +105,20 @@ async function classifyWithGemini(
     ? (parsed.category as ImageCategory)
     : "unknown";
 
+  const top2 = Array.isArray(parsed.top2)
+    ? (parsed.top2 as Array<{ category: string; confidence: number }>)
+        .filter((t) => VALID_CATEGORIES.includes(t.category as ImageCategory))
+        .slice(0, 2)
+        .map((t) => ({ category: t.category as ImageCategory, confidence: Math.min(1, Math.max(0, Number(t.confidence))) }))
+    : undefined;
+
   return {
     category,
     confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.5)),
     short_reason: String(parsed.short_reason ?? "").slice(0, 120),
     source: "gemini",
     latency_ms: Date.now() - t0,
+    top2,
   };
 }
 
@@ -149,12 +167,20 @@ async function classifyWithGeminiUrl(
     ? (parsed.category as ImageCategory)
     : "unknown";
 
+  const top2 = Array.isArray(parsed.top2)
+    ? (parsed.top2 as Array<{ category: string; confidence: number }>)
+        .filter((t) => VALID_CATEGORIES.includes(t.category as ImageCategory))
+        .slice(0, 2)
+        .map((t) => ({ category: t.category as ImageCategory, confidence: Math.min(1, Math.max(0, Number(t.confidence))) }))
+    : undefined;
+
   return {
     category,
     confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.5)),
     short_reason: String(parsed.short_reason ?? "").slice(0, 120),
     source: "gemini",
     latency_ms: Date.now() - t0,
+    top2,
   };
 }
 
@@ -203,12 +229,20 @@ async function classifyWithOpenAI(
     ? (parsed.category as ImageCategory)
     : "unknown";
 
+  const top2 = Array.isArray(parsed.top2)
+    ? (parsed.top2 as Array<{ category: string; confidence: number }>)
+        .filter((t) => VALID_CATEGORIES.includes(t.category as ImageCategory))
+        .slice(0, 2)
+        .map((t) => ({ category: t.category as ImageCategory, confidence: Math.min(1, Math.max(0, Number(t.confidence))) }))
+    : undefined;
+
   return {
     category,
     confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.5)),
     short_reason: String(parsed.short_reason ?? "").slice(0, 120),
     source: "openai",
     latency_ms: Date.now() - t0,
+    top2,
   };
 }
 
@@ -314,12 +348,16 @@ Deno.serve(async (req: Request) => {
           image_category_source: result.source,
           image_category_reason: result.short_reason,
           image_category_pending_ai: false,
+          image_category_top2_json: result.top2 ?? null,
         })
         .eq("id", drawing_id);
     } else {
       await supabase
         .from("inspection_ai_drawings")
-        .update({ image_category_pending_ai: false })
+        .update({
+          image_category_pending_ai: false,
+          image_category_top2_json: result.top2 ?? null,
+        })
         .eq("id", drawing_id);
     }
 
@@ -332,6 +370,7 @@ Deno.serve(async (req: Request) => {
         short_reason: result.short_reason,
         replaced_heuristic: shouldReplace,
         latency_ms: result.latency_ms,
+        top2: result.top2,
         errors: errors.length > 0 ? errors : undefined,
       }),
       {

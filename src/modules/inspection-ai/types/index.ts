@@ -184,6 +184,7 @@ export interface InspectionAIDrawing {
   image_category_source: ImageCategorySource | null;
   image_category_reason: string | null;
   image_category_pending_ai: boolean;
+  image_category_top2_json: { category: ImageCategory; confidence: number }[] | null;
   created_at: string;
 }
 
